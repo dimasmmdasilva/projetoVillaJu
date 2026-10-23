@@ -1,0 +1,51 @@
+# ---------------------------------------------------------------------------
+# Projeto VillaJu - arquivos que NUNCA podem entrar no repositorio.
+#
+# Este arquivo e criado no primeiro commit, antes de qualquer codigo:
+# segredo que entra no historico do Git nao sai sem reescrever o historico.
+# Conteudo obrigatorio definido na secao 8.1 do contexto do projeto.
+# ---------------------------------------------------------------------------
+
+# Segredos e chaves - as tres chaves do projeto vivem aqui, fora do Git
+.env
+
+# Certificados TLS locais (secao 6.5) - homologacao, nao se reutiliza
+certs/
+*.key
+*.crt
+*.pem
+
+# Artefatos do Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Bancos e dumps - podem conter dado pessoal, ainda que ficticio
+*.sqlite
+*.sql.gz
+backups/
+
+# Ferramentas e editor
+.pytest_cache/
+.vscode/
+
+# ---------------------------------------------------------------------------
+# Acrescimos ao minimo obrigatorio
+# ---------------------------------------------------------------------------
+
+# Variantes locais do .env, para que nenhuma escape por nome diferente
+.env.*
+!.env.example
+
+# Saidas das ferramentas de analise (secao 7.2) - evidencia, nao codigo
+.semgrep/
+bandit-*.json
+semgrep-*.json
+gitleaks-*.json
+
+# Ambiente e sistema operacional
+*.log
+.idea/
+Thumbs.db
+desktop.ini
