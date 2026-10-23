@@ -33,6 +33,8 @@ backups/
 # ---------------------------------------------------------------------------
 # Acrescimos ao minimo obrigatorio
 # ---------------------------------------------------------------------------
+# Documento de contexto do projeto - uso interno do grupo, nao versionado
+contexto.md
 
 # Variantes locais do .env, para que nenhuma escape por nome diferente
 .env.*
