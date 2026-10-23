@@ -58,3 +58,41 @@ def test_argon2id_e_o_tipo_padrao():
     from argon2.low_level import Type
 
     assert PasswordHasher().type is Type.ID
+
+
+def _pinos_do_requirements():
+    """Le requirements.txt e devolve [(pacote, versao_exigida), ...]."""
+    import pathlib
+    import re
+
+    arq = pathlib.Path(__file__).resolve().parents[1] / "requirements.txt"
+    pinos = []
+    for linha in arq.read_text(encoding="utf-8").splitlines():
+        linha = linha.split("#")[0].strip()
+        if not linha:
+            continue
+        m = re.fullmatch(r"([A-Za-z0-9_.\-]+)==([0-9][\w.\-]*)", linha)
+        assert m, f"linha sem versao fixada em requirements.txt: {linha!r}"
+        pinos.append((m.group(1), m.group(2)))
+    return pinos
+
+
+def test_requirements_tem_tudo_fixado():
+    """Nenhuma dependencia pode ficar sem == : e o que garante maquinas iguais."""
+    assert len(_pinos_do_requirements()) >= 10
+
+
+@pytest.mark.parametrize("pacote,exigida", _pinos_do_requirements())
+def test_versao_instalada_bate_com_requirements(pacote, exigida):
+    """Detecta a divergencia de versao entre maquinas, risco da Etapa 0."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        instalada = version(pacote)
+    except PackageNotFoundError:
+        pytest.fail(f"'{pacote}' nao esta instalado neste ambiente")
+
+    assert instalada == exigida, (
+        f"'{pacote}': o ambiente tem {instalada}, o requirements.txt exige "
+        f"{exigida}. Rode: pip install -r requirements.txt"
+    )
