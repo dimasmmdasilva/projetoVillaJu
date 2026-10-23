@@ -38,7 +38,7 @@ PACOTES = ["app", "app/seguranca", "app/dados", "app/rotas"]
 SENSIVEIS = [
     ".env",
     ".env.local",
-    ".env.produção",
+    ".env.producao",
     "certs/villaju.key",
     "certs/villaju.crt",
     "chave_privada.pem",

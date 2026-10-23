@@ -152,7 +152,7 @@ def test_env_local_esta_ignorado_pelo_git():
     r = subprocess.run(
         ["git", "check-ignore", "-q", ".env"], cwd=RAIZ, capture_output=True
     )
-    assert r.returncode == 0, "o .env NÃO esta sendo ignorado: risco de vazamento"
+    assert r.returncode == 0, "o .env NÃO está sendo ignorado: risco de vazamento"
 
 
 @sem_env
