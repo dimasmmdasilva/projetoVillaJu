@@ -1,15 +1,15 @@
 # ---------------------------------------------------------------------------
-# Projeto VillaJu - arquivos que NUNCA podem entrar no repositorio.
+# Projeto VillaJu - arquivos que NUNCA podem entrar no repositório.
 #
-# Este arquivo e criado no primeiro commit, antes de qualquer codigo:
-# segredo que entra no historico do Git nao sai sem reescrever o historico.
-# Conteudo obrigatorio definido na secao 8.1 do contexto do projeto.
+# Este arquivo e criado no primeiro commit, antes de qualquer código:
+# segredo que entra no histórico do Git não sai sem reescrever o histórico.
+# Conteudo obrigatório definido na seção 8.1 do contexto do projeto.
 # ---------------------------------------------------------------------------
 
-# Segredos e chaves - as tres chaves do projeto vivem aqui, fora do Git
+# Segredos e chaves - as três chaves do projeto vivem aqui, fora do Git
 .env
 
-# Certificados TLS locais (secao 6.5) - homologacao, nao se reutiliza
+# Certificados TLS locais (seção 6.5) - homologacao, não se reutiliza
 certs/
 *.key
 *.crt
@@ -31,16 +31,16 @@ backups/
 .vscode/
 
 # ---------------------------------------------------------------------------
-# Acrescimos ao minimo obrigatorio
+# Acrescimos ao mínimo obrigatório
 # ---------------------------------------------------------------------------
-# Documento de contexto do projeto - uso interno do grupo, nao versionado
+# Documento de contexto do projeto - uso interno do grupo, não versionado
 contexto.md
 
 # Variantes locais do .env, para que nenhuma escape por nome diferente
 .env.*
 !.env.example
 
-# Saidas das ferramentas de analise (secao 7.2) - evidencia, nao codigo
+# Saidas das ferramentas de análise (seção 7.2) - evidencia, não código
 .semgrep/
 bandit-*.json
 semgrep-*.json

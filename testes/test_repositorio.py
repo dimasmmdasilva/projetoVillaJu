@@ -1,12 +1,12 @@
-"""Higiene do repositorio: estrutura e protecao contra vazamento de segredo.
+"""Higiene do repositório: estrutura e proteção contra vazamento de segredo.
 
-O .gitignore e a primeira barreira do projeto, e hoje nada impediria um
-integrante de quebra-lo sem perceber - bastaria uma edicao distraida para
+O .gitignore é a primeira barreira do projeto, e hoje nada impediria um
+integrante de quebra-lo sem perceber - bastaria uma edicao distraída para
 que o .env ou um certificado passassem a ser versionados. Segredo que
-entra no historico do Git nao sai sem reescrever o historico, entao a
-falha precisa ser detectada antes do commit, nao depois.
+entra no histórico do Git não sai sem reescrever o histórico, então a
+falha precisa ser detectada antes do commit, não depois.
 
-Estes testes transformam essa barreira em verificacao automatica.
+Estes testes transformam essa barreira em verificação automática.
 """
 
 import pathlib
@@ -34,11 +34,11 @@ DIRETORIOS = [
 
 PACOTES = ["app", "app/seguranca", "app/dados", "app/rotas"]
 
-# Caminhos que jamais podem ser versionados (secao 8.1 do plano).
+# Caminhos que jamais podem ser versionados (seção 8.1 do plano).
 SENSIVEIS = [
     ".env",
     ".env.local",
-    ".env.producao",
+    ".env.produção",
     "certs/villaju.key",
     "certs/villaju.crt",
     "chave_privada.pem",
@@ -49,7 +49,7 @@ SENSIVEIS = [
     "app/__pycache__/cripto.cpython-312.pyc",
 ]
 
-# Caminhos que precisam continuar versionaveis.
+# Caminhos que precisam continuar versionáveis.
 VERSIONAVEIS = [
     ".env.example",
     "README.md",
@@ -60,7 +60,7 @@ VERSIONAVEIS = [
     "docs/instalacao.md",
 ]
 
-# Extensoes que denunciam segredo ou dado pessoal no repositorio.
+# Extensoes que denunciam segredo ou dado pessoal no repositório.
 EXTENSOES_PROIBIDAS = (".key", ".crt", ".pem", ".pfx", ".p12", ".sql.gz", ".pyc")
 
 
@@ -72,7 +72,7 @@ def _git(*args):
 
 pytestmark = pytest.mark.skipif(
     shutil.which("git") is None or not (RAIZ / ".git").exists(),
-    reason="fora de um repositorio Git",
+    reason="fora de um repositório Git",
 )
 
 
@@ -88,7 +88,7 @@ def test_pacote_tem_init(pacote):
 
 @pytest.mark.parametrize("caminho", SENSIVEIS)
 def test_gitignore_bloqueia_arquivo_sensivel(caminho):
-    """O caminho nao precisa existir: check-ignore avalia so a regra."""
+    """O caminho não precisa existir: check-ignore avalia só a regra."""
     r = _git("check-ignore", "--no-index", "-q", caminho)
     assert r.returncode == 0, (
         f"{caminho!r} NAO esta coberto pelo .gitignore e poderia ser commitado"
@@ -104,7 +104,7 @@ def test_gitignore_nao_bloqueia_arquivo_legitimo(caminho):
 
 
 def test_nenhum_arquivo_sensivel_esta_rastreado():
-    """Varre o que o Git realmente rastreia hoje, nao apenas as regras."""
+    """Varre o que o Git realmente rastreia hoje, não apenas as regras."""
     rastreados = _git("ls-files").stdout.split()
     suspeitos = [
         c
@@ -117,7 +117,7 @@ def test_nenhum_arquivo_sensivel_esta_rastreado():
 
 
 def test_nenhum_segredo_no_historico_de_commits():
-    """O arquivo pode ter sido removido depois e continuar no historico."""
+    """O arquivo pode ter sido removido depois e continuar no histórico."""
     nomes = set(_git("log", "--pretty=format:", "--name-only", "--all").stdout.split())
     suspeitos = [
         c

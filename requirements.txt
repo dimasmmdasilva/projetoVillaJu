@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------
-# Projeto VillaJu - dependencias com versao fixada.
+# Projeto VillaJu - dependências com versão fixada.
 #
-# As versoes sao as efetivamente instaladas e testadas, nao escolhidas no
+# As versões são as efetivamente instaladas e testadas, não escolhidas no
 # escuro. Fixar evita que os cinco integrantes rodem bibliotecas diferentes.
 #
 #   python -m venv venv
@@ -13,20 +13,20 @@
 
 # --- Aplicacao web ---------------------------------------------------------
 Flask==3.1.3
-Flask-WTF==1.3.0                # token CSRF em todo formulario (RNF02)
-Flask-Limiter==4.1.1            # limitacao de taxa no login e no form publico
+Flask-WTF==1.3.0                # token CSRF em todo formulário (RNF02)
+Flask-Limiter==4.1.1            # limitação de taxa no login e no formulário público
 
 # --- Banco de dados --------------------------------------------------------
 mysql-connector-python==26.10.0  # driver oficial; consultas sempre parametrizadas
 
 # --- Criptografia ----------------------------------------------------------
-cryptography==50.0.2            # AES-256-GCM dos dados pessoais (secao 6.2)
-argon2-cffi==25.1.0             # hash de senha da equipe (secao 6.1)
+cryptography==50.0.2            # AES-256-GCM dos dados pessoais (seção 6.2)
+argon2-cffi==25.1.0             # hash de senha da equipe (seção 6.1)
 
 # --- Configuracao ----------------------------------------------------------
-python-dotenv==1.2.4            # carrega o .env; as chaves nunca vao no codigo
+python-dotenv==1.2.4            # carrega o .env; as chaves nunca vão no código
 
-# --- Testes e analise estatica ---------------------------------------------
+# --- Testes e análise estática ---------------------------------------------
 pytest==9.1.1
-bandit==1.9.4                   # padroes inseguros em Python (Relatorio 1)
-pip-audit==2.10.1               # dependencias com vulnerabilidade conhecida
+bandit==1.9.4                   # padrões inseguros em Python (Relatório 1)
+pip-audit==2.10.1               # dependências com vulnerabilidade conhecida

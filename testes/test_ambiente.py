@@ -1,11 +1,11 @@
 """Validacao do ambiente de desenvolvimento.
 
-Com cinco integrantes em maquinas distintas, a divergencia de versao e o
+Com cinco integrantes em máquinas distintas, a divergência de versão é o
 risco registrado na Etapa 0. Estes testes falham cedo e com mensagem
-clara quando um ambiente nao confere, em vez de produzir erro obscuro
+clara quando um ambiente não confere, em vez de produzir erro obscuro
 mais adiante.
 
-Nao cobrem regra de negocio nem criptografia a fundo - isso e papel de
+Não cobrem regra de negócio nem criptografia a fundo - isso é papel de
 test_cripto.py e test_senhas.py, na Etapa 2.
 """
 
@@ -46,14 +46,14 @@ def test_dependencia_instalada(modulo, pacote):
 
 
 def test_aes_gcm_disponivel():
-    """A cifragem dos dados do hospede depende deste algoritmo (secao 6.2)."""
+    """A cifragem dos dados do hóspede depende deste algoritmo (seção 6.2)."""
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
     assert AESGCM.generate_key(bit_length=256)
 
 
 def test_argon2id_e_o_tipo_padrao():
-    """Argon2i e Argon2d tambem existem; o projeto exige a variante id."""
+    """Argon2i e Argon2d também existem; o projeto exige a variante id."""
     from argon2 import PasswordHasher
     from argon2.low_level import Type
 
@@ -61,7 +61,7 @@ def test_argon2id_e_o_tipo_padrao():
 
 
 def _pinos_do_requirements():
-    """Le requirements.txt e devolve [(pacote, versao_exigida), ...]."""
+    """Lê requirements.txt e devolve [(pacote, versao_exigida), ...]."""
     import pathlib
     import re
 
@@ -78,13 +78,13 @@ def _pinos_do_requirements():
 
 
 def test_requirements_tem_tudo_fixado():
-    """Nenhuma dependencia pode ficar sem == : e o que garante maquinas iguais."""
+    """Nenhuma dependência pode ficar sem == : é o que garante máquinas iguais."""
     assert len(_pinos_do_requirements()) >= 10
 
 
 @pytest.mark.parametrize("pacote,exigida", _pinos_do_requirements())
 def test_versao_instalada_bate_com_requirements(pacote, exigida):
-    """Detecta a divergencia de versao entre maquinas, risco da Etapa 0."""
+    """Detecta a divergência de versão entre máquinas, risco da Etapa 0."""
     from importlib.metadata import PackageNotFoundError, version
 
     try:

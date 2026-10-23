@@ -1,7 +1,7 @@
-"""Nucleo de seguranca: cifragem, hash de senha e autorizacao.
+"""Núcleo de segurança: cifragem, hash de senha e autorização.
 
 Modulos previstos (Etapa 2):
-    cripto.py       cifragem AES-256-GCM e indice HMAC-SHA256
-    senhas.py       hash e verificacao com Argon2id
-    autorizacao.py  decoradores de controle de acesso por perfil
+    cripto.py       cifragem AES-256-GCM e índice HMAC-SHA256
+    senhas.py       hash e verificação com Argon2id
+    autorização.py  decoradores de controle de acesso por perfil
 """

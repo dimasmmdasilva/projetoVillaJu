@@ -1,11 +1,11 @@
-"""Chaves criptograficas e modelo de configuracao.
+"""Chaves criptográficas e modelo de configuração.
 
-Dois riscos sao verificados aqui. O primeiro e o .env.example carregar
-sem querer um valor real - ele e versionado e publico. O segundo e uma
-chave nascer fraca: curta, previsivel, igual a outra ou deixada no
-placeholder, o que derrubaria toda a cifragem dos dados do hospede.
+Dois riscos são verificados aqui. O primeiro é o .env.example carregar
+sem querer um valor real - ele é versionado e público. O segundo é uma
+chave nascer fraca: curta, previsível, igual a outra ou deixada no
+placeholder, o que derrubaria toda a cifragem dos dados do hóspede.
 
-Nenhum teste imprime conteudo de chave, nem em mensagem de falha.
+Nenhum teste imprime conteúdo de chave, nem em mensagem de falha.
 """
 
 import base64
@@ -47,7 +47,7 @@ def _ler(caminho):
 
 
 def _parece_chave_real(valor: str) -> bool:
-    """Valor que decodifica em exatamente 32 bytes e uma chave de verdade."""
+    """Valor que decodifica em exatamente 32 bytes é uma chave de verdade."""
     try:
         return len(base64.b64decode(valor, validate=True)) == TAMANHO_BYTES
     except Exception:
@@ -57,7 +57,7 @@ def _parece_chave_real(valor: str) -> bool:
 # --- O modelo versionado ---------------------------------------------------
 
 def test_env_example_existe():
-    assert EXEMPLO.is_file(), ".env.example e obrigatorio: documenta o ambiente"
+    assert EXEMPLO.is_file(), ".env.example é obrigatório: documenta o ambiente"
 
 
 @pytest.mark.parametrize("variavel", OBRIGATORIAS)
@@ -70,7 +70,7 @@ def test_env_example_declara_variavel(variavel):
 
 @pytest.mark.parametrize("variavel", CHAVES)
 def test_env_example_nao_contem_chave_real(variavel):
-    """O .env.example e publico. Chave real nele e vazamento."""
+    """O .env.example é público. Chave real nele é vazamento."""
     valor = _ler(EXEMPLO)[variavel]
     assert not _parece_chave_real(valor), (
         f"{variavel} no .env.example parece uma chave real de "
@@ -83,7 +83,7 @@ def test_env_example_esta_versionado():
         ["git", "ls-files", "--error-unmatch", ".env.example"],
         cwd=RAIZ, capture_output=True, text=True,
     )
-    assert r.returncode == 0, ".env.example precisa estar no repositorio"
+    assert r.returncode == 0, ".env.example precisa estar no repositório"
 
 
 # --- O gerador de chaves ---------------------------------------------------
@@ -117,7 +117,7 @@ def test_chave_gerada_tem_256_bits(variavel):
 
 
 def test_chaves_da_mesma_execucao_sao_distintas():
-    """Uma chave por finalidade. Reuso impede rotacao independente."""
+    """Uma chave por finalidade. Reuso impede rotação independente."""
     gerado = _gerar()
     assert len(set(gerado.values())) == len(CHAVES)
 
@@ -128,7 +128,7 @@ def test_execucoes_diferentes_produzem_chaves_diferentes():
 
 
 def test_gerador_nao_usa_modulo_random():
-    """random e pseudoaleatorio previsivel: improprio para uso criptografico."""
+    """random é pseudoaleatório previsível: impróprio para uso criptográfico."""
     codigo = GERADOR.read_text(encoding="utf-8")
     assert "import random" not in codigo
     assert "random." not in codigo
@@ -152,7 +152,7 @@ def test_env_local_esta_ignorado_pelo_git():
     r = subprocess.run(
         ["git", "check-ignore", "-q", ".env"], cwd=RAIZ, capture_output=True
     )
-    assert r.returncode == 0, "o .env NAO esta sendo ignorado: risco de vazamento"
+    assert r.returncode == 0, "o .env NÃO esta sendo ignorado: risco de vazamento"
 
 
 @sem_env

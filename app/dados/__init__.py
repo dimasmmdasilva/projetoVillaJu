@@ -1,8 +1,8 @@
 """Camada de acesso a dados.
 
-Toda consulta e parametrizada, sem excecao. Nenhuma montagem de SQL por
-concatenacao de texto, f-string ou operador de formatacao.
+Toda consulta é parametrizada, sem exceção. Nenhuma montagem de SQL por
+concatenação de texto, f-string ou operador de formatação.
 
 O hospede_repo cifra na escrita e decifra na leitura, de modo que o
-restante da aplicacao nunca manipule ciphertext.
+restante da aplicação nunca manipule ciphertext.
 """
