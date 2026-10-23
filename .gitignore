@@ -51,3 +51,6 @@ gitleaks-*.json
 .idea/
 Thumbs.db
 desktop.ini
+
+# Ambiente separado das ferramentas de análise
+venv-ferramentas/

@@ -1,0 +1,25 @@
+# ---------------------------------------------------------------------------
+# Projeto VillaJu - ferramentas de análise, em ambiente separado.
+#
+# O Semgrep traz cerca de 45 dependências próprias (uvicorn, starlette,
+# opentelemetry, mcp) que a aplicação não usa. Instalá-lo junto do sistema
+# inflaria o ambiente de 55 para 105 pacotes e faria o pip-audit acusar
+# vulnerabilidades da ferramenta, não do VillaJu - ruído que atrapalharia
+# o Relatório 1.
+#
+# Por isso ele mora num ambiente virtual próprio:
+#
+#   python -m venv venv-ferramentas
+#   venv-ferramentas\Scripts\activate
+#   pip install -r requirements-ferramentas.txt
+#
+# E roda apontando para o código do projeto:
+#
+#   venv-ferramentas\Scripts\semgrep --config=p/owasp-top-ten \
+#       --config=p/flask --metrics=off app/ run.py scripts/
+#
+# O pytest, o bandit e o pip-audit continuam no ambiente principal: são
+# leves e precisam enxergar as dependências reais da aplicação.
+# ---------------------------------------------------------------------------
+
+semgrep==1.182.1
