@@ -1,0 +1,16 @@
+# ---------------------------------------------------------------------------
+# Projeto VillaJu - normalizacao de fim de linha.
+#
+# O core.autocrlf e configuracao de cada maquina. Com cinco integrantes em
+# computadores distintos, isso produz diferencas falsas no git diff. Estas
+# regras vao versionadas e valem igual para todos, independente do Git local.
+# ---------------------------------------------------------------------------
+
+# Deteccao automatica: texto normalizado para LF no repositorio,
+# binarios (imagens dos chales, por exemplo) preservados intactos.
+* text=auto
+
+# Scripts e SQL ficam em LF tambem no disco. Os scripts de backup e
+# restauracao (Etapa 7) quebram em Linux se gravados com CRLF.
+*.sh  text eol=lf
+*.sql text eol=lf
