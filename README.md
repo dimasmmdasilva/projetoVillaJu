@@ -273,8 +273,8 @@ dependência diverge do `requirements.txt`.
 
 | Etapa | Período | Situação |
 |---|---|---|
-| 0 — Ambiente e repositório | 22/10 a 24/10 | concluída |
-| 1 — Banco de dados e triggers | 24/10 a 28/10 | — |
+| 0 — Ambiente e repositório | 22/10 a 23/10 | concluída |
+| 1 — Banco de dados e triggers | 26/10 a 28/10 | a iniciar |
 | 2 — Núcleo de segurança | 28/10 a 31/10 | — |
 | 3 — Reservas e disponibilidade | 31/10 a 04/11 | — |
 | 4 — Relatórios e análise estática | 05/11 a 11/11 | — |
