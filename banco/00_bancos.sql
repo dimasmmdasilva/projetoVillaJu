@@ -4,7 +4,22 @@
 -- Este é o ÚNICO script que precisa do root. Depois dele, nada mais no
 -- projeto se conecta como administrador do servidor.
 --
+-- No PowerShell (o operador '<' não existe lá, é sintaxe de cmd e de bash):
+--
+--     mysql -u root -p -e "SOURCE banco/00_bancos.sql"
+--
+-- No cmd ou no Git Bash:
+--
 --     mysql -u root -p < banco/00_bancos.sql
+--
+-- ATENÇÃO: há duas senhas diferentes envolvidas, e confundi-las é o erro
+-- mais provável aqui.
+--
+--   No prompt "Enter password:"  -> a senha do ROOT do MySQL, definida por
+--                                   você na instalação do servidor.
+--   Dentro deste arquivo         -> a senha do usuário villaju_teste, que
+--                                   NÃO existe ainda: é o CREATE USER abaixo
+--                                   que a estabelece.
 --
 -- ANTES DE EXECUTAR: substitua COLE_AQUI_A_SENHA_DE_TESTE pelo valor de
 -- VILLAJU_DB_SENHA_TESTE que o script scripts/gerar_chaves.py produziu e
