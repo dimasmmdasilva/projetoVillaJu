@@ -36,6 +36,9 @@ backups/
 # Documento de contexto do projeto - uso interno do grupo, não versionado
 contexto.md
 
+# Documentação técnica de desenvolvimento - material interno do grupo
+*_documentacao_tecnica.md
+
 # Variantes locais do .env, para que nenhuma escape por nome diferente
 .env.*
 !.env.example

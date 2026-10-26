@@ -253,23 +253,6 @@ O cookie de sessão usa `HttpOnly`, `Secure` e `SameSite=Lax`.
 
 ---
 
-## Ambientes do grupo
-
-Versões registradas por integrante, para rastrear divergência.
-
-| Integrante | Python | MySQL | Sistema |
-|---|---|---|---|
-| Dimas Marcondes | 3.12.3 | 8.0.43 | Windows 11 |
-| Eduardo Malta | — | — | — |
-| Gabriel Fuzinatto | — | — | — |
-| Guilherme Leal | — | — | — |
-| Murilo Dias Bartkevicius | — | — | — |
-
-A suíte de testes falha com mensagem explícita quando a versão de uma
-dependência diverge do `requirements.txt`.
-
----
-
 ## Situação do desenvolvimento
 
 | Etapa | Período | Situação |
