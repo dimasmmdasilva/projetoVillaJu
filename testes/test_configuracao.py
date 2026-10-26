@@ -216,17 +216,21 @@ def test_env_example_nao_contem_senha_real(variavel):
     )
 
 
-def test_script_de_bancos_nao_contem_senha_real():
-    """banco/00_bancos.sql é versionado e precisa de senha para executar.
+SCRIPTS_COM_SENHA = ["00_bancos.sql", "03_usuario_app.sql"]
+
+
+@pytest.mark.parametrize("nome", SCRIPTS_COM_SENHA)
+def test_script_sql_nao_contem_senha_real(nome):
+    """Estes scripts são versionados e precisam de senha para executar.
 
     O risco é alguém colar a senha para rodar o script e commitar sem
     desfazer. Este teste barra exatamente esse caso.
     """
     import re
 
-    arquivo = RAIZ / "banco" / "00_bancos.sql"
+    arquivo = RAIZ / "banco" / nome
     if not arquivo.is_file():
-        pytest.skip("banco/00_bancos.sql ainda não existe")
+        pytest.skip(f"banco/{nome} ainda não existe")
 
     texto = arquivo.read_text(encoding="utf-8")
     suspeitos = [
@@ -235,8 +239,8 @@ def test_script_de_bancos_nao_contem_senha_real():
         if _parece_senha_real(achado)
     ]
     assert not suspeitos, (
-        "banco/00_bancos.sql contém o que parece ser uma senha real. "
-        "Restaure o placeholder antes de commitar."
+        f"banco/{nome} contém o que parece ser uma senha real. "
+        f"Restaure o placeholder antes de commitar."
     )
 
 
