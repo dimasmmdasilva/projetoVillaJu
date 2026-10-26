@@ -22,15 +22,26 @@ GERADOR = RAIZ / "scripts" / "gerar_chaves.py"
 
 CHAVES = ["VILLAJU_CHAVE_CIFRAGEM", "VILLAJU_CHAVE_INDICE", "VILLAJU_SECRET_KEY"]
 
+# Senhas de banco: geradas pelo mesmo script, com a mesma fonte de entropia.
+SENHAS = ["VILLAJU_DB_SENHA", "VILLAJU_DB_SENHA_TESTE"]
+
+SEGREDOS = CHAVES + SENHAS
+
 OBRIGATORIAS = CHAVES + [
     "VILLAJU_DB_HOST",
     "VILLAJU_DB_PORTA",
     "VILLAJU_DB_NOME",
     "VILLAJU_DB_USUARIO",
     "VILLAJU_DB_SENHA",
+    "VILLAJU_DB_NOME_TESTE",
+    "VILLAJU_DB_USUARIO_TESTE",
+    "VILLAJU_DB_SENHA_TESTE",
     "VILLAJU_TLS_CERT",
     "VILLAJU_TLS_CHAVE",
 ]
+
+# Comprimento mínimo de uma senha vinda de secrets.token_urlsafe(24).
+TAMANHO_SENHA_MINIMO = 30
 
 TAMANHO_BYTES = 32
 
@@ -106,8 +117,9 @@ def _ler_saida(texto):
     return valores
 
 
-def test_gerador_produz_as_tres_chaves():
-    assert sorted(_gerar()) == sorted(CHAVES)
+def test_gerador_produz_todos_os_segredos():
+    """Três chaves criptográficas e duas senhas de banco, nada a menos."""
+    assert sorted(_gerar()) == sorted(SEGREDOS)
 
 
 @pytest.mark.parametrize("variavel", CHAVES)
@@ -119,7 +131,8 @@ def test_chave_gerada_tem_256_bits(variavel):
 def test_chaves_da_mesma_execucao_sao_distintas():
     """Uma chave por finalidade. Reuso impede rotação independente."""
     gerado = _gerar()
-    assert len(set(gerado.values())) == len(CHAVES)
+    valores = [gerado[nome] for nome in CHAVES]
+    assert len(set(valores)) == len(CHAVES)
 
 
 def test_execucoes_diferentes_produzem_chaves_diferentes():
@@ -178,3 +191,100 @@ def test_env_local_tem_chave_valida(variavel):
 def test_env_local_tem_tres_chaves_distintas():
     valores = _ler(ENV)
     assert len({valores[c] for c in CHAVES}) == len(CHAVES)
+
+
+# --- Senhas de banco de dados ----------------------------------------------
+
+def _parece_senha_real(valor: str) -> bool:
+    """Senha gerada tem comprimento fixo e alfabeto de token_urlsafe."""
+    import re
+
+    return bool(
+        len(valor) >= TAMANHO_SENHA_MINIMO
+        and re.fullmatch(r"[A-Za-z0-9_-]+", valor)
+        and "GERE_COM" not in valor
+    )
+
+
+@pytest.mark.parametrize("variavel", SENHAS)
+def test_env_example_nao_contem_senha_real(variavel):
+    """O .env.example é versionado e público. Senha real nele é vazamento."""
+    valor = _ler(EXEMPLO)[variavel]
+    assert not _parece_senha_real(valor), (
+        f"{variavel} no .env.example parece uma senha real. "
+        f"Substitua por um placeholder."
+    )
+
+
+def test_script_de_bancos_nao_contem_senha_real():
+    """banco/00_bancos.sql é versionado e precisa de senha para executar.
+
+    O risco é alguém colar a senha para rodar o script e commitar sem
+    desfazer. Este teste barra exatamente esse caso.
+    """
+    import re
+
+    arquivo = RAIZ / "banco" / "00_bancos.sql"
+    if not arquivo.is_file():
+        pytest.skip("banco/00_bancos.sql ainda não existe")
+
+    texto = arquivo.read_text(encoding="utf-8")
+    suspeitos = [
+        achado
+        for achado in re.findall(r"IDENTIFIED BY\s+'([^']*)'", texto, re.IGNORECASE)
+        if _parece_senha_real(achado)
+    ]
+    assert not suspeitos, (
+        "banco/00_bancos.sql contém o que parece ser uma senha real. "
+        "Restaure o placeholder antes de commitar."
+    )
+
+
+def test_gerador_produz_as_duas_senhas():
+    gerado = _gerar()
+    assert all(nome in gerado for nome in SENHAS)
+
+
+@pytest.mark.parametrize("variavel", SENHAS)
+def test_senha_gerada_tem_entropia_suficiente(variavel):
+    """24 bytes de secrets, muito além do alcance de força bruta."""
+    valor = _gerar()[variavel]
+    assert len(valor) >= TAMANHO_SENHA_MINIMO, (
+        f"{variavel} tem apenas {len(valor)} caracteres"
+    )
+
+
+@pytest.mark.parametrize("variavel", SENHAS)
+def test_senha_gerada_e_segura_para_sql_e_env(variavel):
+    """Aspas ou cifrão quebrariam o CREATE USER ou o leitor do .env."""
+    import re
+
+    valor = _gerar()[variavel]
+    assert re.fullmatch(r"[A-Za-z0-9_-]+", valor), (
+        f"{variavel} contém caractere que exigiria escape: {valor!r}"
+    )
+
+
+def test_senhas_dos_dois_usuarios_sao_distintas():
+    """O usuário de teste não pode compartilhar senha com o de produção."""
+    gerado = _gerar()
+    assert gerado["VILLAJU_DB_SENHA"] != gerado["VILLAJU_DB_SENHA_TESTE"]
+
+
+def test_nenhum_segredo_se_repete_entre_chaves_e_senhas():
+    gerado = _gerar()
+    valores = [gerado[nome] for nome in SEGREDOS]
+    assert len(set(valores)) == len(SEGREDOS)
+
+
+@sem_env
+@pytest.mark.parametrize("variavel", SENHAS)
+def test_env_local_tem_senha_gerada(variavel):
+    valor = _ler(ENV).get(variavel, "")
+    assert "GERE_COM" not in valor, (
+        f"{variavel} ainda está com o placeholder. "
+        f"Rode: python scripts/gerar_chaves.py"
+    )
+    assert _parece_senha_real(valor), (
+        f"{variavel} não parece uma senha gerada pelo script"
+    )
