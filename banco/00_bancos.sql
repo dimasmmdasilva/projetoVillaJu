@@ -47,6 +47,30 @@ CREATE DATABASE IF NOT EXISTS villaju_teste
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
+-- --- Permissão para criar triggers sem SUPER -------------------------------
+-- Com o log binário ativo (padrão no MySQL 8.0), criar uma trigger exige o
+-- privilégio SUPER, a menos que esta variável esteja ligada. O erro, sem
+-- ela, é:
+--
+--     1419 (HY000): You do not have the SUPER privilege and binary logging
+--     is enabled
+--
+-- A alternativa seria conceder SUPER ao usuário de testes - e SUPER é um
+-- privilégio global que permite, entre outras coisas, encerrar conexões de
+-- terceiros, alterar qualquer variável do servidor e ignorar restrições de
+-- somente-leitura. Ligar esta variável é incomparavelmente mais estreito.
+--
+-- O que a variável de fato afirma: que quem cria trigger ou função é
+-- confiável para não gerar eventos inseguros no log binário. No VillaJu o
+-- risco é nulo por duas razões - o binlog_format é ROW, que registra as
+-- linhas resultantes e não o comando que as produziu, e o projeto não usa
+-- replicação nem recuperação ponto-a-ponto.
+--
+-- SET PERSIST grava em mysqld-auto.cnf e sobrevive ao reinício do serviço,
+-- ao contrário de SET GLOBAL.
+
+SET PERSIST log_bin_trust_function_creators = 1;
+
 -- --- Usuário da suíte de testes --------------------------------------------
 -- Ele precisa de CREATE, DROP e TRIGGER, porque a suíte monta o schema do
 -- zero a cada execução a partir dos mesmos scripts que criam o banco real.
