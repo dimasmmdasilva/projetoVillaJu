@@ -4,9 +4,10 @@ Sistema web de reservas para a **VillaJu**, hospedaria com cinco chalés na Prai
 da Juréia, em São Sebastião (SP). Desenvolvido como atividade de extensão do
 Projeto Integrador do Módulo 4.
 
-**Pontifícia Universidade Católica de Campinas** — Escola Politécnica
-Bacharelado em Cibersegurança (21853) · Projeto Integrador — Cibersegurança em
-Programação Segura
+**Pontifícia Universidade Católica de Campinas** — Escola Politécnica · Bacharelado em Cibersegurança (21853)
+
+Projeto Integrador — Cibersegurança em Programação Segura
+
 Professor orientador: Prof. Dr. Felix Carvalho Rodrigues
 
 ---
@@ -274,8 +275,8 @@ dependência diverge do `requirements.txt`.
 | Etapa | Período | Situação |
 |---|---|---|
 | 0 — Ambiente e repositório | 22/10 a 23/10 | concluída |
-| 1 — Banco de dados e triggers | 26/10 a 28/10 | a iniciar |
-| 2 — Núcleo de segurança | 28/10 a 31/10 | — |
+| 1 — Banco de dados e triggers | 26/10 | concluída |
+| 2 — Núcleo de segurança | 28/10 a 31/10 | a iniciar |
 | 3 — Reservas e disponibilidade | 31/10 a 04/11 | — |
 | 4 — Relatórios e análise estática | 05/11 a 11/11 | — |
 | 5 — Página pública | 11/11 a 17/11 | — |
