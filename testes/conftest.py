@@ -24,6 +24,7 @@ BANCO = RAIZ / "banco"
 
 SCRIPT_SCHEMA = BANCO / "01_schema.sql"
 SCRIPT_TRIGGERS = BANCO / "02_triggers.sql"
+SCRIPT_DADOS = BANCO / "04_dados_ficticios.sql"
 
 TABELAS = [
     "chale",
@@ -89,12 +90,30 @@ def dividir_comandos(sql: str) -> list:
     return comandos
 
 
+def _consumir_resultados(cursor) -> None:
+    """Esvazia qualquer resultado pendente deixado pelo último comando.
+
+    Scripts terminam com SELECT de conferência e SHOW GRANTS. O driver
+    guarda essas linhas até que alguém as leia, e recusa a consulta
+    seguinte com 'Unread result found' enquanto isso não acontecer.
+    """
+    try:
+        if cursor.with_rows:
+            cursor.fetchall()
+        while cursor.nextset():
+            if cursor.with_rows:
+                cursor.fetchall()
+    except Exception:  # noqa: BLE001 - não há mais resultado a consumir
+        pass
+
+
 def aplicar_script(cursor, caminho: pathlib.Path) -> int:
     """Executa um script SQL comando a comando. Devolve quantos rodaram."""
     comandos = dividir_comandos(caminho.read_text(encoding="utf-8"))
     for numero, comando in enumerate(comandos, start=1):
         try:
             cursor.execute(comando)
+            _consumir_resultados(cursor)
         except Exception as erro:  # noqa: BLE001 - queremos o contexto na mensagem
             primeira = next(
                 (l for l in comando.splitlines() if not _e_comentario(l)), ""
@@ -224,3 +243,26 @@ def banco_com_triggers(banco):
         pytest.skip("banco/02_triggers.sql ainda não foi escrito")
     aplicar_script(banco, SCRIPT_TRIGGERS)
     return banco
+
+
+@pytest.fixture(scope="module")
+def banco_com_dados(conexao_banco):
+    """Banco completo: schema, triggers e massa de dados fictícios.
+
+    A carga roda uma vez por arquivo de teste. Ela é cara - dispara todas
+    as triggers de validação e de auditoria - e os testes que a consomem
+    apenas consultam o resultado.
+
+    O fato de a carga COMPLETAR já é uma verificação: se qualquer um dos
+    registros violasse as regras das triggers, o script falharia aqui.
+    """
+    if not SCRIPT_DADOS.is_file():
+        pytest.skip("banco/04_dados_ficticios.sql ainda não foi escrito")
+
+    cursor = conexao_banco.cursor()
+    limpar_banco(cursor)
+    aplicar_script(cursor, SCRIPT_SCHEMA)
+    aplicar_script(cursor, SCRIPT_TRIGGERS)
+    aplicar_script(cursor, SCRIPT_DADOS)
+    yield cursor
+    cursor.close()
