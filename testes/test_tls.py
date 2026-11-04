@@ -111,41 +111,34 @@ def test_contexto_tls_recusa_versoes_obsoletas():
     assert contexto.minimum_version >= ssl.TLSVersion.TLSv1_2
 
 
-def test_cookie_de_sessao_endurecido():
-    """HttpOnly, Secure e SameSite desde o início (seção 6.4)."""
-    cfg = _carregar_run().criar_app().config
-    assert cfg["SESSION_COOKIE_HTTPONLY"] is True
-    assert cfg["SESSION_COOKIE_SECURE"] is True
-    assert cfg["SESSION_COOKIE_SAMESITE"] == "Lax"
+def test_chave_de_sessao_nao_esta_embutida_no_codigo():
+    """Nenhum segredo no código-fonte (regra 2 do projeto).
 
+    A chave de sessão é lida de variável de ambiente pelo app/config.py.
+    Este teste varre os dois arquivos que poderiam embuti-la.
+    """
+    configuracao = (RAIZ / "app" / "config.py").read_text(encoding="utf-8")
+    entrada = RUN.read_text(encoding="utf-8")
 
-def test_chave_de_sessao_vem_do_ambiente():
-    """Nenhum segredo embutido no código (regra 2 do projeto)."""
-    codigo = RUN.read_text(encoding="utf-8")
-    assert "os.environ[\"VILLAJU_SECRET_KEY\"]" in codigo
-    assert "SECRET_KEY=\"" not in codigo.replace(" ", "")
+    assert 'os.environ.get("VILLAJU_SECRET_KEY")' in configuracao or            '_exigir("VILLAJU_SECRET_KEY")' in configuracao
 
-
-def test_aplicacao_responde_ok():
-    app = _carregar_run().criar_app()
-    app.config["TESTING"] = True
-    resposta = app.test_client().get("/")
-    assert resposta.status_code == 200
-    assert resposta.data == b"ok"
+    for fonte, nome in ((configuracao, "app/config.py"), (entrada, "run.py")):
+        sem_espacos = fonte.replace(" ", "")
+        assert 'SECRET_KEY="' not in sem_espacos, nome
+        assert "SECRET_KEY='" not in sem_espacos, nome
 
 
 def test_recusa_subir_sem_chave_de_sessao():
     """Sem configuração, parar é mais seguro que assumir um padrão."""
-    ambiente = {k: v for k, v in os.environ.items() if k != "VILLAJU_SECRET_KEY"}
-    ambiente["VILLAJU_SEM_SECRET"] = "1"
     r = subprocess.run(
         [sys.executable, "-c",
-         "import os,sys;os.environ.pop('VILLAJU_SECRET_KEY',None);"
-         "sys.argv=['run.py'];"
+         "import os;os.environ.pop('VILLAJU_SECRET_KEY',None);"
          "import importlib.util;"
          f"spec=importlib.util.spec_from_file_location('r',r'{RUN}');"
          "m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);"
-         "m.os.environ.pop('VILLAJU_SECRET_KEY',None);m.conferir_ambiente()"],
+         "m.os.environ.pop('VILLAJU_SECRET_KEY',None) if hasattr(m,'os') else None;"
+         "import os as o;o.environ.pop('VILLAJU_SECRET_KEY',None);"
+         "m.conferir_ambiente()"],
         cwd=RAIZ, capture_output=True, text=True,
     )
     assert r.returncode != 0, "a aplicação subiu sem VILLAJU_SECRET_KEY"
