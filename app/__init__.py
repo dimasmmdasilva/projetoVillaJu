@@ -45,18 +45,19 @@ def create_app(configuracao=None, iniciar_banco: bool = True) -> Flask:
         conexao.iniciar_pool(configuracao)
 
     _registrar_rotas(app)
+    _registrar_contexto(app)
     _registrar_cabecalhos_de_seguranca(app)
 
     return app
 
 
 def _registrar_rotas(app: Flask) -> None:
-    """Registra as rotas da aplicação.
+    """Registra os blueprints e as rotas soltas da aplicação."""
+    from app.rotas.auth import auth
+    from app.rotas.painel import painel
 
-    Por enquanto apenas a verificação de saúde e uma raiz provisória. O
-    login, o painel e as demais rotas entram nos blocos seguintes, como
-    blueprints de `app/rotas/`.
-    """
+    app.register_blueprint(auth)
+    app.register_blueprint(painel)
 
     @app.route("/saude")
     def saude():
@@ -69,10 +70,26 @@ def _registrar_rotas(app: Flask) -> None:
         return "ok", 200, {"Content-Type": "text/plain; charset=utf-8"}
 
     @app.route("/")
-    def inicio():
-        # Provisória. No Bloco 4 esta rota passa a redirecionar para o
-        # painel quando há sessão, e para o login quando não há.
-        return "ok", 200, {"Content-Type": "text/plain; charset=utf-8"}
+    def raiz():
+        """Encaminha para o painel quando há sessão, senão para o login."""
+        from flask import redirect, session, url_for
+
+        destino = "painel.inicio" if session.get("usuario_id") else "auth.login"
+        return redirect(url_for(destino))
+
+
+def _registrar_contexto(app: Flask) -> None:
+    """Expõe o usuário da sessão a todos os templates.
+
+    Evita que cada rota tenha de passar o mesmo dado adiante — e evita o
+    esquecimento que faria a barra superior sumir numa tela qualquer.
+    """
+
+    @app.context_processor
+    def injetar():
+        from app.rotas.auth import usuario_da_sessao
+
+        return {"sessao_usuario": usuario_da_sessao()}
 
 
 def _registrar_cabecalhos_de_seguranca(app: Flask) -> None:
