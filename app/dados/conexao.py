@@ -39,6 +39,13 @@ _registrador = logging.getLogger(__name__)
 
 VARIAVEL_DE_SESSAO = "@app_usuario_id"
 
+# Escritas por extenso, sem f-string, pela mesma regra dos repositórios:
+# nenhuma f-string chega a um `execute`, de modo que qualquer uma que
+# apareça seja anomalia visível na revisão e para o Bandit.
+_SQL_DEFINIR_USUARIO = "SET @app_usuario_id = %s"
+_SQL_LIMPAR_USUARIO = "SET @app_usuario_id = NULL"
+_SQL_LER_USUARIO = "SELECT @app_usuario_id"
+
 
 class ErroDeConexao(Exception):
     """Falha ao obter ou configurar conexão com o banco."""
@@ -100,7 +107,7 @@ def _definir_usuario(conexao, usuario_id) -> None:
     """Declara ao banco quem está operando, para as triggers de auditoria."""
     cursor = conexao.cursor()
     try:
-        cursor.execute(f"SET {VARIAVEL_DE_SESSAO} = %s", (usuario_id,))
+        cursor.execute(_SQL_DEFINIR_USUARIO, (usuario_id,))
     finally:
         cursor.close()
 
@@ -124,7 +131,7 @@ def _limpar_usuario(conexao) -> None:
     try:
         cursor = conexao.cursor()
         try:
-            cursor.execute(f"SET {VARIAVEL_DE_SESSAO} = NULL")
+            cursor.execute(_SQL_LIMPAR_USUARIO)
         finally:
             cursor.close()
     except Exception as erro:  # noqa: BLE001 - conexão possivelmente inutilizável
@@ -179,7 +186,7 @@ def usuario_da_sessao(conexao):
     """Lê a variável de sessão. Existe para os testes a verificarem."""
     cursor = conexao.cursor()
     try:
-        cursor.execute(f"SELECT {VARIAVEL_DE_SESSAO}")
+        cursor.execute(_SQL_LER_USUARIO)
         linha = cursor.fetchone()
         return linha[0] if linha else None
     finally:
