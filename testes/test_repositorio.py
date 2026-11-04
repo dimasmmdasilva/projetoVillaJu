@@ -128,3 +128,77 @@ def test_nenhum_segredo_no_historico_de_commits():
         f"arquivos sensiveis presentes no historico: {suspeitos}. "
         f"Remover do historico exige reescrita (git filter-repo)."
     )
+
+
+# ---------------------------------------------------------------------------
+# Nenhuma f-string em comando SQL
+# ---------------------------------------------------------------------------
+
+ARQUIVOS_PYTHON = sorted(
+    p for p in (RAIZ / "app").rglob("*.py") if p.is_file()
+)
+
+
+def _nome(caminho):
+    return caminho.relative_to(RAIZ).as_posix()
+
+
+@pytest.mark.parametrize("arquivo", ARQUIVOS_PYTHON, ids=_nome)
+def test_nenhuma_fstring_monta_comando_sql(arquivo):
+    """Regra 3 do projeto, verificada automaticamente.
+
+    Nenhuma f-string pode chegar a um `execute`, nem para montar lista de
+    colunas — o que seria inofensivo em si.
+
+    O motivo é tornar o perigo visível. Uma f-string num `execute` é o
+    padrão exato da injeção de SQL, e misturar usos inofensivos com o
+    perigoso treina o leitor a ignorá-lo.
+
+    O risco é concreto: durante o desenvolvimento, uma sabotagem
+    deliberada trocou a consulta de login por concatenação de texto, e o
+    Semgrep com os conjuntos OWASP e Flask NÃO a detectou. Quem pegou
+    foram os testes de injeção. Esta verificação fecha a lacuna no ponto
+    em que ela nasce.
+    """
+    import ast
+
+    arvore = ast.parse(arquivo.read_text(encoding="utf-8"))
+    culpados = []
+
+    for no in ast.walk(arvore):
+        if not isinstance(no, ast.Call):
+            continue
+        alvo = no.func
+        if not (isinstance(alvo, ast.Attribute) and alvo.attr == "execute"):
+            continue
+        if no.args and isinstance(no.args[0], ast.JoinedStr):
+            culpados.append(f"linha {no.lineno}")
+
+    assert not culpados, (
+        f"{_nome(arquivo)} passa f-string a execute(): "
+        + ", ".join(culpados)
+    )
+
+
+@pytest.mark.parametrize("arquivo", ARQUIVOS_PYTHON, ids=_nome)
+def test_nenhuma_concatenacao_monta_comando_sql(arquivo):
+    """O operador + aplicado a um comando SQL tem o mesmo efeito."""
+    import ast
+
+    arvore = ast.parse(arquivo.read_text(encoding="utf-8"))
+    culpados = []
+
+    for no in ast.walk(arvore):
+        if not isinstance(no, ast.Call):
+            continue
+        alvo = no.func
+        if not (isinstance(alvo, ast.Attribute) and alvo.attr == "execute"):
+            continue
+        if no.args and isinstance(no.args[0], ast.BinOp):
+            if isinstance(no.args[0].op, (ast.Add, ast.Mod)):
+                culpados.append(f"linha {no.lineno}")
+
+    assert not culpados, (
+        f"{_nome(arquivo)} concatena texto em execute(): "
+        + ", ".join(culpados)
+    )

@@ -217,8 +217,11 @@ def test_rota_de_saude_nao_revela_informacao(cliente):
         assert proibido not in corpo
 
 
-def test_aplicacao_responde_na_raiz(cliente):
-    assert cliente.get("/").status_code == 200
+def test_raiz_redireciona_para_o_login(cliente):
+    """Sem sessão, a raiz leva ao login em vez de mostrar conteúdo."""
+    resposta = cliente.get("/", follow_redirects=False)
+    assert resposta.status_code == 302
+    assert "/login" in resposta.headers["Location"]
 
 
 @pytest.mark.parametrize(
