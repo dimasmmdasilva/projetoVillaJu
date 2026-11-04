@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block titulo %}Painel — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Painel</h1>
+
+<p>Olá, {{ usuario.nome }}. Você está conectado como
+   <strong>{{ usuario.perfil }}</strong>.</p>
+
+{% if resumo %}
+<h2>Resumo</h2>
+<table>
+  <tbody>
+    <tr><th>Chalés ativos</th><td>{{ resumo.chales }}</td></tr>
+    <tr><th>Hóspedes cadastrados</th><td>{{ resumo.hospedes }}</td></tr>
+    <tr><th>Reservas ativas</th><td>{{ resumo.reservas_ativas }}</td></tr>
+    <tr><th>Contatos novos</th><td>{{ resumo.contatos_novos }}</td></tr>
+  </tbody>
+</table>
+{% else %}
+<p class="aviso aviso-erro">Não foi possível ler o resumo do banco de dados.</p>
+{% endif %}
+
+<h2>Em construção</h2>
+<p>As telas de chalés, hóspedes e reservas entram nos próximos blocos de
+   desenvolvimento.</p>
+{% endblock %}

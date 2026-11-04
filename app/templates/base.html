@@ -1,0 +1,54 @@
+<!doctype html>
+{#
+  Molde de todas as páginas da área autenticada.
+
+  Sem framework de estilo e sem JavaScript, por decisão do grupo: a
+  Entrega 2 é avaliada pelo funcionamento, não pela aparência. O CSS
+  próprio cobre apenas legibilidade.
+
+  O escape automático do Jinja2 está ativo e nenhum conteúdo vindo do
+  usuário usa o filtro `|safe`. Com ele, `<script>` digitado num campo é
+  renderizado como texto, não executado.
+#}
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}VillaJu{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/villaju.css') }}">
+</head>
+<body>
+
+{% if sessao_usuario %}
+<header class="barra">
+  <strong>VillaJu</strong>
+  <nav>
+    <a href="{{ url_for('painel.inicio') }}">Painel</a>
+  </nav>
+  <span class="identificacao">
+    {{ sessao_usuario.nome }} &middot; {{ sessao_usuario.perfil }}
+  </span>
+  {# Logout por POST: com GET, bastaria a um sítio hostil embutir uma
+     imagem apontando para /logout para derrubar a sessão de quem
+     visitasse a página. #}
+  <form method="post" action="{{ url_for('auth.logout') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit">Sair</button>
+  </form>
+</header>
+{% endif %}
+
+<main>
+  {% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% if mensagens %}
+      {% for categoria, texto in mensagens %}
+        <p class="aviso aviso-{{ categoria }}">{{ texto }}</p>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% block conteudo %}{% endblock %}
+</main>
+
+</body>
+</html>

@@ -1,0 +1,94 @@
+/* VillaJu — estilo mínimo.
+ *
+ * Sem framework e sem trabalho de design, por decisão do grupo: a Entrega
+ * 2 é avaliada pelo funcionamento. O que está aqui cobre apenas
+ * legibilidade — espaçamento de formulário, borda de tabela e largura de
+ * leitura. A identidade visual entra em etapa posterior.
+ *
+ * Nenhuma fonte externa é carregada: a política de conteúdo da aplicação
+ * só permite recursos da própria origem, e buscar fonte de outro servidor
+ * também informaria a esse servidor quem acessou o sistema e quando.
+ */
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+  margin: 0;
+  color: #1a1a1a;
+  background: #fafafa;
+}
+
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
+h2 { font-size: 1.1rem; margin-top: 2rem; }
+
+.subtitulo { color: #555; margin-top: 0; }
+
+/* Barra superior da área autenticada */
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  background: #2f3e34;
+  color: #fff;
+}
+
+.barra a { color: #fff; }
+.barra .identificacao { margin-left: auto; font-size: 0.9rem; }
+.barra form { margin: 0; }
+
+/* Formulários */
+.formulario {
+  display: flex;
+  flex-direction: column;
+  max-width: 22rem;
+  gap: 0.25rem;
+}
+
+label { margin-top: 0.75rem; font-weight: 600; }
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="date"],
+input[type="number"],
+select,
+textarea {
+  padding: 0.5rem;
+  border: 1px solid #bbb;
+  border-radius: 3px;
+  font: inherit;
+}
+
+button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #2f3e34;
+  border-radius: 3px;
+  background: #2f3e34;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Tabelas */
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; }
+th { background: #f0f0f0; }
+
+/* Avisos */
+.aviso {
+  padding: 0.6rem 0.8rem;
+  border-radius: 3px;
+  border: 1px solid;
+}
+
+.aviso-erro { background: #fdecea; border-color: #e0b4b0; color: #7a2520; }
+.aviso-sucesso { background: #eaf5ec; border-color: #b4d6bd; color: #1f5130; }
