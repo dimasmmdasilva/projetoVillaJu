@@ -16,11 +16,23 @@ suíte com quarenta erros vermelhos esconde os problemas reais.
 """
 
 import pathlib
+import sys
 
 import pytest
+from dotenv import load_dotenv
 
 RAIZ = pathlib.Path(__file__).resolve().parents[1]
 BANCO = RAIZ / "banco"
+
+# O pytest põe o diretório do conftest no sys.path, não a raiz do projeto.
+# Sem esta linha, `import app.seguranca.cripto` falharia nos testes.
+if str(RAIZ) not in sys.path:
+    sys.path.insert(0, str(RAIZ))
+
+# Carrega o .env uma única vez, no início da sessão de testes. Os módulos
+# da aplicação leem apenas os.environ: quem carrega o arquivo é o ponto de
+# entrada, que em produção é o run.py e aqui é este conftest.
+load_dotenv(RAIZ / ".env")
 
 SCRIPT_SCHEMA = BANCO / "01_schema.sql"
 SCRIPT_TRIGGERS = BANCO / "02_triggers.sql"
