@@ -36,8 +36,12 @@ backups/
 # Documento de contexto do projeto - uso interno do grupo, não versionado
 contexto.md
 
-# Documentação técnica de desenvolvimento - material interno do grupo
+# Documentação técnica de desenvolvimento - material interno do grupo.
+# Cobre o nome antigo (entrega2_etapaN_documentacao_tecnica.md) e o atual
+# (docs/etapaN.md). O modelo entidade-relacionamento NÃO entra aqui: ele é
+# entregável e continua versionado.
 *_documentacao_tecnica.md
+docs/etapa*.md
 
 # Variantes locais do .env, para que nenhuma escape por nome diferente
 .env.*
