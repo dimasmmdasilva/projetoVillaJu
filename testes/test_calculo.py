@@ -220,16 +220,17 @@ def test_centavos_somam_sem_erro_acumulado(banco):
     """
     from app.dados import tarifa_repo
 
+    # 2029 está fora da cobertura da massa, que termina em 02/2028.
     identificador = tarifa_repo.criar(
-        3, {"data_inicio": "2028-01-01", "data_fim": "2028-12-31",
+        3, {"data_inicio": "2029-01-01", "data_fim": "2029-12-31",
             "valor_diaria": "333.33", "descricao": "Centavos"}
     )
     try:
-        # Fevereiro de 2028 é bissexto: de 01/02 a 01/03 são 29 noites.
-        conta = calculo.detalhar(3, "2028-02-01", "2028-03-01")
-        assert conta["noites"] == 29
-        assert conta["total"] == Decimal("333.33") * 29
-        assert conta["total"] == Decimal("9666.57")
+        # Fevereiro de 2029 não é bissexto: de 01/02 a 01/03 são 28 noites.
+        conta = calculo.detalhar(3, "2029-02-01", "2029-03-01")
+        assert conta["noites"] == 28
+        assert conta["total"] == Decimal("333.33") * 28
+        assert conta["total"] == Decimal("9333.24")
     finally:
         tarifa_repo.excluir(identificador)
 
@@ -256,9 +257,14 @@ def test_periodo_sem_tarifa_informa_a_data_descoberta(banco):
 
 
 def test_periodo_parcialmente_sem_tarifa_tambem_falha(banco):
-    """A tarifa de alta termina em 28/02/2027."""
+    """A última tarifa da massa termina em 29/02/2028.
+
+    Uma estadia que começa coberta e termina descoberta precisa falhar
+    inteira: cobrar só as noites que têm preço produziria uma conta menor
+    do que a estadia, sem que ninguém percebesse.
+    """
     with pytest.raises(TarifaAusente):
-        calculo.detalhar(CAMBURI, "2027-02-26", "2027-03-05")
+        calculo.detalhar(CAMBURI, "2028-02-27", "2028-03-05")
 
 
 def test_reserva_sem_tarifa_grava_com_valor_nulo(banco):

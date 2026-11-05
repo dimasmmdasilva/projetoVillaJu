@@ -18,6 +18,7 @@ from flask import (
 
 from app.dados import reserva_repo
 from app.dados.erros import ErroDeDados
+from app.dados.reserva_repo import ConflitoDePeriodo
 from app.seguranca.autorizacao import (
     ADMINISTRADOR,
     HOSPEDE,
@@ -31,6 +32,17 @@ reservas = Blueprint("reservas", __name__, url_prefix="/reservas")
 
 def _quem():
     return usuario_atual()["id"]
+
+
+def _codigo(erro) -> int:
+    """409 para falta de disponibilidade, 400 para dado inválido.
+
+    A reserva conflitante não está mal escrita: está impedida pelo estado
+    atual do calendário. Responder 400 a ela diria ao cliente que o pedido
+    estava malformado, e repetir o mesmo pedido depois de um cancelamento
+    funcionaria — o que não é comportamento de 400.
+    """
+    return 409 if isinstance(erro, ConflitoDePeriodo) else 400
 
 
 @reservas.route("/disponibilidade")
@@ -151,7 +163,7 @@ def nova():
     except ErroDeDados as erro:
         flash(str(erro), "erro")
         contexto["reserva"] = dados
-        return render_template("painel/reserva_form.html", **contexto), 400
+        return render_template("painel/reserva_form.html", **contexto), _codigo(erro)
 
     flash(f"Reserva {identificador} criada.", "sucesso")
     return redirect(url_for("reservas.detalhe", identificador=identificador))
@@ -201,7 +213,9 @@ def editar(identificador):
     except ErroDeDados as erro:
         flash(str(erro), "erro")
         contexto["reserva"] = dict(reserva, **dados)
-        return render_template("painel/reserva_form.html", **contexto), 400
+        return render_template(
+            "painel/reserva_form.html", **contexto
+        ), _codigo(erro)
 
     flash("Reserva atualizada.", "sucesso")
     return redirect(url_for("reservas.detalhe", identificador=identificador))

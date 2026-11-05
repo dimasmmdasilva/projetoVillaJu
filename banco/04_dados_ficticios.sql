@@ -108,7 +108,8 @@ INSERT INTO chale (nome, capacidade, configuracao_camas, comodidades, descricao)
 -- ===========================================================================
 -- TARIFAS
 -- ===========================================================================
--- Duas temporadas por chalé, cobrindo o verão de 2026/2027.
+-- Duas temporadas por chalé por ano, cobrindo de março de 2026 a fevereiro
+-- de 2028.
 --
 -- A alta temporada vai de 15/12 a 28/02 - período de férias escolares e
 -- Carnaval. O restante do ano é baixa temporada.
@@ -116,6 +117,12 @@ INSERT INTO chale (nome, capacidade, configuracao_camas, comodidades, descricao)
 -- Esta estrutura existe para exercitar o cálculo de valor total na virada
 -- de temporada, que a Etapa 3 implementa e que o plano aponta como a parte
 -- mais sujeita a erro.
+--
+-- A cobertura foi estendida até 29/02/2028 na Etapa 3. A versão anterior
+-- parava em 28/02/2027, e qualquer reserva posterior a essa data ficava
+-- sem valor calculado - o que não é defeito do cálculo, e sim lacuna no
+-- cadastro, mas apareceria na demonstração ao vivo como um traço no lugar
+-- do preço. Fevereiro de 2028 é bissexto: o fim da alta temporada é 29.
 
 INSERT INTO tarifa (chale_id, data_inicio, data_fim, valor_diaria, descricao) VALUES
 -- Embaré
@@ -132,7 +139,26 @@ INSERT INTO tarifa (chale_id, data_inicio, data_fim, valor_diaria, descricao) VA
 (4, '2026-12-15', '2027-02-28', 600.00, 'Alta temporada'),
 -- Dunas
 (5, '2026-03-01', '2026-12-14', 280.00, 'Baixa temporada'),
-(5, '2026-12-15', '2027-02-28', 500.00, 'Alta temporada');
+(5, '2026-12-15', '2027-02-28', 500.00, 'Alta temporada'),
+
+-- Temporada 2027/2028, mesmos valores. Um reajuste entre os anos tornaria
+-- o cálculo mais realista e os testes mais difíceis de ler; a virada de
+-- temporada, que é o que importa aqui, já está exercitada.
+-- Embaré
+(1, '2027-03-01', '2027-12-14', 320.00, 'Baixa temporada'),
+(1, '2027-12-15', '2028-02-29', 580.00, 'Alta temporada'),
+-- Camburi
+(2, '2027-03-01', '2027-12-14', 300.00, 'Baixa temporada'),
+(2, '2027-12-15', '2028-02-29', 540.00, 'Alta temporada'),
+-- Asturias
+(3, '2027-03-01', '2027-12-14', 380.00, 'Baixa temporada'),
+(3, '2027-12-15', '2028-02-29', 660.00, 'Alta temporada'),
+-- Boracéia
+(4, '2027-03-01', '2027-12-14', 340.00, 'Baixa temporada'),
+(4, '2027-12-15', '2028-02-29', 600.00, 'Alta temporada'),
+-- Dunas
+(5, '2027-03-01', '2027-12-14', 280.00, 'Baixa temporada'),
+(5, '2027-12-15', '2028-02-29', 500.00, 'Alta temporada');
 
 
 -- ===========================================================================

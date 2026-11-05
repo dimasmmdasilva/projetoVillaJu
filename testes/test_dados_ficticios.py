@@ -44,13 +44,44 @@ def test_todos_os_chales_comportam_quatro_pessoas(banco_com_dados):
 
 
 def test_cada_chale_tem_alta_e_baixa_temporada(banco_com_dados):
-    """A Etapa 3 precisa das duas para exercitar a virada de temporada."""
+    """A Etapa 3 precisa das duas para exercitar a virada de temporada.
+
+    A verificação é por temporada, não por quantidade de linhas: a massa
+    passou a cobrir dois verões, e contar linhas amarraria o teste ao
+    número de anos cadastrados em vez de à propriedade que importa.
+    """
     banco_com_dados.execute(
-        "SELECT c.nome, COUNT(*) FROM chale c "
-        "JOIN tarifa t ON t.chale_id = c.id GROUP BY c.id, c.nome"
+        "SELECT c.nome, "
+        "  SUM(t.descricao LIKE 'Alta%'), "
+        "  SUM(t.descricao LIKE 'Baixa%') "
+        "FROM chale c JOIN tarifa t ON t.chale_id = c.id "
+        "GROUP BY c.id, c.nome"
     )
-    for nome, quantas in banco_com_dados.fetchall():
-        assert quantas == 2, f"{nome} tem {quantas} tarifas"
+    for nome, altas, baixas in banco_com_dados.fetchall():
+        assert altas >= 1, f"{nome} não tem alta temporada"
+        assert baixas >= 1, f"{nome} não tem baixa temporada"
+
+
+def test_as_tarifas_cobrem_todo_o_periodo_sem_lacuna(banco_com_dados):
+    """Entre o fim de uma temporada e o início da seguinte, um dia.
+
+    Uma lacuna de um único dia faria o cálculo recusar qualquer estadia
+    que a atravessasse, com mensagem de tarifa ausente. É o tipo de defeito
+    que só aparece na data exata.
+    """
+    banco_com_dados.execute(
+        "SELECT c.nome, t.data_fim, "
+        "  (SELECT MIN(s.data_inicio) FROM tarifa s "
+        "     WHERE s.chale_id = t.chale_id AND s.data_inicio > t.data_fim) "
+        "FROM tarifa t JOIN chale c ON c.id = t.chale_id "
+        "ORDER BY t.chale_id, t.data_inicio"
+    )
+    for nome, fim, proximo_inicio in banco_com_dados.fetchall():
+        if proximo_inicio is None:
+            continue  # última temporada cadastrada do chalé
+        assert (proximo_inicio - fim).days == 1, (
+            f"{nome}: lacuna entre {fim} e {proximo_inicio}"
+        )
 
 
 def test_alta_temporada_custa_mais_que_a_baixa(banco_com_dados):

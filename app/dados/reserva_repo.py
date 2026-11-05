@@ -46,6 +46,17 @@ class ErroDeReserva(ErroDeDados):
     """Dado de reserva inválido, recusado antes de chegar ao banco."""
 
 
+class ConflitoDePeriodo(ErroDeReserva):
+    """O chalé já está reservado no período pedido.
+
+    Separada das demais porque é a única recusa que não vem de dado
+    errado: a reserva está perfeitamente bem formada, e o que falta é
+    disponibilidade. A tela devolve 409 para esta e 400 para as outras —
+    a mesma distinção que o HTTP faz entre "você escreveu errado" e "não
+    dá, do jeito que as coisas estão agora".
+    """
+
+
 # A consulta usa NOT EXISTS em vez de LEFT JOIN com filtro: o otimizador
 # interrompe a varredura na primeira reserva conflitante encontrada, em
 # vez de reunir todas para descartá-las depois. O índice
@@ -333,7 +344,7 @@ def _validar_regras(cursor, dados: dict, ignorar_id=0) -> None:
     conflito = achados[0] if achados else None
 
     if conflito:
-        raise ErroDeReserva(
+        raise ConflitoDePeriodo(
             f"O chalé {nome} já está reservado de "
             f"{conflito[1]:%d/%m/%Y} a {conflito[2]:%d/%m/%Y}. "
             f"Escolha outro período ou outro chalé."

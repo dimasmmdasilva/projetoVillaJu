@@ -38,9 +38,12 @@ CHALE_NOVO = {
     "descricao": "Vista para a mata.",
 }
 
+# Periodo fora da cobertura da massa de dados, que vai de marco de 2026 a
+# fevereiro de 2028. Criar tarifa dentro dela esbarraria na regra de
+# nao-sobreposicao, e o teste falharia por motivo alheio ao que verifica.
 TARIFA_NOVA = {
-    "data_inicio": "2027-06-01",
-    "data_fim": "2027-06-30",
+    "data_inicio": "2029-06-01",
+    "data_fim": "2029-06-30",
     "valor_diaria": "450.00",
     "descricao": "Inverno",
 }
@@ -219,7 +222,9 @@ def test_criar_tarifa_em_periodo_livre(aplicacao):
     lida = tarifa_repo.buscar_por_id(identificador)
 
     assert lida["valor_diaria"] == Decimal("450.00")
-    assert lida["data_inicio"] == dt.date(2027, 6, 1)
+    assert lida["data_inicio"] == dt.date.fromisoformat(
+        TARIFA_NOVA["data_inicio"]
+    )
 
     tarifa_repo.excluir(identificador)
 
@@ -227,8 +232,8 @@ def test_criar_tarifa_em_periodo_livre(aplicacao):
 def test_valor_e_decimal_nao_ponto_flutuante(aplicacao):
     """Erro de arredondamento em dinheiro é inaceitável."""
     identificador = tarifa_repo.criar(
-        1, dict(TARIFA_NOVA, data_inicio="2027-07-01",
-                data_fim="2027-07-31", valor_diaria="333.33")
+        1, dict(TARIFA_NOVA, data_inicio="2029-07-01",
+                data_fim="2029-07-31", valor_diaria="333.33")
     )
     try:
         lida = tarifa_repo.buscar_por_id(identificador)
@@ -241,8 +246,8 @@ def test_valor_e_decimal_nao_ponto_flutuante(aplicacao):
 def test_valor_com_virgula_e_aceito(aplicacao):
     """Quem digita em português escreve 450,00."""
     identificador = tarifa_repo.criar(
-        1, dict(TARIFA_NOVA, data_inicio="2027-08-01",
-                data_fim="2027-08-31", valor_diaria="450,50")
+        1, dict(TARIFA_NOVA, data_inicio="2029-08-01",
+                data_fim="2029-08-31", valor_diaria="450,50")
     )
     try:
         assert tarifa_repo.buscar_por_id(identificador)["valor_diaria"] == Decimal("450.50")
@@ -267,11 +272,14 @@ def test_periodo_encostado_e_aceito(aplicacao):
     """Tarifas podem ser consecutivas, só não sobrepostas.
 
     A baixa temporada termina em 14/12 e a alta começa em 15/12 na massa
-    de dados. Uma terceira tarifa começando no dia seguinte ao fim da alta
-    precisa ser aceita.
+    de dados. Uma terceira tarifa começando no dia seguinte ao fim da
+    última alta cadastrada precisa ser aceita.
+
+    A última alta da massa termina em 29/02/2028 — fevereiro bissexto. A
+    tarifa começa em 01/03/2028, encostada nela.
     """
     identificador = tarifa_repo.criar(
-        1, dict(TARIFA_NOVA, data_inicio="2027-03-01", data_fim="2027-03-31")
+        1, dict(TARIFA_NOVA, data_inicio="2028-03-01", data_fim="2028-03-31")
     )
     tarifa_repo.excluir(identificador)
 
@@ -279,13 +287,13 @@ def test_periodo_encostado_e_aceito(aplicacao):
 def test_alterar_tarifa_nao_conflita_consigo_mesma(aplicacao):
     """O mesmo risco da trigger de UPDATE de reserva, em outro lugar."""
     identificador = tarifa_repo.criar(
-        1, dict(TARIFA_NOVA, data_inicio="2027-09-01", data_fim="2027-09-30")
+        1, dict(TARIFA_NOVA, data_inicio="2029-09-01", data_fim="2029-09-30")
     )
     try:
         tarifa_repo.atualizar(
             identificador, 1,
-            dict(TARIFA_NOVA, data_inicio="2027-09-01",
-                 data_fim="2027-09-30", valor_diaria="500.00"),
+            dict(TARIFA_NOVA, data_inicio="2029-09-01",
+                 data_fim="2029-09-30", valor_diaria="500.00"),
         )
         assert tarifa_repo.buscar_por_id(identificador)["valor_diaria"] == Decimal("500.00")
     finally:

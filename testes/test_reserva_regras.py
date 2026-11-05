@@ -437,7 +437,9 @@ def test_criterio_de_conclusao_pela_interface(cliente):
               "data_entrada": "2028-03-03", "data_saida": "2028-03-08",
               "num_pessoas": "2"},
     )
-    assert conflitante.status_code == 400
+    # 409, não 400: a reserva está bem formada, o que falta é
+    # disponibilidade. Depois de um cancelamento, o mesmo pedido passa.
+    assert conflitante.status_code == 409
 
     mensagem = _aviso(conflitante)
     assert "Dunas" in mensagem

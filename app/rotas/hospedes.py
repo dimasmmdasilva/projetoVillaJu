@@ -20,6 +20,7 @@ terceiros.
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
 from app.dados import erros, hospede_repo, reserva_repo
+from app.seguranca.cripto import FalhaDeAutenticacao
 from app.seguranca.autorizacao import (
     ADMINISTRADOR,
     RECEPCIONISTA,
@@ -99,9 +100,12 @@ def editar(identificador):
 
     try:
         hospede = hospede_repo.buscar_por_id(identificador, usuario_id=usuario["id"])
-    except Exception:  # noqa: BLE001
-        # Inclui falha de autenticação do AES-GCM. A lista marca esses
-        # registros como não legíveis; aqui a edição simplesmente para.
+    except FalhaDeAutenticacao:
+        # Só esta exceção, não `Exception`: um banco fora do ar também
+        # interromperia a leitura, e dizer ao usuário que o registro está
+        # corrompido quando o problema é a conexão manda consertar a coisa
+        # errada. A lista marca esses registros como não legíveis; aqui a
+        # edição simplesmente para.
         flash(
             "O registro deste hóspede não passou na verificação de "
             "integridade e não pode ser editado.",
