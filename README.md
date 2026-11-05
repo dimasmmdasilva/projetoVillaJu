@@ -259,12 +259,12 @@ O cookie de sessão usa `HttpOnly`, `Secure` e `SameSite=Lax`.
 |---|---|---|
 | 0 — Ambiente e repositório | 22/10 a 23/10 | concluída |
 | 1 — Banco de dados e triggers | 26/10 | concluída |
-| 2 — Núcleo de segurança | 04/11 a 07/11 | a iniciar |
-| 3 — Reservas e disponibilidade | 07/11 a 11/11 | — |
-| 4 — Relatórios e análise estática | 11/11 a 15/11 | — |
-| 5 — Página pública | 15/11 a 19/11 | — |
-| 6 — Análise dinâmica | 19/11 a 22/11 | — |
-| 7 — Validação e defesa | 22/11 a 25/11 | — |
+| 2 — Núcleo de segurança | 04/11 a 05/11 | em andamento |
+| 3 — Reservas e disponibilidade | 05/11 | a iniciar |
+| 4 — Relatórios e análise estática | 06/11 | a iniciar |
+| 5 — Página pública | 09/11 | a iniciar |
+| 6 — Análise dinâmica | a definir | — |
+| 7 — Validação e defesa | a definir | — |
 
 **Entrega 2:** 11/11/2026 · **Entrega final:** 25/11/2026
 
