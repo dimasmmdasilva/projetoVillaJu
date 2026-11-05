@@ -21,11 +21,17 @@ LIMITES = {
     "descricao": 5000,
 }
 
-# A coluna é TINYINT UNSIGNED. O teto de 20 não vem do banco: vem do bom
-# senso sobre um chalé de hospedaria, e evita que um erro de digitação
-# crie um chalé para 200 pessoas que a trigger de capacidade aceitaria.
+# Regra da hospedaria, confirmada com a responsável: nenhum chalé comporta
+# mais de 4 pessoas. O teto não vem do banco — a coluna é TINYINT UNSIGNED
+# e aceitaria até 255 — nem da trigger, que compara a reserva contra a
+# capacidade cadastrada, qualquer que seja ela.
+#
+# Por isso ele precisa estar aqui: sem este limite, um erro de digitação
+# criaria um chalé para 40 pessoas, e a trigger aceitaria alegremente uma
+# reserva para 40 — porque ela só verifica se o número cabe na capacidade
+# cadastrada, não se a capacidade cadastrada faz sentido.
 CAPACIDADE_MINIMA = 1
-CAPACIDADE_MAXIMA = 20
+CAPACIDADE_MAXIMA = 4
 
 _SQL_LISTAR = (
     "SELECT id, nome, capacidade, configuracao_camas, comodidades, "

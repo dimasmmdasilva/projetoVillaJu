@@ -32,7 +32,7 @@ HOSPEDE = ("joao", "Villa@Hospede2026")
 
 CHALE_NOVO = {
     "nome": "Mirante",
-    "capacidade": 6,
+    "capacidade": 4,
     "configuracao_camas": "2 camas de casal",
     "comodidades": "Wi-Fi, varanda",
     "descricao": "Vista para a mata.",
@@ -143,7 +143,7 @@ def test_criar_e_buscar(aplicacao):
     lido = chale_repo.buscar_por_id(identificador)
 
     assert lido["nome"] == "Criado no teste"
-    assert lido["capacidade"] == 6
+    assert lido["capacidade"] == 4
     assert lido["ativo"] == 1
 
     chale_repo.atualizar(identificador, dict(CHALE_NOVO, nome="Renomeado"))
@@ -164,9 +164,10 @@ def test_carimbo_de_tempo_e_preenchido_pela_trigger(aplicacao):
         ({"nome": "", "capacidade": 4}, "obrigatório"),
         ({"nome": "   ", "capacidade": 4}, "obrigatório"),
         ({"nome": "x" * 51, "capacidade": 4}, "limite"),
-        ({"nome": "X", "capacidade": 0}, "entre 1 e 20"),
-        ({"nome": "X", "capacidade": 21}, "entre 1 e 20"),
-        ({"nome": "X", "capacidade": -1}, "entre 1 e 20"),
+        ({"nome": "X", "capacidade": 0}, "entre 1 e 4"),
+        ({"nome": "X", "capacidade": 5}, "entre 1 e 4"),
+        ({"nome": "X", "capacidade": 40}, "entre 1 e 4"),
+        ({"nome": "X", "capacidade": -1}, "entre 1 e 4"),
         ({"nome": "X", "capacidade": "muitas"}, "número inteiro"),
         ({"nome": "X", "capacidade": None}, "número inteiro"),
     ],
@@ -396,12 +397,12 @@ def test_cadastro_pela_tela(cliente):
 def test_erro_de_validacao_mostra_mensagem_e_preserva_o_formulario(cliente):
     """O que foi digitado não pode sumir quando a validação recusa."""
     resposta = cliente(ADMIN).post(
-        "/chales/novo", data={"nome": "", "capacidade": "7"}
+        "/chales/novo", data={"nome": "", "capacidade": "3"}
     )
 
     assert resposta.status_code == 400
     assert "obrigatório" in _aviso(resposta)
-    assert 'value="7"' in resposta.data.decode()
+    assert 'value="3"' in resposta.data.decode()
 
 
 def test_erro_do_banco_nao_vaza_para_a_tela(cliente):
