@@ -102,10 +102,12 @@ def _registrar_paginas_de_erro(app: Flask) -> None:
 def _registrar_rotas(app: Flask) -> None:
     """Registra os blueprints e as rotas soltas da aplicação."""
     from app.rotas.auth import auth
+    from app.rotas.hospedes import hospedes
     from app.rotas.painel import painel
 
     app.register_blueprint(auth)
     app.register_blueprint(painel)
+    app.register_blueprint(hospedes)
 
     @app.route("/saude")
     def saude():

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titulo %}Cadastrar hóspede — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Cadastrar hóspede</h1>
+
+{# Nome, documento, telefone e e-mail são cifrados com AES-256-GCM antes
+   de qualquer INSERT. O que for digitado aqui chega ilegível ao banco —
+   nem o administrador do MySQL consegue ler sem a chave, que vive no .env
+   e nunca no repositório. #}
+
+<form method="post" action="{{ url_for('hospedes.novo') }}" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <label for="nome">Nome completo *</label>
+  <input type="text" id="nome" name="nome" required autofocus
+         maxlength="150" value="{{ dados.nome or '' }}">
+
+  <label for="documento">Documento *</label>
+  <input type="text" id="documento" name="documento" required
+         maxlength="60" value="{{ dados.documento or '' }}">
+
+  <label for="telefone">Telefone</label>
+  <input type="text" id="telefone" name="telefone"
+         maxlength="40" value="{{ dados.telefone or '' }}">
+
+  <label for="email">E-mail</label>
+  <input type="email" id="email" name="email"
+         maxlength="150" value="{{ dados.email or '' }}">
+
+  <button type="submit">Cadastrar</button>
+</form>
+
+<p><a href="{{ url_for('hospedes.listar') }}">Voltar à lista</a></p>
+{% endblock %}

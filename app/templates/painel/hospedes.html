@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block titulo %}Hóspedes — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Hóspedes</h1>
+
+<p>{{ total }} cadastrado{{ 's' if total != 1 }}.
+   <a href="{{ url_for('hospedes.novo') }}">Cadastrar hóspede</a></p>
+
+{# Busca pelo índice HMAC. O campo cifrado não é pesquisável: o AES-GCM é
+   não determinístico, e cifrar o mesmo e-mail duas vezes produz bytes
+   diferentes. O índice resolve sem revelar o valor. #}
+<form method="get" action="{{ url_for('hospedes.listar') }}">
+  <label for="busca">Buscar por documento ou e-mail</label>
+  <input type="text" id="busca" name="busca" value="{{ busca }}"
+         maxlength="150">
+  <button type="submit">Buscar</button>
+  {% if busca %}
+  <a href="{{ url_for('hospedes.listar') }}">Limpar</a>
+  {% endif %}
+</form>
+
+{% if hospedes %}
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Nome</th>
+      <th>Documento</th>
+      <th>Telefone</th>
+      <th>E-mail</th>
+      <th>Cadastrado em</th>
+    </tr>
+  </thead>
+  <tbody>
+    {# Os valores chegam aqui já decifrados pelo repositório. Nenhum campo
+       usa `|safe`: tudo passa pelo escape do Jinja2, inclusive o que foi
+       digitado por quem cadastrou. #}
+    {% for hospede in hospedes %}
+    <tr>
+      <td>{{ hospede.id }}</td>
+      {% if not hospede.legivel %}
+      {# O registro existe mas não passou na verificação de integridade.
+         Pode ser dado da massa fictícia, gerado antes de a cifragem
+         existir, ou adulteração. A linha aparece para que o problema seja
+         visível, em vez de a página inteira cair. #}
+      <td colspan="4"><em>registro não legível — verificar integridade</em></td>
+      {% else %}
+      <td>{{ hospede.nome }}</td>
+      <td>{{ hospede.documento }}</td>
+      <td>{{ hospede.telefone or '—' }}</td>
+      <td>{{ hospede.email or '—' }}</td>
+      {% endif %}
+      <td>{{ hospede.criado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% elif busca %}
+<p>Nenhum hóspede encontrado com esse documento ou e-mail.</p>
+{% else %}
+<p>Nenhum hóspede cadastrado.</p>
+{% endif %}
+{% endblock %}
