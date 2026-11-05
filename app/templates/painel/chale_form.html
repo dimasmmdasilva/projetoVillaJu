@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Novo chalé' if novo else chale.nome }} — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>{{ 'Cadastrar chalé' if novo else 'Editar chalé' }}</h1>
+
+<form method="post" class="formulario"
+      action="{{ url_for('chales.novo') if novo
+                else url_for('chales.editar', identificador=chale.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <label for="nome">Nome *</label>
+  <input type="text" id="nome" name="nome" required autofocus
+         maxlength="50" value="{{ chale.nome or '' }}">
+
+  <label for="capacidade">Capacidade (pessoas) *</label>
+  <input type="number" id="capacidade" name="capacidade" required
+         min="1" max="20" value="{{ chale.capacidade or '' }}">
+
+  <label for="configuracao_camas">Configuração de camas</label>
+  <input type="text" id="configuracao_camas" name="configuracao_camas"
+         maxlength="255" value="{{ chale.configuracao_camas or '' }}">
+
+  <label for="comodidades">Comodidades</label>
+  <textarea id="comodidades" name="comodidades" rows="3">{{ chale.comodidades or '' }}</textarea>
+
+  <label for="descricao">Descrição (usada na vitrine pública)</label>
+  <textarea id="descricao" name="descricao" rows="4">{{ chale.descricao or '' }}</textarea>
+
+  <button type="submit">{{ 'Cadastrar' if novo else 'Salvar' }}</button>
+</form>
+
+{% if not novo %}
+<h2>Tarifas</h2>
+
+{# Dois períodos do mesmo chalé não podem se sobrepor: com duas tarifas
+   válidas na mesma data, o cálculo do valor total ficaria ambíguo. A
+   verificação é feita no repositório, antes de gravar. #}
+
+<p><a href="{{ url_for('chales.nova_tarifa', chale_id=chale.id) }}">Cadastrar tarifa</a></p>
+
+{% if tarifas %}
+<table>
+  <thead>
+    <tr><th>Período</th><th>Diária</th><th>Descrição</th><th>Ações</th></tr>
+  </thead>
+  <tbody>
+    {% for tarifa in tarifas %}
+    <tr>
+      <td>{{ tarifa.data_inicio.strftime('%d/%m/%Y') }} a
+          {{ tarifa.data_fim.strftime('%d/%m/%Y') }}</td>
+      <td>R$ {{ '%.2f'|format(tarifa.valor_diaria) }}</td>
+      <td>{{ tarifa.descricao or '—' }}</td>
+      <td>
+        <a href="{{ url_for('chales.editar_tarifa', chale_id=chale.id,
+                            identificador=tarifa.id) }}">Editar</a>
+        <form method="post" class="acao"
+              action="{{ url_for('chales.excluir_tarifa', chale_id=chale.id,
+                                 identificador=tarifa.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit">Excluir</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Nenhuma tarifa cadastrada. Sem tarifa, o valor da reserva não pode ser
+   calculado.</p>
+{% endif %}
+{% endif %}
+
+<p><a href="{{ url_for('chales.listar') }}">Voltar à lista</a></p>
+{% endblock %}

@@ -102,12 +102,14 @@ def _registrar_paginas_de_erro(app: Flask) -> None:
 def _registrar_rotas(app: Flask) -> None:
     """Registra os blueprints e as rotas soltas da aplicação."""
     from app.rotas.auth import auth
+    from app.rotas.chales import chales
     from app.rotas.hospedes import hospedes
     from app.rotas.painel import painel
 
     app.register_blueprint(auth)
     app.register_blueprint(painel)
     app.register_blueprint(hospedes)
+    app.register_blueprint(chales)
 
     @app.route("/saude")
     def saude():
@@ -144,6 +146,22 @@ def _registrar_contexto(app: Flask) -> None:
             "sessao_usuario": usuario_da_sessao(),
             "tem_perfil": tem_perfil,
         }
+
+    @app.template_filter("iso")
+    def formatar_iso(valor):
+        """Data no formato que o campo <input type="date"> espera.
+
+        O valor pode vir do banco como `date` ou do formulário recusado
+        como texto. O filtro aceita os dois e devolve string vazia para
+        nulo, o que o campo entende como "em branco".
+        """
+        import datetime as dt
+
+        if valor is None or valor == "":
+            return ""
+        if isinstance(valor, (dt.date, dt.datetime)):
+            return valor.strftime("%Y-%m-%d")
+        return str(valor)
 
 
 def _registrar_cabecalhos_de_seguranca(app: Flask) -> None:

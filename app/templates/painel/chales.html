@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titulo %}Chalés — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Chalés</h1>
+
+<p><a href="{{ url_for('chales.novo') }}">Cadastrar chalé</a></p>
+
+{% if chales %}
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Nome</th>
+      <th>Capacidade</th>
+      <th>Camas</th>
+      <th>Situação</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for chale in chales %}
+    <tr>
+      <td>{{ chale.id }}</td>
+      <td>{{ chale.nome }}</td>
+      <td>{{ chale.capacidade }}</td>
+      <td>{{ chale.configuracao_camas or '—' }}</td>
+      <td>{{ 'ativo' if chale.ativo else 'inativo' }}</td>
+      <td>
+        <a href="{{ url_for('chales.editar', identificador=chale.id) }}">Editar</a>
+        {# POST, não GET: com GET, uma imagem embutida em sítio hostil
+           desativaria o chalé pelo navegador de quem está autenticado. #}
+        <form method="post" class="acao"
+              action="{{ url_for('chales.alternar_situacao', identificador=chale.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit">{{ 'Desativar' if chale.ativo else 'Reativar' }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Nenhum chalé cadastrado.</p>
+{% endif %}
+{% endblock %}

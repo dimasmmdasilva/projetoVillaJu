@@ -92,3 +92,7 @@ th { background: #f0f0f0; }
 
 .aviso-erro { background: #fdecea; border-color: #e0b4b0; color: #7a2520; }
 .aviso-sucesso { background: #eaf5ec; border-color: #b4d6bd; color: #1f5130; }
+
+/* Formulário de ação dentro de célula de tabela: um botão só, em linha */
+.acao { display: inline; margin: 0; }
+.acao button { margin: 0 0 0 0.5rem; padding: 0.2rem 0.5rem; font-size: 0.9rem; }

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titulo %}Tarifa — {{ chale.nome }}{% endblock %}
+
+{% block conteudo %}
+<h1>{{ 'Cadastrar' if novo else 'Editar' }} tarifa</h1>
+<p>Chalé <strong>{{ chale.nome }}</strong>.</p>
+
+<form method="post" class="formulario"
+      action="{{ url_for('chales.nova_tarifa', chale_id=chale.id) if novo
+                else url_for('chales.editar_tarifa', chale_id=chale.id,
+                             identificador=tarifa.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <label for="data_inicio">Início do período *</label>
+  <input type="date" id="data_inicio" name="data_inicio" required autofocus
+         value="{{ tarifa.data_inicio|iso }}">
+
+  <label for="data_fim">Fim do período *</label>
+  <input type="date" id="data_fim" name="data_fim" required
+         value="{{ tarifa.data_fim|iso }}">
+
+  <label for="valor_diaria">Valor da diária (R$) *</label>
+  <input type="number" id="valor_diaria" name="valor_diaria" required
+         step="0.01" min="0" value="{{ tarifa.valor_diaria or '' }}">
+
+  <label for="descricao">Descrição</label>
+  <input type="text" id="descricao" name="descricao" maxlength="100"
+         placeholder="alta temporada" value="{{ tarifa.descricao or '' }}">
+
+  <button type="submit">{{ 'Cadastrar' if novo else 'Salvar' }}</button>
+</form>
+
+<p><a href="{{ url_for('chales.editar', identificador=chale.id) }}">Voltar ao chalé</a></p>
+{% endblock %}
