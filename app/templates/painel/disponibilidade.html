@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block titulo %}Disponibilidade — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Disponibilidade</h1>
+
+{# O período usa intervalo semiaberto, como a trigger do banco: ocupa da
+   entrada inclusive até a saída exclusive. Um chalé com saída no dia 15
+   aparece como livre para quem entra no dia 15. #}
+
+<form method="get" action="{{ url_for('reservas.disponibilidade') }}"
+      class="formulario">
+  <label for="entrada">Entrada</label>
+  <input type="date" id="entrada" name="entrada" required value="{{ entrada }}">
+
+  <label for="saida">Saída</label>
+  <input type="date" id="saida" name="saida" required value="{{ saida }}">
+
+  <button type="submit">Consultar</button>
+</form>
+
+{% if erro %}
+<p class="aviso aviso-erro">{{ erro }}</p>
+{% endif %}
+
+{% if livres is not none %}
+<h2>Livres no período ({{ diarias }} diária{{ 's' if diarias != 1 }})</h2>
+
+{% if livres %}
+<table>
+  <thead>
+    <tr><th>Chalé</th><th>Capacidade</th><th>Camas</th></tr>
+  </thead>
+  <tbody>
+    {% for chale in livres %}
+    <tr>
+      <td>{{ chale.nome }}</td>
+      <td>{{ chale.capacidade }}</td>
+      <td>{{ chale.configuracao_camas or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Nenhum chalé livre neste período.</p>
+{% endif %}
+
+<h2>Ocupados no período</h2>
+
+{% if ocupados %}
+<table>
+  <thead>
+    <tr><th>Chalé</th><th>Reserva</th><th>Período</th><th>Situação</th></tr>
+  </thead>
+  <tbody>
+    {% for linha in ocupados %}
+    <tr>
+      <td>{{ linha.nome }}</td>
+      <td>#{{ linha.reserva_id }}</td>
+      <td>{{ linha.data_entrada.strftime('%d/%m/%Y') }} a
+          {{ linha.data_saida.strftime('%d/%m/%Y') }}</td>
+      <td>{{ linha.situacao }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Nenhum chalé ocupado neste período.</p>
+{% endif %}
+{% endif %}
+{% endblock %}

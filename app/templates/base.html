@@ -25,6 +25,7 @@
   <nav>
     <a href="{{ url_for('painel.inicio') }}">Painel</a>
     {% if tem_perfil('administrador', 'recepcionista') %}
+    <a href="{{ url_for('reservas.disponibilidade') }}">Disponibilidade</a>
     <a href="{{ url_for('hospedes.listar') }}">Hóspedes</a>
     {% endif %}
     {% if tem_perfil('administrador') %}

@@ -105,11 +105,13 @@ def _registrar_rotas(app: Flask) -> None:
     from app.rotas.chales import chales
     from app.rotas.hospedes import hospedes
     from app.rotas.painel import painel
+    from app.rotas.reservas import reservas
 
     app.register_blueprint(auth)
     app.register_blueprint(painel)
     app.register_blueprint(hospedes)
     app.register_blueprint(chales)
+    app.register_blueprint(reservas)
 
     @app.route("/saude")
     def saude():
