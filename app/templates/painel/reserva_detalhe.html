@@ -37,6 +37,42 @@
   </tbody>
 </table>
 
+<h2>Valor da estadia</h2>
+
+{% if conta %}
+{# A conta aberta mostra de onde vem o total. Com a virada de temporada, o
+   hóspede vê que parte das noites custou a tarifa de alta — em vez de um
+   número que ele não consegue conferir. #}
+<table>
+  <thead>
+    <tr><th>Período</th><th>Noites</th><th>Diária</th><th>Subtotal</th></tr>
+  </thead>
+  <tbody>
+    {% for trecho in conta.trechos %}
+    <tr>
+      <td>{{ trecho.de.strftime('%d/%m') }} a {{ trecho.ate.strftime('%d/%m/%Y') }}
+          {{ '(' ~ trecho.descricao ~ ')' if trecho.descricao }}</td>
+      <td>{{ trecho.noites }}</td>
+      <td>R$ {{ '%.2f'|format(trecho.valor_diaria) }}</td>
+      <td>R$ {{ '%.2f'|format(trecho.subtotal) }}</td>
+    </tr>
+    {% endfor %}
+    <tr>
+      <th colspan="3">Total · {{ conta.noites }} noite{{ 's' if conta.noites != 1 }}</th>
+      <th>R$ {{ '%.2f'|format(conta.total) }}</th>
+    </tr>
+  </tbody>
+</table>
+
+{% if conta.atravessa_virada %}
+<p>Esta estadia atravessa uma virada de temporada: as noites foram
+   somadas uma a uma, com a tarifa vigente em cada data.</p>
+{% endif %}
+{% else %}
+<p>Não há tarifa cadastrada para todo o período. A reserva foi registrada
+   sem valor; cadastre a tarifa e edite a reserva para calcular.</p>
+{% endif %}
+
 <h2>Situação</h2>
 
 {% if transicoes %}

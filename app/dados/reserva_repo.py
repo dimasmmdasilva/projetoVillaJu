@@ -387,6 +387,27 @@ def _limpar(dados: dict) -> dict:
     }
 
 
+def _calcular_valor(limpo: dict):
+    """Valor total da estadia, somando noite a noite.
+
+    Uma lacuna no cadastro de tarifas NÃO impede a reserva: ela grava com
+    valor nulo e a tela mostra um traço. A recepção precisa poder reservar
+    mesmo quando o administrador ainda não cadastrou a tarifa do período —
+    bloquear a operação do negócio por falta de preço seria pior que
+    registrar a estadia e acertar a conta depois.
+
+    Qualquer outra falha de cálculo sobe, porque aí é defeito.
+    """
+    from app.dados.calculo import TarifaAusente, valor_total
+
+    try:
+        return valor_total(
+            limpo["chale_id"], limpo["data_entrada"], limpo["data_saida"]
+        )
+    except TarifaAusente:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Escrita
 # ---------------------------------------------------------------------------
@@ -407,6 +428,7 @@ def criar(dados: dict, usuario_id=None) -> int:
         cursor = conexao.cursor()
         try:
             _validar_regras(cursor, limpo)
+            limpo["valor_total"] = _calcular_valor(limpo)
             executar(
                 cursor,
                 _SQL_CRIAR,
@@ -455,6 +477,7 @@ def atualizar(identificador, dados: dict, usuario_id=None) -> None:
             # de conflito considere se esta reserva ocupa o chalé.
             limpo["situacao"] = atual[0]
             _validar_regras(cursor, limpo, ignorar_id=identificador)
+            limpo["valor_total"] = _calcular_valor(limpo)
 
             executar(
                 cursor,

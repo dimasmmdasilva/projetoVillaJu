@@ -169,6 +169,7 @@ def detalhe(identificador):
         reserva=reserva,
         transicoes=reserva_repo.TRANSICOES[reserva["situacao"]],
         hospede=_hospede_da_reserva(reserva),
+        conta=_conta_da_reserva(reserva),
     )
 
 
@@ -258,4 +259,28 @@ def _hospede_da_reserva(reserva):
             reserva["hospede_id"], usuario_id=_quem()
         )
     except FalhaDeAutenticacao:
+        return None
+
+
+def _conta_da_reserva(reserva):
+    """Conta aberta da estadia, noite a noite.
+
+    Mostrar só o total esconde de onde ele vem. Com os trechos à vista, a
+    recepção explica ao hóspede por que oito noites custaram mais do que
+    oito vezes a diária de baixa temporada — e confere a conta sem
+    precisar confiar no sistema.
+
+    Lacuna no cadastro de tarifas devolve None: a tela mostra um traço, e
+    a reserva continua existindo.
+    """
+    from app.dados import calculo
+
+    try:
+        return calculo.detalhar(
+            reserva["chale_id"],
+            reserva["data_entrada"],
+            reserva["data_saida"],
+            usuario_id=_quem(),
+        )
+    except ErroDeDados:
         return None
