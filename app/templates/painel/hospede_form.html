@@ -1,15 +1,17 @@
 {% extends "base.html" %}
-{% block titulo %}Cadastrar hóspede — VillaJu{% endblock %}
+{% block titulo %}{{ 'Cadastrar' if novo else 'Editar' }} hóspede — VillaJu{% endblock %}
 
 {% block conteudo %}
-<h1>Cadastrar hóspede</h1>
+<h1>{{ 'Cadastrar hóspede' if novo else 'Editar hóspede ' ~ hospede.id }}</h1>
 
 {# Nome, documento, telefone e e-mail são cifrados com AES-256-GCM antes
    de qualquer INSERT. O que for digitado aqui chega ilegível ao banco —
    nem o administrador do MySQL consegue ler sem a chave, que vive no .env
    e nunca no repositório. #}
 
-<form method="post" action="{{ url_for('hospedes.novo') }}" class="formulario">
+<form method="post" class="formulario"
+      action="{{ url_for('hospedes.novo') if novo
+                else url_for('hospedes.editar', identificador=hospede.id) }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
   <label for="nome">Nome completo *</label>
@@ -28,8 +30,19 @@
   <input type="email" id="email" name="email"
          maxlength="150" value="{{ dados.email or '' }}">
 
-  <button type="submit">Cadastrar</button>
+  <button type="submit">{{ 'Cadastrar' if novo else 'Salvar' }}</button>
 </form>
+
+{% if not novo and tem_perfil('administrador') %}
+<h2>Excluir</h2>
+<p>A exclusão é definitiva e só é permitida para hóspede sem reserva e sem
+   conta de acesso. É a única operação do sistema que destrói dado.</p>
+<form method="post" class="acao"
+      action="{{ url_for('hospedes.excluir', identificador=hospede.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit">Excluir hóspede {{ hospede.id }}</button>
+</form>
+{% endif %}
 
 <p><a href="{{ url_for('hospedes.listar') }}">Voltar à lista</a></p>
 {% endblock %}

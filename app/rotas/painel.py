@@ -5,7 +5,9 @@ exige apenas sessão válida, de qualquer perfil. A auditoria exige perfil
 de administrador — é a rota que demonstra o 403 e o registro de
 `ACESSO_NEGADO`.
 
-As telas de chalés, hóspedes e reservas entram na Etapa 3.
+A tela inicial muda conforme o perfil: administrador e recepcionista veem
+as contagens da hospedaria, o hóspede vê apenas o caminho para as próprias
+reservas.
 """
 
 from flask import Blueprint, render_template, request
@@ -13,6 +15,7 @@ from flask import Blueprint, render_template, request
 from app.dados import auditoria_repo, conexao
 from app.seguranca.autorizacao import (
     ADMINISTRADOR,
+    HOSPEDE,
     requer_login,
     requer_perfil,
     usuario_atual,
@@ -55,10 +58,17 @@ def _resumo(usuario_id):
 def inicio():
     usuario = usuario_atual()
 
-    try:
-        resumo = _resumo(usuario["id"])
-    except Exception:  # noqa: BLE001 - o painel não pode cair por causa do resumo
+    # O resumo não é calculado para o perfil `hospede`: quantas reservas a
+    # hospedaria tem e quantos hóspedes estão cadastrados não é informação
+    # dele. Esconder no template bastaria para a tela, mas o dado teria
+    # sido lido — e o que não se lê não vaza.
+    if usuario["perfil"] == HOSPEDE:
         resumo = None
+    else:
+        try:
+            resumo = _resumo(usuario["id"])
+        except Exception:  # noqa: BLE001 - o painel não cai por causa do resumo
+            resumo = None
 
     return render_template("painel/inicio.html", usuario=usuario, resumo=resumo)
 

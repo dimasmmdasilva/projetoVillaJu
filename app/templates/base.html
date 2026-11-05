@@ -32,6 +32,9 @@
     {% if tem_perfil('administrador') %}
     <a href="{{ url_for('chales.listar') }}">Chalés</a>
     {% endif %}
+    {% if tem_perfil('hospede') %}
+    <a href="{{ url_for('reservas.minhas') }}">Minhas reservas</a>
+    {% endif %}
     {# Esconder o link é conveniência de interface, NÃO controle de acesso:
        a rota continua decorada com @requer_perfil e responde 403 a quem
        digitar o endereço. #}

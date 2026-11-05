@@ -7,7 +7,12 @@
 <p>Olá, {{ usuario.nome }}. Você está conectado como
    <strong>{{ usuario.perfil }}</strong>.</p>
 
-{% if resumo %}
+{% if tem_perfil('hospede') %}
+{# O hóspede não vê contagens da hospedaria: quantas reservas existem e
+   quantos hóspedes estão cadastrados não é informação dele. #}
+<p><a href="{{ url_for('reservas.minhas') }}">Ver minhas reservas</a></p>
+
+{% elif resumo %}
 <h2>Resumo</h2>
 <table>
   <tbody>
@@ -21,7 +26,12 @@
 <p class="aviso aviso-erro">Não foi possível ler o resumo do banco de dados.</p>
 {% endif %}
 
-<h2>Em construção</h2>
-<p>As telas de chalés, hóspedes e reservas entram nos próximos blocos de
-   desenvolvimento.</p>
+{% if tem_perfil('administrador', 'recepcionista') %}
+<h2>Atalhos</h2>
+<ul>
+  <li><a href="{{ url_for('reservas.disponibilidade') }}">Consultar disponibilidade</a></li>
+  <li><a href="{{ url_for('reservas.nova') }}">Registrar reserva</a></li>
+  <li><a href="{{ url_for('hospedes.novo') }}">Cadastrar hóspede</a></li>
+</ul>
+{% endif %}
 {% endblock %}

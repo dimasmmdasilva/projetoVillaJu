@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block titulo %}Minhas reservas — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Minhas reservas</h1>
+
+{# Esta tela é o caso de teste obrigatório do plano: o hóspede vê apenas
+   as próprias reservas. O identificador que filtra a consulta vem da
+   linha do usuário no banco, não do endereço — não há número nesta URL
+   para trocar. Quem digitar /reservas/ (a lista completa) recebe 403. #}
+
+<p>Olá, {{ usuario.nome }}. Abaixo estão as reservas registradas no seu
+   nome. Para alterar ou cancelar, procure a recepção.</p>
+
+{% if not vinculada %}
+<p>Nada a mostrar enquanto a conta não estiver vinculada.</p>
+
+{% elif reservas %}
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Chalé</th>
+      <th>Entrada</th>
+      <th>Saída</th>
+      <th>Noites</th>
+      <th>Pessoas</th>
+      <th>Situação</th>
+      <th>Valor</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for reserva in reservas %}
+    <tr>
+      <td>{{ reserva.id }}</td>
+      <td>{{ reserva.chale_nome }}</td>
+      <td>{{ reserva.data_entrada.strftime('%d/%m/%Y') }}</td>
+      <td>{{ reserva.data_saida.strftime('%d/%m/%Y') }}</td>
+      {# Intervalo semiaberto: quem sai dia 18 não dorme na noite do 18. #}
+      <td>{{ (reserva.data_saida - reserva.data_entrada).days }}</td>
+      <td>{{ reserva.num_pessoas }}</td>
+      <td><strong>{{ reserva.situacao }}</strong></td>
+      <td>
+        {% set conta = contas.get(reserva.id) %}
+        {% if conta %}
+          R$ {{ '%.2f'|format(conta.total) }}
+          {% if conta.atravessa_virada %}
+          <br><small>{% for trecho in conta.trechos %}{{ trecho.noites }} &times;
+            R$ {{ '%.2f'|format(trecho.valor_diaria) }}{{ ' + ' if not loop.last }}{% endfor %}</small>
+          {% endif %}
+        {% elif reserva.valor_total %}
+          R$ {{ '%.2f'|format(reserva.valor_total) }}
+        {% else %}
+          &mdash;
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p><small>Estadias que atravessam uma virada de temporada aparecem com as
+   diárias discriminadas: cada noite é cobrada pela tarifa vigente na
+   data.</small></p>
+
+{% else %}
+<p>Você ainda não tem reservas registradas.</p>
+{% endif %}
+{% endblock %}

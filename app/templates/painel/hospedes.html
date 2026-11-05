@@ -30,6 +30,7 @@
       <th>Telefone</th>
       <th>E-mail</th>
       <th>Cadastrado em</th>
+      <th></th>
     </tr>
   </thead>
   <tbody>
@@ -52,6 +53,11 @@
       <td>{{ hospede.email or '—' }}</td>
       {% endif %}
       <td>{{ hospede.criado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+      <td>
+        {% if hospede.legivel %}
+        <a href="{{ url_for('hospedes.editar', identificador=hospede.id) }}">Editar</a>
+        {% endif %}
+      </td>
     </tr>
     {% endfor %}
   </tbody>

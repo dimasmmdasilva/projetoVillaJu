@@ -20,6 +20,7 @@ from app.dados import reserva_repo
 from app.dados.erros import ErroDeDados
 from app.seguranca.autorizacao import (
     ADMINISTRADOR,
+    HOSPEDE,
     RECEPCIONISTA,
     requer_perfil,
     usuario_atual,
@@ -284,3 +285,64 @@ def _conta_da_reserva(reserva):
         )
     except ErroDeDados:
         return None
+
+
+# ---------------------------------------------------------------------------
+# Área do hóspede
+# ---------------------------------------------------------------------------
+
+@reservas.route("/minhas")
+@requer_perfil(HOSPEDE)
+def minhas():
+    """As reservas de quem está conectado. Somente as dele.
+
+    **De onde vem o `hospede_id`.** Da linha do usuário na tabela
+    `usuario`, lida do banco a cada requisição por `usuario_atual()`. Não
+    vem da URL, não vem do formulário e não vem da sessão do navegador.
+    Essa é a diferença entre esta tela e um furo de autorização: se o
+    identificador fosse parâmetro, trocar o número no endereço mostraria
+    as reservas de outro hóspede — a falha de controle de acesso mais
+    comum que existe em sistema web.
+
+    **Onde a filtragem acontece.** No `WHERE` do SQL, dentro de
+    `listar_por_hospede`. Trazer todas as reservas e descartar as alheias
+    em Python faria o banco entregar à aplicação dado que o solicitante
+    não pode ver, e bastaria um esquecimento no laço para exibi-lo.
+
+    O detalhe da reserva não é aberto aqui: `reservas.detalhe` exige
+    administrador ou recepcionista, e a conta aberta da estadia aparece
+    direto na linha.
+    """
+    usuario = usuario_atual()
+
+    # A trigger de integridade de perfil exige o vínculo quando o perfil é
+    # `hospede`. Se ele não existe, a conta está malformada: não se adivinha
+    # a quem ela pertence, e mostrar tudo seria exatamente o erro oposto.
+    if not usuario.get("hospede_id"):
+        flash(
+            "Sua conta não está vinculada a um cadastro de hóspede. "
+            "Procure a recepção.",
+            "erro",
+        )
+        return render_template(
+            "painel/minhas_reservas.html",
+            usuario=usuario,
+            reservas=[],
+            vinculada=False,
+        )
+
+    lista = reserva_repo.listar_por_hospede(
+        usuario["hospede_id"], usuario_id=usuario["id"]
+    )
+
+    # A conta de cada estadia, calculada noite a noite. Lacuna de tarifa
+    # devolve None e a linha mostra um traço.
+    contas = {reserva["id"]: _conta_da_reserva(reserva) for reserva in lista}
+
+    return render_template(
+        "painel/minhas_reservas.html",
+        usuario=usuario,
+        reservas=lista,
+        contas=contas,
+        vinculada=True,
+    )
