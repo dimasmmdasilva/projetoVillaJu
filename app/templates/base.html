@@ -24,6 +24,12 @@
   <strong>VillaJu</strong>
   <nav>
     <a href="{{ url_for('painel.inicio') }}">Painel</a>
+    {# Esconder o link é conveniência de interface, NÃO controle de acesso:
+       a rota continua decorada com @requer_perfil e responde 403 a quem
+       digitar o endereço. #}
+    {% if tem_perfil('administrador') %}
+    <a href="{{ url_for('painel.auditoria') }}">Auditoria</a>
+    {% endif %}
   </nav>
   <span class="identificacao">
     {{ sessao_usuario.nome }} &middot; {{ sessao_usuario.perfil }}

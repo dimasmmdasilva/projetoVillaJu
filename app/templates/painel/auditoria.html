@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block titulo %}Auditoria — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Log de auditoria</h1>
+
+<p>Registro de acessos e de operações críticas. Restrito ao perfil
+   administrador.</p>
+
+{# A aplicação tem SELECT e INSERT nesta tabela, e não tem UPDATE nem
+   DELETE. Esta tela lê; nada aqui consegue apagar ou reescrever o que já
+   foi gravado — nem por engano, nem por quem comprometer a aplicação. #}
+
+{% if resumo %}
+<h2>Por tipo de evento</h2>
+<table>
+  <thead>
+    <tr><th>Ação</th><th>Total</th></tr>
+  </thead>
+  <tbody>
+    {% for linha in resumo %}
+    <tr>
+      <td>{{ linha.acao }}</td>
+      <td>{{ linha.total }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2>Últimos {{ limite }} eventos</h2>
+
+{% if eventos %}
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Data e hora</th>
+      <th>Usuário</th>
+      <th>Ação</th>
+      <th>Tabela</th>
+      <th>Registro</th>
+      <th>Detalhe</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for evento in eventos %}
+    <tr>
+      <td>{{ evento.id }}</td>
+      <td>{{ evento.data_hora.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+      {# Sem `|safe` em nenhum campo: tudo passa pelo escape do Jinja2.
+         O detalhe é gravado pela aplicação e pelas triggers, mas tratá-lo
+         como confiável seria confiar em dado que já esteve no banco. #}
+      <td>{{ evento.usuario_login or '—' }}</td>
+      <td>{{ evento.acao }}</td>
+      <td>{{ evento.tabela_afetada or '—' }}</td>
+      <td>{{ evento.registro_id or '—' }}</td>
+      <td>{{ evento.detalhe or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Nenhum evento registrado.</p>
+{% endif %}
+{% endblock %}

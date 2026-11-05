@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block titulo %}{{ codigo }} — VillaJu{% endblock %}
+
+{% block conteudo %}
+{# Página genérica para todos os erros.
+
+   O texto exibido vem de um mapa fixo no servidor, nunca da exceção. Uma
+   mensagem de erro detalhada conta a quem está sondando o sistema qual
+   biblioteca falhou, qual consulta quebrou e, às vezes, qual arquivo
+   existe no disco. O detalhe vai para o log; a resposta só informa o que
+   a pessoa precisa saber para seguir. #}
+
+<h1>{{ codigo }}</h1>
+<p>{{ mensagem }}</p>
+
+{% if sessao_usuario %}
+<p><a href="{{ url_for('painel.inicio') }}">Voltar ao painel</a></p>
+{% else %}
+<p><a href="{{ url_for('auth.login') }}">Ir para a tela de entrada</a></p>
+{% endif %}
+{% endblock %}
