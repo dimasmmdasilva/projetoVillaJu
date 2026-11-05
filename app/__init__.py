@@ -47,8 +47,56 @@ def create_app(configuracao=None, iniciar_banco: bool = True) -> Flask:
     _registrar_rotas(app)
     _registrar_contexto(app)
     _registrar_cabecalhos_de_seguranca(app)
+    _registrar_paginas_de_erro(app)
 
     return app
+
+
+def _registrar_paginas_de_erro(app: Flask) -> None:
+    """Página de erro genérica, com o detalhe só no log (seção 6.4).
+
+    Uma mensagem de erro detalhada na resposta conta a quem está sondando
+    o sistema qual biblioteca falhou, qual consulta quebrou e às vezes
+    qual arquivo existe no disco. O texto exibido vem deste mapa fixo e
+    nunca da exceção.
+    """
+    import logging
+
+    from flask import render_template
+
+    registrador = logging.getLogger(__name__)
+
+    MENSAGENS = {
+        400: "A requisição não pôde ser entendida.",
+        401: "É preciso entrar no sistema para continuar.",
+        403: "Você não tem permissão para acessar esta página.",
+        404: "Página não encontrada.",
+        405: "Este endereço não aceita esse tipo de requisição.",
+        413: "O conteúdo enviado é grande demais.",
+        429: "Tentativas demais em pouco tempo. Aguarde um momento.",
+        500: "Ocorreu um erro inesperado. A equipe foi notificada.",
+    }
+
+    def responder(codigo):
+        def manipulador(erro):
+            if codigo >= 500:
+                # Só o erro interno vai ao log com rastro completo: os
+                # demais são resposta esperada a uma requisição ruim, e
+                # registrá-los todos afogaria o que importa.
+                registrador.exception("erro interno na requisição")
+            return (
+                render_template(
+                    "erro.html",
+                    codigo=codigo,
+                    mensagem=MENSAGENS.get(codigo, MENSAGENS[500]),
+                ),
+                codigo,
+            )
+
+        return manipulador
+
+    for codigo in MENSAGENS:
+        app.register_error_handler(codigo, responder(codigo))
 
 
 def _registrar_rotas(app: Flask) -> None:
@@ -88,8 +136,12 @@ def _registrar_contexto(app: Flask) -> None:
     @app.context_processor
     def injetar():
         from app.rotas.auth import usuario_da_sessao
+        from app.seguranca.autorizacao import tem_perfil
 
-        return {"sessao_usuario": usuario_da_sessao()}
+        return {
+            "sessao_usuario": usuario_da_sessao(),
+            "tem_perfil": tem_perfil,
+        }
 
 
 def _registrar_cabecalhos_de_seguranca(app: Flask) -> None:
