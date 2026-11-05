@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block titulo %}Reserva {{ reserva.id }} — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Reserva {{ reserva.id }}</h1>
+
+<table>
+  <tbody>
+    <tr><th>Chalé</th><td>{{ reserva.chale_nome }}</td></tr>
+    <tr>
+      <th>Hóspede</th>
+      <td>
+        {# O nome chega decifrado do repositório. Um registro que não
+           decifra aparece marcado, em vez de derrubar a página. #}
+        {% if hospede and hospede.nome %}
+          {{ hospede.nome }}
+        {% else %}
+          <em>registro {{ reserva.hospede_id }} não legível</em>
+        {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <th>Período</th>
+      <td>{{ reserva.data_entrada.strftime('%d/%m/%Y') }} a
+          {{ reserva.data_saida.strftime('%d/%m/%Y') }}
+          ({{ (reserva.data_saida - reserva.data_entrada).days }} diárias)</td>
+    </tr>
+    <tr><th>Pessoas</th><td>{{ reserva.num_pessoas }}</td></tr>
+    <tr><th>Situação</th><td><strong>{{ reserva.situacao }}</strong></td></tr>
+    <tr>
+      <th>Valor total</th>
+      <td>{{ 'R$ %.2f'|format(reserva.valor_total) if reserva.valor_total else '—' }}</td>
+    </tr>
+    <tr><th>Observações</th><td>{{ reserva.observacoes or '—' }}</td></tr>
+    <tr><th>Registrada por</th><td>{{ reserva.criado_por_login or '—' }}</td></tr>
+    <tr><th>Criada em</th><td>{{ reserva.criado_em.strftime('%d/%m/%Y %H:%M') }}</td></tr>
+  </tbody>
+</table>
+
+<h2>Situação</h2>
+
+{% if transicoes %}
+{# Cada transição é um POST próprio, com token CSRF. A situação não vem do
+   formulário de edição: de `cancelada` não se volta, e misturar as duas
+   coisas permitiria reabilitar uma reserva por um campo oculto. #}
+{% for destino in transicoes %}
+<form method="post" class="acao"
+      action="{{ url_for('reservas.mudar_situacao', identificador=reserva.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="situacao" value="{{ destino }}">
+  <button type="submit">Marcar como {{ destino }}</button>
+</form>
+{% endfor %}
+{% else %}
+<p>Uma reserva {{ reserva.situacao }} não muda mais de situação.</p>
+{% endif %}
+
+<h2>Ações</h2>
+<p>
+  {% if reserva.situacao in ('pendente', 'confirmada') %}
+  <a href="{{ url_for('reservas.editar', identificador=reserva.id) }}">Editar</a> &middot;
+  {% endif %}
+  <a href="{{ url_for('reservas.listar') }}">Voltar à lista</a>
+</p>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Nova reserva' if novo else 'Editar reserva' }} — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>{{ 'Nova reserva' if novo else 'Editar reserva ' ~ reserva.id }}</h1>
+
+{# As três regras validadas aqui são as mesmas da trigger do banco:
+   coerência de datas, capacidade do chalé e não-sobreposição. A validação
+   na aplicação serve à mensagem; a garantia continua sendo da trigger. #}
+
+<form method="post" class="formulario"
+      action="{{ url_for('reservas.nova') if novo
+                else url_for('reservas.editar', identificador=reserva.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <label for="chale_id">Chalé *</label>
+  <select id="chale_id" name="chale_id" required>
+    <option value="">selecione</option>
+    {% for chale in chales %}
+    <option value="{{ chale.id }}"
+            {{ 'selected' if reserva.chale_id == chale.id }}>
+      {{ chale.nome }} (até {{ chale.capacidade }} pessoas)
+    </option>
+    {% endfor %}
+  </select>
+
+  <label for="hospede_id">Hóspede *</label>
+  <select id="hospede_id" name="hospede_id" required>
+    <option value="">selecione</option>
+    {% for hospede in hospedes %}
+    <option value="{{ hospede.id }}"
+            {{ 'selected' if reserva.hospede_id == hospede.id }}>
+      {{ hospede.rotulo }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <label for="data_entrada">Entrada *</label>
+  <input type="date" id="data_entrada" name="data_entrada" required
+         value="{{ reserva.data_entrada|iso }}">
+
+  <label for="data_saida">Saída *</label>
+  <input type="date" id="data_saida" name="data_saida" required
+         value="{{ reserva.data_saida|iso }}">
+
+  <label for="num_pessoas">Pessoas *</label>
+  <input type="number" id="num_pessoas" name="num_pessoas" required
+         min="1" max="4" value="{{ reserva.num_pessoas or '' }}">
+
+  <label for="observacoes">Observações</label>
+  {# Campo não cifrado: a coluna é texto simples e seu conteúdo aparece na
+     interface. Não gravar documento, telefone nem e-mail aqui. #}
+  <textarea id="observacoes" name="observacoes" rows="3"
+            placeholder="Não inclua documento, telefone ou e-mail aqui.">{{ reserva.observacoes or '' }}</textarea>
+
+  <button type="submit">{{ 'Criar reserva' if novo else 'Salvar' }}</button>
+</form>
+
+<p>
+  {% if novo %}
+  <a href="{{ url_for('reservas.listar') }}">Voltar à lista</a>
+  {% else %}
+  <a href="{{ url_for('reservas.detalhe', identificador=reserva.id) }}">Voltar à reserva</a>
+  {% endif %}
+</p>
+{% endblock %}

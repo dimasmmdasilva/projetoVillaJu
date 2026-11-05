@@ -29,7 +29,7 @@
 {% if livres %}
 <table>
   <thead>
-    <tr><th>Chalé</th><th>Capacidade</th><th>Camas</th></tr>
+    <tr><th>Chalé</th><th>Capacidade</th><th>Camas</th><th></th></tr>
   </thead>
   <tbody>
     {% for chale in livres %}
@@ -37,6 +37,10 @@
       <td>{{ chale.nome }}</td>
       <td>{{ chale.capacidade }}</td>
       <td>{{ chale.configuracao_camas or '—' }}</td>
+      <td>
+        <a href="{{ url_for('reservas.nova', chale_id=chale.id,
+                            entrada=entrada, saida=saida) }}">Reservar</a>
+      </td>
     </tr>
     {% endfor %}
   </tbody>

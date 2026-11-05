@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block titulo %}Reservas — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Reservas</h1>
+
+<p>
+  <a href="{{ url_for('reservas.nova') }}">Nova reserva</a> &middot;
+  <a href="{{ url_for('reservas.disponibilidade') }}">Consultar disponibilidade</a>
+</p>
+
+<form method="get" action="{{ url_for('reservas.listar') }}">
+  <label for="situacao">Filtrar por situação</label>
+  <select id="situacao" name="situacao">
+    <option value="">todas</option>
+    {% for valor in situacoes %}
+    <option value="{{ valor }}" {{ 'selected' if situacao == valor }}>{{ valor }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filtrar</button>
+</form>
+
+{% if reservas %}
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Chalé</th>
+      <th>Período</th>
+      <th>Pessoas</th>
+      <th>Situação</th>
+      <th>Valor</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for reserva in reservas %}
+    <tr>
+      <td>{{ reserva.id }}</td>
+      <td>{{ reserva.chale_nome }}</td>
+      <td>{{ reserva.data_entrada.strftime('%d/%m/%Y') }} a
+          {{ reserva.data_saida.strftime('%d/%m/%Y') }}</td>
+      <td>{{ reserva.num_pessoas }}</td>
+      <td>{{ reserva.situacao }}</td>
+      <td>{{ 'R$ %.2f'|format(reserva.valor_total) if reserva.valor_total else '—' }}</td>
+      <td><a href="{{ url_for('reservas.detalhe', identificador=reserva.id) }}">Abrir</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Nenhuma reserva{{ ' com esta situação' if situacao }}.</p>
+{% endif %}
+{% endblock %}

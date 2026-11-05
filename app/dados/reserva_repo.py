@@ -28,8 +28,8 @@ entrada de outro no mesmo dia.
 
 import datetime as dt
 
-from app.dados.conexao import obter_cursor
-from app.dados.erros import ErroDeDados
+from app.dados.conexao import obter_conexao, obter_cursor
+from app.dados.erros import ErroDeDados, executar
 
 SITUACOES = ("pendente", "confirmada", "cancelada", "concluida")
 
@@ -178,3 +178,397 @@ def chale_disponivel(chale_id, entrada, saida, ignorar_id=0, usuario_id=None) ->
     return not conflitos(
         chale_id, entrada, saida, ignorar_id=ignorar_id, usuario_id=usuario_id
     )
+
+
+# ---------------------------------------------------------------------------
+# Transições de situação
+# ---------------------------------------------------------------------------
+# O ciclo de vida de uma reserva não é livre: de `cancelada` não se volta,
+# e `concluida` é terminal. Sem este mapa, a interface permitiria
+# reabilitar uma reserva cancelada só trocando o valor num campo oculto —
+# e a trigger não impediria, porque ela valida sobreposição, não história.
+TRANSICOES = {
+    "pendente": ("confirmada", "cancelada"),
+    "confirmada": ("cancelada", "concluida"),
+    "cancelada": (),
+    "concluida": (),
+}
+
+LIMITE_DE_OBSERVACOES = 2000
+
+# A lista de colunas aparece por extenso em cada consulta, sem f-string.
+# A regra vale para todo o projeto: nenhuma f-string chega a um `execute`,
+# de modo que qualquer uma que apareça seja anomalia visível.
+
+_SQL_CRIAR = (
+    "INSERT INTO reserva "
+    "(chale_id, hospede_id, data_entrada, data_saida, num_pessoas, "
+    " situacao, valor_total, observacoes, criado_por) "
+    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+)
+
+_SQL_ATUALIZAR = (
+    "UPDATE reserva SET chale_id = %s, hospede_id = %s, data_entrada = %s, "
+    "data_saida = %s, num_pessoas = %s, valor_total = %s, observacoes = %s "
+    "WHERE id = %s"
+)
+
+_SQL_MUDAR_SITUACAO = "UPDATE reserva SET situacao = %s WHERE id = %s"
+
+_SQL_POR_ID = (
+    "SELECT r.id, r.chale_id, r.hospede_id, r.data_entrada, r.data_saida, "
+    "       r.num_pessoas, r.situacao, r.valor_total, r.observacoes, "
+    "       r.criado_por, r.criado_em, r.alterado_em, "
+    "       c.nome AS chale_nome, c.capacidade AS chale_capacidade, "
+    "       u.login AS criado_por_login "
+    "FROM reserva r "
+    "JOIN chale c ON c.id = r.chale_id "
+    "LEFT JOIN usuario u ON u.id = r.criado_por "
+    "WHERE r.id = %s LIMIT 1"
+)
+
+_SQL_LISTAR = (
+    "SELECT r.id, r.chale_id, r.hospede_id, r.data_entrada, r.data_saida, "
+    "       r.num_pessoas, r.situacao, r.valor_total, r.observacoes, "
+    "       r.criado_por, r.criado_em, r.alterado_em, "
+    "       c.nome AS chale_nome, c.capacidade AS chale_capacidade, "
+    "       u.login AS criado_por_login "
+    "FROM reserva r "
+    "JOIN chale c ON c.id = r.chale_id "
+    "LEFT JOIN usuario u ON u.id = r.criado_por "
+    "ORDER BY r.data_entrada DESC, r.id DESC LIMIT %s"
+)
+
+_SQL_LISTAR_POR_SITUACAO = (
+    "SELECT r.id, r.chale_id, r.hospede_id, r.data_entrada, r.data_saida, "
+    "       r.num_pessoas, r.situacao, r.valor_total, r.observacoes, "
+    "       r.criado_por, r.criado_em, r.alterado_em, "
+    "       c.nome AS chale_nome, c.capacidade AS chale_capacidade, "
+    "       u.login AS criado_por_login "
+    "FROM reserva r "
+    "JOIN chale c ON c.id = r.chale_id "
+    "LEFT JOIN usuario u ON u.id = r.criado_por "
+    "WHERE r.situacao = %s "
+    "ORDER BY r.data_entrada DESC, r.id DESC LIMIT %s"
+)
+
+_SQL_POR_HOSPEDE = (
+    "SELECT r.id, r.chale_id, r.hospede_id, r.data_entrada, r.data_saida, "
+    "       r.num_pessoas, r.situacao, r.valor_total, r.observacoes, "
+    "       r.criado_por, r.criado_em, r.alterado_em, "
+    "       c.nome AS chale_nome, c.capacidade AS chale_capacidade, "
+    "       u.login AS criado_por_login "
+    "FROM reserva r "
+    "JOIN chale c ON c.id = r.chale_id "
+    "LEFT JOIN usuario u ON u.id = r.criado_por "
+    "WHERE r.hospede_id = %s "
+    "ORDER BY r.data_entrada DESC, r.id DESC"
+)
+
+_SQL_CHALE = "SELECT capacidade, ativo, nome FROM chale WHERE id = %s"
+_SQL_HOSPEDE_EXISTE = "SELECT 1 FROM hospede WHERE id = %s"
+_SQL_CONTAR_ATIVAS = (
+    "SELECT COUNT(*) FROM reserva WHERE situacao IN ('pendente', 'confirmada')"
+)
+
+
+def _validar_regras(cursor, dados: dict, ignorar_id=0) -> None:
+    """Espelha na aplicação as três regras da trigger.
+
+    Não substitui a trigger: antecipa. Se esta função tiver defeito, a
+    reserva conflitante continua não entrando — o banco a recusa. O que se
+    ganha aqui é a mensagem: "o Embaré já está reservado de 15 a 20/12"
+    diz mais do que "erro 1644".
+
+    A ordem das verificações segue a da trigger, de propósito: quando as
+    duas recusarem a mesma operação, recusarão pelo mesmo motivo.
+    """
+    # Regra 1 — coerência de datas: já aplicada por `validar_periodo`.
+
+    # Regra 2 — capacidade do chalé.
+    cursor.execute(_SQL_CHALE, (dados["chale_id"],))
+    chale = cursor.fetchone()
+
+    if chale is None:
+        raise ErroDeReserva("O chalé informado não existe.")
+
+    capacidade, ativo, nome = chale[0], chale[1], chale[2]
+
+    if not ativo:
+        raise ErroDeReserva(
+            f"O chalé {nome} está desativado e não aceita novas reservas."
+        )
+
+    if dados["num_pessoas"] > capacidade:
+        plural = "s" if capacidade != 1 else ""
+        raise ErroDeReserva(
+            f"O chalé {nome} comporta {capacidade} pessoa{plural}; "
+            f"foram informadas {dados['num_pessoas']}."
+        )
+
+    # O hóspede precisa existir. A chave estrangeira garantiria, mas o
+    # erro dela não diz qual campo está errado.
+    cursor.execute(_SQL_HOSPEDE_EXISTE, (dados["hospede_id"],))
+    if cursor.fetchone() is None:
+        raise ErroDeReserva("O hóspede informado não existe.")
+
+    # Regra 3 — não-sobreposição. Só vale quando a reserva ocupa o chalé.
+    if dados["situacao"] not in SITUACOES_ATIVAS:
+        return
+
+    cursor.execute(
+        _SQL_CONFLITOS,
+        (
+            dados["chale_id"],
+            ignorar_id or 0,
+            dados["data_entrada"],
+            dados["data_saida"],
+        ),
+    )
+
+    # fetchall, não fetchone: a consulta pode devolver mais de uma reserva
+    # em conflito, e deixar linhas pendentes faz o próximo `execute` na
+    # mesma conexão falhar com "Unread result found".
+    achados = cursor.fetchall()
+    conflito = achados[0] if achados else None
+
+    if conflito:
+        raise ErroDeReserva(
+            f"O chalé {nome} já está reservado de "
+            f"{conflito[1]:%d/%m/%Y} a {conflito[2]:%d/%m/%Y}. "
+            f"Escolha outro período ou outro chalé."
+        )
+
+
+def _limpar(dados: dict) -> dict:
+    entrada, saida = validar_periodo(
+        dados.get("data_entrada"), dados.get("data_saida")
+    )
+
+    try:
+        chale_id = int(dados.get("chale_id"))
+        hospede_id = int(dados.get("hospede_id"))
+    except (TypeError, ValueError):
+        raise ErroDeReserva("Selecione o chalé e o hóspede.") from None
+
+    try:
+        pessoas = int(dados.get("num_pessoas"))
+    except (TypeError, ValueError):
+        raise ErroDeReserva(
+            "O número de pessoas precisa ser um número inteiro."
+        ) from None
+
+    if pessoas < 1:
+        raise ErroDeReserva("A reserva precisa ter ao menos uma pessoa.")
+
+    situacao = (dados.get("situacao") or "pendente").strip()
+    if situacao not in SITUACOES:
+        raise ErroDeReserva("Situação de reserva inválida.")
+
+    observacoes = dados.get("observacoes")
+    observacoes = (
+        observacoes.strip() if isinstance(observacoes, str) else observacoes
+    )
+    if observacoes and len(observacoes) > LIMITE_DE_OBSERVACOES:
+        raise ErroDeReserva(
+            f"As observações têm {len(observacoes)} caracteres; "
+            f"o limite é {LIMITE_DE_OBSERVACOES}."
+        )
+
+    return {
+        "chale_id": chale_id,
+        "hospede_id": hospede_id,
+        "data_entrada": entrada,
+        "data_saida": saida,
+        "num_pessoas": pessoas,
+        "situacao": situacao,
+        "valor_total": dados.get("valor_total"),
+        "observacoes": observacoes or None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Escrita
+# ---------------------------------------------------------------------------
+
+def criar(dados: dict, usuario_id=None) -> int:
+    """Grava uma reserva nova, validando antes de tentar.
+
+    A validação e a gravação acontecem na mesma transação e na mesma
+    conexão. Isso importa: verificar o conflito numa conexão e gravar em
+    outra abriria uma janela entre as duas, e duas requisições simultâneas
+    poderiam passar as duas pela verificação. A trigger fecharia essa
+    janela de qualquer forma — é exatamente para isso que ela existe —
+    mas a mensagem ao usuário seria pior.
+    """
+    limpo = _limpar(dados)
+
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            _validar_regras(cursor, limpo)
+            executar(
+                cursor,
+                _SQL_CRIAR,
+                (
+                    limpo["chale_id"],
+                    limpo["hospede_id"],
+                    limpo["data_entrada"],
+                    limpo["data_saida"],
+                    limpo["num_pessoas"],
+                    limpo["situacao"],
+                    limpo["valor_total"],
+                    limpo["observacoes"],
+                    usuario_id,
+                ),
+            )
+            return cursor.lastrowid
+        finally:
+            cursor.close()
+
+
+def atualizar(identificador, dados: dict, usuario_id=None) -> None:
+    """Altera uma reserva existente.
+
+    A situação NÃO é alterada aqui: ela tem regra própria de transição e
+    rota própria. Misturar as duas coisas permitiria passar de `cancelada`
+    para `confirmada` por um campo de formulário.
+    """
+    limpo = _limpar(dados)
+
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            cursor.execute(
+                "SELECT situacao FROM reserva WHERE id = %s", (identificador,)
+            )
+            atual = cursor.fetchone()
+            if atual is None:
+                raise ErroDeReserva("A reserva informada não existe.")
+
+            if atual[0] in ("cancelada", "concluida"):
+                raise ErroDeReserva(
+                    f"Uma reserva {atual[0]} não pode ser alterada."
+                )
+
+            # A situação atual entra na validação para que a verificação
+            # de conflito considere se esta reserva ocupa o chalé.
+            limpo["situacao"] = atual[0]
+            _validar_regras(cursor, limpo, ignorar_id=identificador)
+
+            executar(
+                cursor,
+                _SQL_ATUALIZAR,
+                (
+                    limpo["chale_id"],
+                    limpo["hospede_id"],
+                    limpo["data_entrada"],
+                    limpo["data_saida"],
+                    limpo["num_pessoas"],
+                    limpo["valor_total"],
+                    limpo["observacoes"],
+                    identificador,
+                ),
+            )
+        finally:
+            cursor.close()
+
+
+def mudar_situacao(identificador, nova: str, usuario_id=None) -> None:
+    """Move a reserva no ciclo de vida, respeitando as transições.
+
+    Confirmar uma reserva pendente exige reverificar o conflito: entre a
+    criação e a confirmação, outra reserva pode ter ocupado o período. A
+    trigger reverifica de qualquer forma; aqui se antecipa a mensagem.
+    """
+    nova = (nova or "").strip()
+    if nova not in SITUACOES:
+        raise ErroDeReserva("Situação de reserva inválida.")
+
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            cursor.execute(
+                "SELECT situacao, chale_id, data_entrada, data_saida, "
+                "       num_pessoas, hospede_id "
+                "FROM reserva WHERE id = %s",
+                (identificador,),
+            )
+            linha = cursor.fetchone()
+            if linha is None:
+                raise ErroDeReserva("A reserva informada não existe.")
+
+            atual = linha[0]
+
+            if nova == atual:
+                return
+
+            if nova not in TRANSICOES[atual]:
+                permitidas = TRANSICOES[atual]
+                destino = (
+                    " ou ".join(permitidas)
+                    if permitidas
+                    else "nenhuma outra situação"
+                )
+                raise ErroDeReserva(
+                    f"Uma reserva {atual} só pode passar para {destino}."
+                )
+
+            if nova in SITUACOES_ATIVAS and atual not in SITUACOES_ATIVAS:
+                _validar_regras(
+                    cursor,
+                    {
+                        "chale_id": linha[1],
+                        "hospede_id": linha[5],
+                        "data_entrada": linha[2],
+                        "data_saida": linha[3],
+                        "num_pessoas": linha[4],
+                        "situacao": nova,
+                    },
+                    ignorar_id=identificador,
+                )
+
+            executar(cursor, _SQL_MUDAR_SITUACAO, (nova, identificador))
+        finally:
+            cursor.close()
+
+
+# ---------------------------------------------------------------------------
+# Leitura
+# ---------------------------------------------------------------------------
+
+def buscar_por_id(identificador, usuario_id=None):
+    with obter_cursor(usuario_id=usuario_id, dicionario=True) as cursor:
+        cursor.execute(_SQL_POR_ID, (identificador,))
+        return cursor.fetchone()
+
+
+def listar(situacao: str = None, limite: int = 200, usuario_id=None) -> list:
+    limite = max(1, min(int(limite), 1000))
+
+    with obter_cursor(usuario_id=usuario_id, dicionario=True) as cursor:
+        if situacao:
+            if situacao not in SITUACOES:
+                raise ErroDeReserva("Situação de reserva inválida.")
+            cursor.execute(_SQL_LISTAR_POR_SITUACAO, (situacao, limite))
+        else:
+            cursor.execute(_SQL_LISTAR, (limite,))
+        return cursor.fetchall()
+
+
+def listar_por_hospede(hospede_id, usuario_id=None) -> list:
+    """Reservas de um hóspede. Base da tela do perfil `hospede`.
+
+    A filtragem é feita no SQL, não em Python: trazer todas as reservas e
+    descartar as dos outros faria o banco entregar dado que o solicitante
+    não pode ver, e bastaria um esquecimento no filtro para exibi-lo.
+    """
+    with obter_cursor(usuario_id=usuario_id, dicionario=True) as cursor:
+        cursor.execute(_SQL_POR_HOSPEDE, (hospede_id,))
+        return cursor.fetchall()
+
+
+def contar_ativas(usuario_id=None) -> int:
+    with obter_cursor(usuario_id=usuario_id) as cursor:
+        cursor.execute(_SQL_CONTAR_ATIVAS)
+        return cursor.fetchone()[0]
