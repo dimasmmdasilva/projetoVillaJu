@@ -243,6 +243,21 @@ INSERT INTO usuario (login, nome, senha_hash, perfil, hospede_id) VALUES
 
 -- ===========================================================================
 -- RESERVAS
+--
+-- O valor de cada reserva e a soma das diarias, noite a noite, pela tarifa
+-- vigente em cada data - intervalo semiaberto, sem cobrar a noite da saida.
+-- O teste test_valor_gravado_bate_com_o_calculo_noite_a_noite confere os
+-- sete valores abaixo contra a tabela de tarifas.
+--
+-- A reserva do Camburi de 10 a 18/12 atravessa a virada de temporada e
+-- existe para exercitar esse caso:
+--   5 noites x 300,00 (baixa, ate 14/12) = 1.500,00
+--   3 noites x 540,00 (alta, de 15/12)   = 1.620,00
+--                                total     3.120,00
+-- Ela trazia 3.480,00 ate a Etapa 3. O numero saiu de 5 x 300 + 3 x 660, e
+-- 660 e a alta do Asturias, nao a do Camburi: diaria do chale errado, num
+-- calculo feito a mao. A tela de detalhe mostrava os dois numeros lado a
+-- lado - o total gravado e a conta aberta - e nao batiam.
 -- ===========================================================================
 -- Daqui em diante a recepção está operando: o identificador do usuário vai
 -- para a variável de sessão, e as triggers de auditoria passam a registrar
@@ -274,7 +289,7 @@ VALUES
  'Hóspede recorrente.', 2),
 
 -- Camburi: atravessa a virada de temporada (baixa até 14/12, alta a partir de 15)
-(2, 3, '2026-12-10', '2026-12-18', 4, 'confirmada', 3480.00,
+(2, 3, '2026-12-10', '2026-12-18', 4, 'confirmada', 3120.00,
  'Período cruza a virada de temporada.', 2),
 
 -- Asturias: uma cancelada e outra ocupando o mesmo período

@@ -425,3 +425,59 @@ def test_script_avisa_que_os_dados_nao_sao_ciphertext_real():
 
     texto = SCRIPT_DADOS.read_text(encoding="utf-8").lower()
     assert "não são ciphertext real" in texto or "nao sao ciphertext real" in texto
+
+
+def test_valor_gravado_bate_com_o_calculo_noite_a_noite(banco_com_dados):
+    """Os valores da massa precisam sair da tabela de tarifas.
+
+    Este teste nasceu de um defeito visível. A reserva do Camburi de 10 a
+    18/12 trazia 3.480,00 escrito à mão na massa, enquanto o cálculo
+    noite a noite dá 3.120,00. O número veio de 5 x 300 + 3 x 660, e 660 é
+    a diária de alta do Asturias, não a do Camburi — diária do chalé
+    errado.
+
+    O efeito aparecia na tela de detalhe da reserva, que mostra o total
+    gravado e a conta aberta lado a lado: dois números diferentes para a
+    mesma estadia, na reserva que existe justamente para demonstrar a
+    virada de temporada.
+
+    A soma é feita aqui em SQL puro, de propósito. Usar `app.dados.calculo`
+    faria o teste comparar a massa com o mesmo código que a produziu nas
+    telas, e um erro de sinal na condição de vigência passaria nos dois
+    lados. Em SQL, a conta é independente da aplicação.
+    """
+    banco_com_dados.execute(
+        "SELECT r.id, c.nome, r.data_entrada, r.data_saida, r.valor_total, "
+        "  ( SELECT SUM(t.valor_diaria) "
+        "      FROM tarifa t "
+        "      JOIN ( SELECT r.data_entrada + INTERVAL seq.n DAY AS noite "
+        "               FROM ( SELECT 0 AS n UNION ALL SELECT 1 UNION ALL "
+        "                      SELECT 2 UNION ALL SELECT 3 UNION ALL "
+        "                      SELECT 4 UNION ALL SELECT 5 UNION ALL "
+        "                      SELECT 6 UNION ALL SELECT 7 UNION ALL "
+        "                      SELECT 8 UNION ALL SELECT 9 ) AS seq "
+        "              WHERE seq.n < DATEDIFF(r.data_saida, r.data_entrada) "
+        "           ) AS noites "
+        "        ON noites.noite BETWEEN t.data_inicio AND t.data_fim "
+        "     WHERE t.chale_id = r.chale_id ) AS somado "
+        "FROM reserva r JOIN chale c ON c.id = r.chale_id "
+        "ORDER BY r.id"
+    )
+
+    divergentes = []
+    for identificador, nome, entrada, saida, gravado, somado in (
+        banco_com_dados.fetchall()
+    ):
+        assert somado is not None, (
+            f"reserva {identificador} ({nome}) não tem tarifa para o período "
+            f"{entrada} a {saida}"
+        )
+        if gravado != somado:
+            divergentes.append(
+                f"reserva {identificador} ({nome}, {entrada} a {saida}): "
+                f"gravado {gravado}, soma das diárias {somado}"
+            )
+
+    assert not divergentes, "valores que não saem da tabela de tarifas:\n  " + (
+        "\n  ".join(divergentes)
+    )
