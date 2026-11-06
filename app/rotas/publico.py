@@ -60,9 +60,16 @@ HOSPEDARIA = {
 # apresentação. É conteúdo provisório declarado, não lacuna esquecida: a
 # página não fica com espaço vazio nem com imagem quebrada, e a troca é
 # substituir o arquivo em `static/img/chales/`.
-CORES_PROVISORIAS = (
-    "#2f3e34", "#3d5245", "#4a6456", "#577667", "#648878",
-)
+#
+# O que varia é a CLASSE, não a cor. A primeira versão escrevia a cor num
+# atributo `style=` do template, e o navegador a bloqueou: a política de
+# conteúdo da aplicação declara `style-src 'self'`, sem `unsafe-inline`.
+# Os blocos apareciam vazios na tela.
+#
+# A correção foi tirar o estilo do HTML, não afrouxar a política —
+# permitir estilo embutido para resolver um bloco decorativo enfraqueceria
+# a defesa contra XSS no sistema inteiro, e por um motivo cosmético.
+TOTAL_DE_CORES = 5
 
 
 @publico.route("/")
@@ -99,9 +106,7 @@ def inicio():
         banco_disponivel = False
 
     for posicao, chale in enumerate(chales):
-        chale["cor_provisoria"] = CORES_PROVISORIAS[
-            posicao % len(CORES_PROVISORIAS)
-        ]
+        chale["cor_provisoria"] = posicao % TOTAL_DE_CORES + 1
 
     return render_template(
         "publico/inicio.html",

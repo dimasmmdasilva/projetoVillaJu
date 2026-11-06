@@ -39,7 +39,9 @@
   {% for chale in chales %}
   <article class="cartao-chale">
     {# A faixa de cor substitui a fotografia enquanto ela não chega. #}
-    <div class="foto-provisoria" style="background: {{ chale.cor_provisoria }}">
+    {# A cor vem por classe, não por atributo `style=`: a política de
+       conteúdo bloqueia estilo embutido. #}
+    <div class="foto-provisoria foto-provisoria--{{ chale.cor_provisoria }}">
       <span>{{ chale.nome }}</span>
     </div>
 

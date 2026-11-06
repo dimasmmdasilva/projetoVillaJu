@@ -30,8 +30,10 @@
 
 <header class="cabecalho-publico">
   <a class="marca" href="{{ url_for('publico.inicio') }}">{{ hospedaria.nome }}</a>
+  {# Sem link para "Chalés": eles são a página, e âncora para o que já
+     está à vista é ruído. "Localização" fica, porque está abaixo dos
+     cinco cartões e não se alcança sem rolar. #}
   <nav>
-    <a href="#chales">Chalés</a>
     <a href="#localizacao">Localização</a>
   </nav>
   {# Link discreto, e não botão em destaque: quem precisa dele são três
@@ -53,8 +55,7 @@
     {{ hospedaria.endereco }} &middot; {{ hospedaria.cidade }}
   </p>
   <p class="aviso-academico">
-    Sítio desenvolvido como Projeto Integrador do curso de Bacharelado em
-    Cibersegurança da PUC-Campinas. Conteúdo em caráter demonstrativo.
+    Projeto Integrador 4 — Bacharelado em Cibersegurança — PUC-Campinas.
   </p>
 </footer>
 

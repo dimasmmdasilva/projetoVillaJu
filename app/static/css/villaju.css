@@ -201,3 +201,17 @@ body.publico main {
 }
 
 .rodape-publico .aviso-academico { color: #777; font-size: 0.82rem; }
+
+/* As cinco faixas provisórias, uma por chalé.
+ *
+ * Como classes, e não como atributo `style=` no template: a política de
+ * conteúdo da aplicação declara `style-src 'self'`, sem `unsafe-inline`.
+ * A primeira versão escrevia a cor direto no HTML e o navegador a
+ * bloqueou — os blocos apareciam vazios. Afrouxar a política para
+ * resolver um detalhe decorativo enfraqueceria a defesa contra XSS em
+ * todo o sistema. */
+.foto-provisoria--1 { background: #2f3e34; }
+.foto-provisoria--2 { background: #3d5245; }
+.foto-provisoria--3 { background: #4a6456; }
+.foto-provisoria--4 { background: #577667; }
+.foto-provisoria--5 { background: #648878; }

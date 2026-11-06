@@ -371,3 +371,60 @@ def test_a_vitrine_responde_com_o_banco_fora_do_ar(aplicacao, visitante):
         assert "Nenhum chalé disponível" not in html
     finally:
         conexao.iniciar_pool(Configuracao(modo_teste=True))
+
+
+# ---------------------------------------------------------------------------
+# O que a política de conteúdo bloqueia nos templates
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "atributo,explicacao",
+    [
+        ('style="', "`style-src 'self'` bloqueia estilo embutido"),
+        ("<style", "`style-src 'self'` bloqueia bloco <style> embutido"),
+        ("onclick=", "`script-src 'self'` bloqueia manipulador embutido"),
+        ("onload=", "`script-src 'self'` bloqueia manipulador embutido"),
+        ("onerror=", "`script-src 'self'` bloqueia manipulador embutido"),
+        ("javascript:", "`script-src 'self'` bloqueia URL javascript:"),
+    ],
+)
+def test_nenhum_template_usa_recurso_que_a_csp_bloqueia(atributo, explicacao):
+    """Template que viola a própria política da aplicação falha em silêncio.
+
+    Este teste nasceu de um defeito que a suíte inteira deixou passar e
+    que foi visto na tela. A vitrine desenhava uma faixa de cor por chalé
+    com `style="background: ..."` no HTML. O navegador bloqueou o
+    atributo, porque a aplicação declara:
+
+        Content-Security-Policy: ... style-src 'self' ...
+
+    sem `unsafe-inline`. O resultado não foi erro nem aviso: os blocos
+    simplesmente apareceram vazios, e vinte testes continuaram passando,
+    porque todos olhavam o HTML que o servidor produziu — que estava
+    correto — e nenhum olhava o que o navegador faria com ele.
+
+    A correção foi tirar o estilo do HTML e pô-lo em classe no arquivo
+    CSS. **Não** afrouxar a política: permitir estilo embutido para
+    resolver um bloco decorativo enfraqueceria a defesa contra XSS em
+    todo o sistema, e por motivo cosmético.
+    """
+    import pathlib
+
+    raiz = pathlib.Path(__file__).resolve().parents[1]
+    violacoes = []
+
+    for caminho in sorted((raiz / "app" / "templates").rglob("*.html")):
+        texto = caminho.read_text(encoding="utf-8")
+        for numero, linha in enumerate(texto.split("\n"), start=1):
+            # Comentários do Jinja2 e do HTML explicam a regra; não a violam.
+            despido = linha.strip()
+            if despido.startswith(("{#", "#}", "<!--")) or "{#" in linha:
+                continue
+            if atributo in linha:
+                relativo = caminho.relative_to(raiz).as_posix()
+                violacoes.append(f"{relativo}:{numero}: {despido[:70]}")
+
+    assert not violacoes, (
+        f"{explicacao}; o navegador bloqueia e a página falha em "
+        f"silêncio:\n  " + "\n  ".join(violacoes)
+    )
