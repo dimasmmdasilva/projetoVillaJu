@@ -92,13 +92,25 @@ COLUNAS = {
         "data_hora": ("datetime", False),
         "detalhe": ("varchar", True),
     },
+    # Os campos pessoais do contato passaram a ser cifrados na Etapa 4.
+    # A primeira versão os guardava em texto simples, com o argumento de
+    # que pedido de contato é dado de menor sensibilidade que cadastro de
+    # hóspede — argumento recusado em 06/11: é a mesma pessoa, com o mesmo
+    # nome e o mesmo telefone.
     "contato": {
         "id": ("int", False),
-        "nome": ("varchar", False),
-        "email": ("varchar", False),
-        "telefone": ("varchar", True),
-        "mensagem": ("text", True),
+        "nome_cif": ("varbinary", False),
+        "nome_nonce": ("varbinary", False),
+        "nome_tag": ("varbinary", False),
+        "email_cif": ("varbinary", False),
+        "email_nonce": ("varbinary", False),
+        "email_tag": ("varbinary", False),
+        "telefone_cif": ("varbinary", True),
+        "mensagem_cif": ("varbinary", True),
+        "email_busca": ("varbinary", False),
+        "cripto_versao": ("tinyint", False),
         "chale_interesse_id": ("int", True),
+        "hospede_id": ("int", True),
         "ip_origem": ("varbinary", True),
         "situacao": ("enum", False),
         "criado_em": ("datetime", False),
@@ -114,6 +126,9 @@ CHAVES_ESTRANGEIRAS = {
     ("reserva", "criado_por"): ("usuario", "SET NULL"),
     ("log_auditoria", "usuario_id"): ("usuario", "SET NULL"),
     ("contato", "chale_interesse_id"): ("chale", "SET NULL"),
+    # SET NULL, e não CASCADE: o contato é o registro de que alguém pediu
+    # informação, e sobrevive à remoção do cadastro que ele originou.
+    ("contato", "hospede_id"): ("hospede", "SET NULL"),
 }
 
 UNICIDADE = [
@@ -126,7 +141,13 @@ UNICIDADE = [
 ENUMS = {
     ("reserva", "situacao"): {"pendente", "confirmada", "cancelada", "concluida"},
     ("usuario", "perfil"): {"administrador", "recepcionista", "hospede"},
-    ("contato", "situacao"): {"novo", "em_atendimento", "respondido", "descartado"},
+    ("contato", "situacao"): {
+        "novo",
+        "em_atendimento",
+        "respondido",
+        "convertido",
+        "descartado",
+    },
 }
 
 # Colunas da tabela hospede que guardam bytes, nunca texto.

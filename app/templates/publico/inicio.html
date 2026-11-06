@@ -60,9 +60,16 @@
         <dd>{{ chale.comodidades }}</dd>
       </dl>
 
-      {# O botão de solicitar reserva entra no Bloco 2, junto com o
-         formulário de contato. Até lá, não há botão: um que não leva a
-         lugar algum é pior do que nenhum. #}
+      {# O botão leva ao formulário com este chalé já selecionado: o
+         visitante escolhe clicando no que está vendo, em vez de procurar
+         o nome outra vez numa lista. Não cria reserva — grava um pedido
+         que a recepção confirma. #}
+      <p class="acao-chale">
+        <a class="botao"
+           href="{{ url_for('publico.contato', chale=chale.id) }}">
+          Solicitar reserva
+        </a>
+      </p>
     </div>
   </article>
   {% endfor %}

@@ -151,6 +151,20 @@ def aad_hospede(identificador) -> bytes:
     return f"hospede:{identificador}".encode("utf-8")
 
 
+def aad_contato(identificador) -> bytes:
+    """A mesma etiqueta, para os pedidos de contato.
+
+    O prefixo não é decoração. Sem ele, `hospede:7` e `contato:7` teriam
+    o mesmo dado adicional, e um bloco cifrado poderia ser movido de uma
+    tabela para a outra sem que a verificação de integridade reclamasse —
+    o nome de um hóspede apareceria como o nome de quem pediu informação,
+    ou o contrário.
+
+    Com o prefixo, o vínculo é com a linha *daquela* tabela.
+    """
+    return f"contato:{identificador}".encode("utf-8")
+
+
 # ---------------------------------------------------------------------------
 # Cifragem
 # ---------------------------------------------------------------------------

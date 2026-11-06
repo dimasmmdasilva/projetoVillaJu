@@ -337,25 +337,59 @@ VALUES
 -- INET6_ATON converte o endereço para a forma binária de 16 bytes, que é
 -- como a coluna o guarda.
 
+-- Os campos pessoais recebem bytes aleatórios, pelo mesmo motivo e com a
+-- mesma consequência dos hóspedes: a massa nasceu antes do módulo de
+-- criptografia, e gerar ciphertext verdadeiro exigiria a chave, que vive
+-- no .env e jamais entra num arquivo versionado.
+--
+-- Esses bytes NÃO decifram. Servem para dar linhas à tela de atendimento
+-- e para verificar que o log de auditoria não copia conteúdo dessas
+-- colunas. Rode `python scripts/regerar_dados_pessoais.py` para
+-- substituí-los por registros cifrados de verdade.
+--
+-- O `email_busca` precisa ser determinístico para que a contagem de
+-- contatos da mesma pessoa funcione; aqui ele é um SHA2 do endereço
+-- fictício, substituído pelo HMAC real quando o script roda.
+
 INSERT INTO contato
-    (nome, email, telefone, mensagem, chale_interesse_id,
+    (nome_cif, nome_nonce, nome_tag,
+     email_cif, email_nonce, email_tag,
+     telefone_cif, telefone_nonce, telefone_tag,
+     mensagem_cif, mensagem_nonce, mensagem_tag,
+     email_busca, chale_interesse_id,
      data_entrada_desejada, data_saida_desejada, origem, ip_origem, situacao)
 VALUES
-('Mariana Alves', 'mariana.alves@exemplo.com', '(11) 98888-1234',
- 'Gostaria de saber a disponibilidade do Asturias para o Carnaval.',
- 3, '2027-02-12', '2027-02-17', 'site', INET6_ATON('192.168.0.31'), 'novo'),
+-- Pedido sobre o Asturias no Carnaval
+(RANDOM_BYTES(13), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ RANDOM_BYTES(25), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ RANDOM_BYTES(15), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ RANDOM_BYTES(62), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ UNHEX(SHA2('mariana.alves@exemplo.com', 256)), 3,
+ '2027-02-12', '2027-02-17', 'site', INET6_ATON('192.168.0.31'), 'novo'),
 
-('Carlos Pereira', 'carlos.pereira@exemplo.com', '(12) 99777-5678',
- 'Vocês aceitam animais de estimação? Somos duas pessoas e um cachorro.',
- NULL, NULL, NULL, 'instagram', INET6_ATON('192.168.0.74'), 'em_atendimento'),
+-- Pergunta sobre animais de estimação, sem chalé definido
+(RANDOM_BYTES(15), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ RANDOM_BYTES(25), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ RANDOM_BYTES(15), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ RANDOM_BYTES(68), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ UNHEX(SHA2('carlos.pereira@exemplo.com', 256)), NULL,
+ NULL, NULL, 'instagram', INET6_ATON('192.168.0.74'), 'em_atendimento'),
 
-('Fernanda Lima', 'fernanda.lima@exemplo.com', NULL,
- 'Qual o valor da diária do Dunas em março?',
- 5, '2027-03-07', '2027-03-10', 'site', INET6_ATON('10.0.0.15'), 'respondido'),
+-- Já respondido, e sem telefone informado
+(RANDOM_BYTES(14), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ RANDOM_BYTES(26), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ NULL, NULL, NULL,
+ RANDOM_BYTES(40), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ UNHEX(SHA2('fernanda.lima@exemplo.com', 256)), 5,
+ '2027-03-07', '2027-03-10', 'site', INET6_ATON('10.0.0.15'), 'respondido'),
 
-('Contato sem retorno', 'sem.retorno@exemplo.com', NULL,
- 'Mensagem automática, descartada pela equipe.',
- NULL, NULL, NULL, 'site', INET6_ATON('203.0.113.9'), 'descartado');
+-- Descartado pela equipe
+(RANDOM_BYTES(19), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ RANDOM_BYTES(22), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ NULL, NULL, NULL,
+ RANDOM_BYTES(43), RANDOM_BYTES(12), RANDOM_BYTES(16),
+ UNHEX(SHA2('sem.retorno@exemplo.com', 256)), NULL,
+ NULL, NULL, 'site', INET6_ATON('203.0.113.9'), 'descartado');
 
 
 -- A sessão termina sem usuário definido, para não vazar o identificador

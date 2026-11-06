@@ -343,10 +343,52 @@ CREATE TABLE log_auditoria (
 
 CREATE TABLE contato (
     id                      INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nome                    VARCHAR(100) NOT NULL,
-    email                   VARCHAR(150) NOT NULL,
-    telefone                VARCHAR(30) NULL,
-    mensagem                TEXT NULL,
+
+    -- --------------------------------------------------------------------
+    -- Dados pessoais, cifrados com AES-256-GCM
+    --
+    -- A primeira versão desta tabela guardava nome, e-mail, telefone e
+    -- mensagem em texto simples, com o argumento de que um pedido de
+    -- contato é dado de menor sensibilidade que um cadastro de hóspede.
+    -- O argumento não se sustenta: é a mesma pessoa, com o mesmo nome e o
+    -- mesmo telefone, e quem obtiver acesso de leitura ao banco não vai
+    -- achar a distinção relevante.
+    --
+    -- Decidido em 06/11: tudo o que a hospedaria obtém de uma pessoa
+    -- nasce cifrado, sem exceção por categoria.
+    --
+    -- O ciphertext do AES-GCM tem o mesmo tamanho do texto claro, por
+    -- isso os limites em bytes abaixo são os limites de entrada do
+    -- formulário, e a aplicação os impõe antes de cifrar.
+    -- --------------------------------------------------------------------
+    nome_cif                VARBINARY(512) NOT NULL,
+    nome_nonce              VARBINARY(12) NOT NULL,
+    nome_tag                VARBINARY(16) NOT NULL,
+
+    email_cif               VARBINARY(512) NOT NULL,
+    email_nonce             VARBINARY(12) NOT NULL,
+    email_tag               VARBINARY(16) NOT NULL,
+
+    telefone_cif            VARBINARY(256) NULL,
+    telefone_nonce          VARBINARY(12) NULL,
+    telefone_tag            VARBINARY(16) NULL,
+
+    mensagem_cif            VARBINARY(4096) NULL,
+    mensagem_nonce          VARBINARY(12) NULL,
+    mensagem_tag            VARBINARY(16) NULL,
+
+    -- Índice HMAC-SHA256 do e-mail, para a recepção ver quantas vezes a
+    -- mesma pessoa já escreveu. NÃO é único: vários pedidos da mesma
+    -- pessoa são legítimos, e é justamente contá-los que interessa.
+    -- O campo cifrado não serve para isso: o AES-GCM é não determinístico,
+    -- e cifrar o mesmo e-mail duas vezes produz bytes diferentes.
+    email_busca             VARBINARY(32) NOT NULL,
+
+    cripto_versao           TINYINT UNSIGNED NOT NULL DEFAULT 1,
+
+    -- --------------------------------------------------------------------
+    -- Dados não pessoais
+    -- --------------------------------------------------------------------
 
     -- SET NULL: o pedido de contato continua válido mesmo que o chalé de
     -- interesse deixe de existir.
@@ -361,8 +403,16 @@ CREATE TABLE contato (
     -- mais espaço e dificultaria a comparação.
     ip_origem               VARBINARY(16) NULL,
 
-    situacao                ENUM('novo','em_atendimento','respondido','descartado')
+    situacao                ENUM('novo','em_atendimento','respondido',
+                                 'convertido','descartado')
                             NOT NULL DEFAULT 'novo',
+
+    -- Preenchido quando a recepção converte o pedido num cadastro de
+    -- hóspede. SET NULL, e não CASCADE: o contato é o registro de que
+    -- alguém pediu informação, e sobrevive à remoção do cadastro que ele
+    -- originou. Apagá-lo junto destruiria a resposta a "de onde vieram os
+    -- hóspedes deste verão?".
+    hospede_id              INT UNSIGNED NULL,
 
     criado_em               DATETIME NOT NULL,
 
@@ -372,9 +422,16 @@ CREATE TABLE contato (
         FOREIGN KEY (chale_interesse_id) REFERENCES chale (id)
         ON DELETE SET NULL ON UPDATE CASCADE,
 
+    CONSTRAINT fk_contato_hospede
+        FOREIGN KEY (hospede_id) REFERENCES hospede (id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+
     -- A tela de atendimento lista os contatos novos, mais recentes antes.
     KEY idx_contato_situacao (situacao, criado_em),
 
     -- A limitação de taxa conta envios por origem numa janela de tempo.
-    KEY idx_contato_ip (ip_origem, criado_em)
+    KEY idx_contato_ip (ip_origem, criado_em),
+
+    -- Quantas vezes esta pessoa já escreveu.
+    KEY idx_contato_email (email_busca, criado_em)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

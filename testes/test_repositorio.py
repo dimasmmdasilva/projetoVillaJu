@@ -180,6 +180,59 @@ def test_nenhuma_fstring_monta_comando_sql(arquivo):
     )
 
 
+# Palavras que identificam um comando SQL com segurança suficiente. A
+# lista é curta de propósito: procurar por termos comuns produziria
+# acusação sobre texto de mensagem e sobre comentário.
+_PALAVRAS_DE_SQL = ("SELECT ", "INSERT INTO", "UPDATE ", "DELETE FROM")
+
+
+@pytest.mark.parametrize("arquivo", ARQUIVOS_PYTHON, ids=_nome)
+def test_nenhuma_fstring_monta_comando_sql_em_constante(arquivo):
+    """A mesma regra, no ponto em que a consulta é escrita.
+
+    O teste anterior inspeciona o argumento passado **diretamente** a
+    `execute()`. Uma consulta montada com f-string e guardada numa
+    constante de módulo escapa dele: no ponto da chamada o que aparece é
+    um nome, não uma f-string.
+
+    Foi o que aconteceu na Etapa 4. O módulo de contatos montava três
+    consultas assim, interpolando uma lista de colunas — inofensivo em si,
+    porque as colunas são constantes, e invisível para este arquivo de
+    testes. **Quem pegou foi o Bandit**, com três achados B608 de
+    severidade média, e estava certo em pegar: o formato é o mesmo da
+    injeção, e quem revisa não distingue um do outro de relance.
+
+    O próprio texto do teste anterior já dizia cobrir "lista de colunas".
+    A intenção estava certa; a implementação não alcançava. Esta
+    verificação alcança.
+    """
+    import ast
+
+    arvore = ast.parse(arquivo.read_text(encoding="utf-8"))
+    culpados = []
+
+    for no in ast.walk(arvore):
+        if not isinstance(no, ast.JoinedStr):
+            continue
+
+        # Só as partes literais da f-string: o que vem das expressões
+        # interpoladas não é visível aqui, e não precisa ser.
+        literal = "".join(
+            parte.value.upper()
+            for parte in no.values
+            if isinstance(parte, ast.Constant) and isinstance(parte.value, str)
+        )
+
+        if any(palavra in literal for palavra in _PALAVRAS_DE_SQL):
+            culpados.append(f"linha {no.lineno}")
+
+    assert not culpados, (
+        f"{_nome(arquivo)} monta comando SQL com f-string: "
+        + ", ".join(culpados)
+        + " — escreva a consulta por extenso"
+    )
+
+
 @pytest.mark.parametrize("arquivo", ARQUIVOS_PYTHON, ids=_nome)
 def test_nenhuma_concatenacao_monta_comando_sql(arquivo):
     """O operador + aplicado a um comando SQL tem o mesmo efeito."""

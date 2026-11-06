@@ -439,3 +439,36 @@ def test_chave_de_indice_ausente_falha(ambiente_restaurado):
         indice("joao@exemplo.com")
 
     assert cripto.VARIAVEL_INDICE in str(erro.value)
+
+
+# ---------------------------------------------------------------------------
+# A etiqueta dos pedidos de contato
+# ---------------------------------------------------------------------------
+
+def test_aad_de_contato_difere_da_de_hospede():
+    """O prefixo impede mover um bloco cifrado entre as duas tabelas.
+
+    Sem ele, `hospede:7` e `contato:7` teriam o mesmo dado adicional
+    autenticado, e quem tivesse escrita no banco poderia copiar o nome
+    cifrado de um hóspede para a linha de um contato — a decifragem
+    funcionaria, e o sistema exibiria a pessoa errada sem que nada
+    falhasse.
+    """
+    assert cripto.aad_contato(7) != cripto.aad_hospede(7)
+    assert cripto.aad_contato(7) == b"contato:7"
+
+
+def test_bloco_de_hospede_nao_decifra_como_contato():
+    """A proteção, exercitada de ponta a ponta."""
+    ciphertext, nonce, tag = cripto.cifrar(
+        "Mariana Alves", cripto.aad_hospede(7)
+    )
+
+    # Com a etiqueta certa, lê.
+    assert cripto.decifrar(ciphertext, nonce, tag, cripto.aad_hospede(7)) == (
+        "Mariana Alves"
+    )
+
+    # Movido para a linha 7 de `contato`, não lê.
+    with pytest.raises(cripto.FalhaDeAutenticacao):
+        cripto.decifrar(ciphertext, nonce, tag, cripto.aad_contato(7))

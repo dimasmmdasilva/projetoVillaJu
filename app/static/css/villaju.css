@@ -248,3 +248,25 @@ body.entrada main {
   margin-top: 1.5rem;
   font-size: 0.9rem;
 }
+
+/* Botão de ação em link. Precisa parecer botão para quem olha e
+ * continuar sendo link para quem navega por teclado ou leitor de tela. */
+.botao {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: #2f3e34;
+  color: #fff;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.acao-chale { margin: 1rem 0 0; }
+
+.formulario textarea {
+  font: inherit;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid #bbb;
+  border-radius: 3px;
+}

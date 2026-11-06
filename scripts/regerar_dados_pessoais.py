@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regera os hóspedes fictícios com cifragem de verdade.
+"""Regera os dados pessoais fictícios com cifragem de verdade.
 
 O arquivo `banco/04_dados_ficticios.sql` grava bytes aleatórios nas
 colunas cifradas, e avisa disso no cabeçalho. A razão é a ordem das
@@ -17,8 +17,11 @@ cifrado com a chave do ambiente, usando o mesmo repositório que a
 aplicação usa. Depois de rodá-lo, a lista fica inteira legível e a
 demonstração fica coerente.
 
-    python scripts/regerar_hospedes_ficticios.py            # banco villaju
-    python scripts/regerar_hospedes_ficticios.py --teste    # banco de teste
+    python scripts/regerar_dados_pessoais.py            # banco villaju
+    python scripts/regerar_dados_pessoais.py --teste    # banco de teste
+
+Trata `hospede` e `contato`: as duas tabelas guardam dado pessoal cifrado,
+e as duas nascem na massa com bytes aleatórios.
 
 AVISO: os dados abaixo são inventados. Nenhum corresponde a pessoa real, e
 os documentos não são CPFs válidos — foram escolhidos com dígitos
@@ -37,7 +40,7 @@ from dotenv import load_dotenv  # noqa: E402
 load_dotenv(RAIZ / ".env")
 
 from app.config import Configuracao  # noqa: E402
-from app.dados import conexao, hospede_repo  # noqa: E402
+from app.dados import conexao, contato_repo, hospede_repo  # noqa: E402
 
 HOSPEDES = [
     {
@@ -100,6 +103,53 @@ def regerar(usuario_id=None) -> int:
     return len(identificadores)
 
 
+CONTATOS = [
+    {
+        "nome": "Mariana Alves",
+        "email": "mariana.alves@exemplo.com",
+        "telefone": "(11) 98888-1234",
+        "mensagem": "Gostaria de saber a disponibilidade do Asturias para o Carnaval.",
+    },
+    {
+        "nome": "Carlos Pereira",
+        "email": "carlos.pereira@exemplo.com",
+        "telefone": "(12) 99777-5678",
+        "mensagem": "Vocês aceitam animais de estimação? Somos duas pessoas e um cachorro.",
+    },
+    {
+        "nome": "Fernanda Lima",
+        "email": "fernanda.lima@exemplo.com",
+        "telefone": None,
+        "mensagem": "Qual o valor da diária do Dunas em março?",
+    },
+    {
+        "nome": "Contato sem retorno",
+        "email": "sem.retorno@exemplo.com",
+        "telefone": None,
+        "mensagem": "Mensagem automática, descartada pela equipe.",
+    },
+]
+
+
+def regerar_contatos(usuario_id=None) -> int:
+    """Mesma ideia dos hóspedes, na tabela de pedidos de contato."""
+    with conexao.obter_cursor() as cursor:
+        cursor.execute(
+            "SELECT id FROM contato ORDER BY id LIMIT %s", (len(CONTATOS),)
+        )
+        identificadores = [linha[0] for linha in cursor.fetchall()]
+
+    if not identificadores:
+        print("  nenhum contato no banco")
+        return 0
+
+    for identificador, dados in zip(identificadores, CONTATOS):
+        contato_repo.atualizar(identificador, dados, usuario_id=usuario_id)
+        print(f"  contato {identificador}: {dados['nome']}")
+
+    return len(identificadores)
+
+
 def main() -> int:
     analisador = argparse.ArgumentParser(description=__doc__)
     analisador.add_argument(
@@ -113,12 +163,15 @@ def main() -> int:
     conexao.iniciar_pool(configuracao)
 
     alvo = configuracao.banco["database"]
-    print(f"\n  Regerando hóspedes fictícios no banco {alvo}\n")
+    print(f"\n  Regerando dados pessoais fictícios no banco {alvo}\n")
 
-    quantos = regerar()
+    hospedes = regerar()
+    print()
+    contatos = regerar_contatos()
 
-    print(f"\n  {quantos} hóspede(s) regerado(s) com cifragem real.")
-    print("  Confira na tela de hóspedes: a lista deve ficar toda legível.")
+    print(f"\n  {hospedes} hóspede(s) e {contatos} contato(s) regerados")
+    print("  com cifragem real.")
+    print("  Confira nas telas: as listas devem ficar todas legíveis.")
     print("  E no MySQL Workbench: nenhum campo pessoal deve ser legível lá.\n")
 
     conexao.encerrar_pool()

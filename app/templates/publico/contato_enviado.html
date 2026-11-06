@@ -1,0 +1,20 @@
+{% extends "publico/base.html" %}
+{% block titulo %}Pedido enviado — {{ hospedaria.nome }}{% endblock %}
+
+{% block conteudo %}
+<h1>Pedido enviado</h1>
+
+<p>
+  Recebemos o seu pedido. A recepção da {{ hospedaria.nome }} entra em
+  contato para confirmar a disponibilidade e fechar a reserva.
+</p>
+
+<p>
+  Nada foi reservado ainda: a confirmação acontece no contato da
+  recepção.
+</p>
+
+<p class="voltar">
+  <a href="{{ url_for('publico.inicio') }}">Voltar</a>
+</p>
+{% endblock %}

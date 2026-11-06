@@ -27,9 +27,9 @@ de arquivos em `static/img/chales/`, sem mexer em template nem em rota.
 
 import logging
 
-from flask import Blueprint, render_template
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 
-from app.dados import chale_repo
+from app.dados import chale_repo, contato_repo
 
 publico = Blueprint("publico", __name__)
 
@@ -118,3 +118,109 @@ def inicio():
         chales=chales,
         banco_disponivel=banco_disponivel,
     )
+
+
+# ---------------------------------------------------------------------------
+# Pedido de contato
+# ---------------------------------------------------------------------------
+
+@publico.route("/contato", methods=["GET", "POST"])
+def contato():
+    """O formulário de pedido de contato, e o seu envio.
+
+    **É o único ponto do sistema que aceita escrita de um desconhecido.**
+    Por isso recebe três defesas, que entram no Bloco 3: token CSRF,
+    limitação de taxa por origem e campo-armadilha. O token já está aqui,
+    porque sem ele o formulário não funcionaria fora do modo de teste.
+
+    **O que o formulário NÃO faz.** Não cria reserva e não cadastra
+    hóspede. Grava em `contato`, que é tabela de quarentena: o que chega
+    de fora entra nela e só sai pelas mãos da recepção. O raciocínio está
+    na Etapa 4 de `docs/contexto.md` — em resumo, escrita anônima em
+    `reserva` deixaria o log de auditoria sem autor, e em `hospede`
+    transformaria o índice de busca num oráculo de enumeração.
+
+    **A validação é no servidor.** `required` e `maxlength` no HTML são
+    conveniência para quem preenche; não existem para quem envia a
+    requisição por fora do navegador, que é o que um robô faz.
+    """
+    chales = _chales_para_selecao()
+
+    if request.method == "GET":
+        # A vitrine encaminha para cá com o chalé já escolhido, para que
+        # o visitante não precise procurá-lo de novo numa lista.
+        return render_template(
+            "publico/contato.html",
+            hospedaria=HOSPEDARIA,
+            chales=chales,
+            dados={"chale_interesse_id": request.args.get("chale", type=int)},
+        )
+
+    dados = {
+        campo: request.form.get(campo)
+        for campo in (
+            "nome",
+            "email",
+            "telefone",
+            "mensagem",
+            "chale_interesse_id",
+            "data_entrada_desejada",
+            "data_saida_desejada",
+        )
+    }
+
+    try:
+        contato_repo.criar(dados, ip_origem=request.remote_addr)
+    except contato_repo.ErroDeContato as erro:
+        # A mensagem destas exceções é escrita pelo próprio repositório e
+        # fala de campo e formato, nunca de banco ou de biblioteca.
+        flash(str(erro), "erro")
+        return render_template(
+            "publico/contato.html",
+            hospedaria=HOSPEDARIA,
+            chales=chales,
+            dados=dados,
+        ), 400
+    except Exception:  # noqa: BLE001
+        _registrador.exception("falha ao gravar pedido de contato")
+        flash(
+            "Não foi possível enviar o seu pedido agora. "
+            "Tente novamente em alguns minutos.",
+            "erro",
+        )
+        return render_template(
+            "publico/contato.html",
+            hospedaria=HOSPEDARIA,
+            chales=chales,
+            dados=dados,
+        ), 503
+
+    return redirect(url_for("publico.contato_enviado"))
+
+
+@publico.route("/contato/enviado")
+def contato_enviado():
+    """Confirmação, em página própria.
+
+    Rota separada, alcançada por redirecionamento, para que recarregar a
+    página não reenvie o formulário — e para que o visitante não fique
+    com um POST no histórico do navegador.
+    """
+    return render_template("publico/contato_enviado.html", hospedaria=HOSPEDARIA)
+
+
+def _chales_para_selecao() -> list:
+    """Apenas id e nome, para o campo de seleção.
+
+    Falha de banco devolve lista vazia em vez de derrubar a página: o
+    visitante ainda consegue enviar o pedido sem indicar chalé, e um
+    pedido sem chalé é melhor do que pedido nenhum.
+    """
+    try:
+        return [
+            {"id": chale["id"], "nome": chale["nome"]}
+            for chale in chale_repo.listar(apenas_ativos=True)
+        ]
+    except Exception:  # noqa: BLE001
+        _registrador.warning("formulário de contato servido sem a lista de chalés")
+        return []
