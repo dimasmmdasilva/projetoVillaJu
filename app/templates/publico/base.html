@@ -1,0 +1,62 @@
+<!doctype html>
+{#
+  Molde da face pública.
+
+  É um molde PRÓPRIO, não uma herança de `base.html`. A razão é que o
+  molde da área autenticada desenha a barra de navegação com Reservas,
+  Disponibilidade e Hóspedes, e chama `tem_perfil()` para decidir o que
+  mostrar. Reaproveitá-lo aqui faria a página pública depender de lógica
+  de autorização que ela não deveria sequer consultar — e bastaria um
+  esquecimento num `{% if %}` para um link interno aparecer ao visitante.
+
+  Dois moldes separados custam alguma repetição de HTML. O que se ganha é
+  que a face pública não tem como exibir elemento da face interna, porque
+  não os conhece.
+
+  Como no resto do projeto: escape automático do Jinja2 ativo, nenhum
+  `|safe` em conteúdo de usuário, nenhum JavaScript e nenhum recurso
+  externo.
+#}
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}{{ hospedaria.nome }}{% endblock %}</title>
+  <meta name="description"
+        content="{{ hospedaria.chamada }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/villaju.css') }}">
+</head>
+<body class="publico">
+
+<header class="cabecalho-publico">
+  <a class="marca" href="{{ url_for('publico.inicio') }}">{{ hospedaria.nome }}</a>
+  <nav>
+    <a href="#chales">Chalés</a>
+    <a href="#localizacao">Localização</a>
+  </nav>
+  {# Link discreto, e não botão em destaque: quem precisa dele são três
+     pessoas da equipe. Para quem já tem sessão aberta, leva direto ao
+     painel, poupando um login desnecessário. #}
+  <a class="area-equipe"
+     href="{{ url_for('painel.inicio') if sessao_usuario else url_for('auth.login') }}">
+    {{ 'Painel' if sessao_usuario else 'Área da equipe' }}
+  </a>
+</header>
+
+<main>
+  {% block conteudo %}{% endblock %}
+</main>
+
+<footer class="rodape-publico">
+  <p>
+    <strong>{{ hospedaria.nome }}</strong> &middot;
+    {{ hospedaria.endereco }} &middot; {{ hospedaria.cidade }}
+  </p>
+  <p class="aviso-academico">
+    Sítio desenvolvido como Projeto Integrador do curso de Bacharelado em
+    Cibersegurança da PUC-Campinas. Conteúdo em caráter demonstrativo.
+  </p>
+</footer>
+
+</body>
+</html>

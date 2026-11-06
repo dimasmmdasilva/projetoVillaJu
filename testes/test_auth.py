@@ -95,10 +95,16 @@ def test_tela_de_login_nao_lista_usuarios(cliente):
         assert conta not in corpo
 
 
-def test_raiz_sem_sessao_leva_ao_login(cliente):
+def test_raiz_sem_sessao_mostra_a_vitrine_e_nao_o_login(cliente):
+    """A raiz deixou de ser o login na Etapa 4.
+
+    O que continua valendo, e é o que importa aqui: nenhuma rota da área
+    autenticada é alcançável sem sessão. O teste seguinte cobre isso.
+    """
     resposta = cliente.get("/", follow_redirects=False)
-    assert resposta.status_code == 302
-    assert "/login" in resposta.headers["Location"]
+
+    assert resposta.status_code == 200
+    assert "VillaJu" in resposta.data.decode()
 
 
 def test_painel_sem_sessao_leva_ao_login(cliente):

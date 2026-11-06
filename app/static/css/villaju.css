@@ -96,3 +96,108 @@ th { background: #f0f0f0; }
 /* Formulário de ação dentro de célula de tabela: um botão só, em linha */
 .acao { display: inline; margin: 0; }
 .acao button { margin: 0 0 0 0.5rem; padding: 0.2rem 0.5rem; font-size: 0.9rem; }
+
+/* ---------------------------------------------------------------------
+ * Face pública
+ *
+ * Mesma disciplina do resto: sem framework, sem fonte externa, sem
+ * JavaScript. O que está aqui resolve leitura em tela estreita e dá à
+ * vitrine uma largura maior que a da área interna, porque ela mostra
+ * cartões lado a lado e não formulários.
+ * ------------------------------------------------------------------- */
+
+body.publico main {
+  max-width: 56rem;
+}
+
+.cabecalho-publico {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1.25rem;
+  background: #2f3e34;
+  color: #fff;
+}
+
+.cabecalho-publico .marca {
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #fff;
+  text-decoration: none;
+}
+
+.cabecalho-publico nav { display: flex; gap: 1rem; }
+.cabecalho-publico nav a { color: #e8ece9; }
+
+/* Empurra o acesso da equipe para a direita: é link de serviço, não
+   chamada para o visitante. */
+.cabecalho-publico .area-equipe {
+  margin-left: auto;
+  color: #c6d0c9;
+  font-size: 0.9rem;
+}
+
+.banner {
+  background: linear-gradient(140deg, #2f3e34, #5a7566);
+  color: #fff;
+  padding: 3rem 1.5rem;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+}
+
+.banner h1 { font-size: 2.2rem; margin: 0 0 0.5rem; }
+.banner .chamada { font-size: 1.15rem; margin: 0; color: #e4eae6; }
+
+.apresentacao p { font-size: 1.05rem; }
+
+.cartao-chale {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Bloco de cor no lugar da fotografia, enquanto o material da parceira
+   não chega. Declarado como provisório no template. */
+.foto-provisoria {
+  flex: 0 0 13rem;
+  height: 9rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.dados-chale { flex: 1 1 18rem; }
+.dados-chale h3 { margin: 0 0 0.35rem; font-size: 1.15rem; }
+
+.dados-chale dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.75rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.92rem;
+}
+
+.dados-chale dt { font-weight: 600; color: #444; }
+.dados-chale dd { margin: 0; }
+
+.rodape-publico {
+  border-top: 1px solid #ddd;
+  margin-top: 2rem;
+  padding: 1.25rem;
+  text-align: center;
+  font-size: 0.88rem;
+  color: #555;
+}
+
+.rodape-publico .aviso-academico { color: #777; font-size: 0.82rem; }

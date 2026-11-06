@@ -217,11 +217,23 @@ def test_rota_de_saude_nao_revela_informacao(cliente):
         assert proibido not in corpo
 
 
-def test_raiz_redireciona_para_o_login(cliente):
-    """Sem sessão, a raiz leva ao login em vez de mostrar conteúdo."""
+def test_raiz_serve_a_vitrine_publica(cliente):
+    """A raiz é a vitrine, não o login.
+
+    Até a Etapa 3 este teste exigia um 302 para `/login`. A mudança foi
+    deliberada, na Etapa 4: um hóspede em potencial chegava ao endereço da
+    hospedaria e encontrava um pedido de senha. Quem precisa do login são
+    três pessoas; o restante do mundo quer ver os chalés.
+
+    O que a raiz NÃO pode mostrar está verificado em
+    `testes/test_publico.py`, que é onde a face pública é exercitada.
+    """
     resposta = cliente.get("/", follow_redirects=False)
-    assert resposta.status_code == 302
-    assert "/login" in resposta.headers["Location"]
+
+    assert resposta.status_code == 200
+    assert "/login" in resposta.data.decode(), (
+        "a vitrine precisa oferecer o caminho da área da equipe"
+    )
 
 
 @pytest.mark.parametrize(

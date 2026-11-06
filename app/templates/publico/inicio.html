@@ -1,0 +1,87 @@
+{% extends "publico/base.html" %}
+{% block titulo %}{{ hospedaria.nome }} — {{ hospedaria.chamada }}{% endblock %}
+
+{% block conteudo %}
+
+{# ---------------------------------------------------------------------
+   Banner
+
+   Sem fotografia ainda. O bloco de cor é conteúdo provisório declarado,
+   não lacuna esquecida: a página não fica com espaço vazio nem com
+   imagem quebrada, e a troca pelo material da parceira é substituir o
+   arquivo em `static/img/chales/`, sem tocar neste template.
+   --------------------------------------------------------------------- #}
+<section class="banner">
+  <h1>{{ hospedaria.nome }}</h1>
+  <p class="chamada">{{ hospedaria.chamada }}</p>
+</section>
+
+<section class="apresentacao">
+  <p>{{ hospedaria.apresentacao }}</p>
+</section>
+
+{# ---------------------------------------------------------------------
+   Os chalés
+
+   Vêm de `chale_repo.listar(apenas_ativos=True)`. Chalé desativado não
+   aparece: a desativação é como a hospedaria tira um chalé de operação, e
+   anunciá-lo produziria pedido que a recepção teria de recusar.
+   --------------------------------------------------------------------- #}
+<section id="chales">
+  <h2>Os chalés</h2>
+
+  {% if chales %}
+  <p class="subtitulo">
+    {{ chales|length }} chalé{{ 's' if chales|length != 1 }},
+    todos para até {{ chales[0].capacidade }} pessoas.
+  </p>
+
+  {% for chale in chales %}
+  <article class="cartao-chale">
+    {# A faixa de cor substitui a fotografia enquanto ela não chega. #}
+    <div class="foto-provisoria" style="background: {{ chale.cor_provisoria }}">
+      <span>{{ chale.nome }}</span>
+    </div>
+
+    <div class="dados-chale">
+      <h3>{{ chale.nome }}</h3>
+      <p>{{ chale.descricao }}</p>
+
+      <dl>
+        <dt>Capacidade</dt>
+        <dd>até {{ chale.capacidade }} pessoas</dd>
+
+        <dt>Camas</dt>
+        <dd>{{ chale.configuracao_camas }}</dd>
+
+        <dt>Comodidades</dt>
+        <dd>{{ chale.comodidades }}</dd>
+      </dl>
+
+      {# O botão de solicitar reserva entra no Bloco 2, junto com o
+         formulário de contato. Até lá, não há botão: um que não leva a
+         lugar algum é pior do que nenhum. #}
+    </div>
+  </article>
+  {% endfor %}
+
+  {% elif not banco_disponivel %}
+  {# Degradação deliberada: a apresentação e a localização acima são texto
+     fixo e continuam valendo. Só a lista de chalés depende do banco. #}
+  <p>Não foi possível carregar a lista de chalés neste momento.
+     Entre em contato pelos dados abaixo.</p>
+  {% else %}
+  <p>Nenhum chalé disponível no momento.</p>
+  {% endif %}
+</section>
+
+<section id="localizacao">
+  <h2>Localização</h2>
+  <p>
+    <strong>{{ hospedaria.endereco }}</strong><br>
+    {{ hospedaria.cidade }}
+  </p>
+  <p>{{ hospedaria.regiao }}</p>
+</section>
+
+{% endblock %}

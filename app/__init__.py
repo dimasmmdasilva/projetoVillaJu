@@ -105,8 +105,12 @@ def _registrar_rotas(app: Flask) -> None:
     from app.rotas.chales import chales
     from app.rotas.hospedes import hospedes
     from app.rotas.painel import painel
+    from app.rotas.publico import publico
     from app.rotas.reservas import reservas
 
+    # A face pública vem primeiro na leitura por ser a única alcançável
+    # sem sessão. A ordem de registro não altera o roteamento.
+    app.register_blueprint(publico)
     app.register_blueprint(auth)
     app.register_blueprint(painel)
     app.register_blueprint(hospedes)
@@ -123,13 +127,14 @@ def _registrar_rotas(app: Flask) -> None:
         """
         return "ok", 200, {"Content-Type": "text/plain; charset=utf-8"}
 
-    @app.route("/")
-    def raiz():
-        """Encaminha para o painel quando há sessão, senão para o login."""
-        from flask import redirect, session, url_for
-
-        destino = "painel.inicio" if session.get("usuario_id") else "auth.login"
-        return redirect(url_for(destino))
+    # A raiz `/` é servida pelo blueprint público, em `app/rotas/publico.py`.
+    #
+    # Até a Etapa 3 havia aqui uma rota que redirecionava ao painel ou ao
+    # login. Isso estava errado como produto: um hóspede em potencial
+    # chegava ao endereço da hospedaria e encontrava um pedido de senha.
+    # Quem precisa do login são três pessoas; o restante do mundo quer ver
+    # os chalés. O acesso da equipe passou a ser um link no cabeçalho da
+    # vitrine.
 
 
 def _registrar_contexto(app: Flask) -> None:
