@@ -473,3 +473,21 @@ def test_o_cartao_de_entrada_e_centralizado(visitante):
     assert "body.entrada main" in css, "falta o tratamento vertical"
     assert "align-items: center" in css
     assert "min-height: 100vh" in css
+
+
+def test_os_titulos_de_aba_distinguem_as_duas_faces(visitante):
+    """Vitrine e login precisam ser distinguíveis na barra de abas.
+
+    A aba tem pouco espaço e corta o que passar dela. O título da vitrine
+    é também o que aparece como cabeçalho no resultado de busca, então
+    precisa dizer o que é o lugar e onde fica, sem a frase inteira de
+    apresentação.
+    """
+    import re
+
+    def titulo(rota):
+        html = visitante.get(rota).data.decode()
+        return re.search(r"<title>(.*?)</title>", html, re.S).group(1).strip()
+
+    assert titulo("/") == "VillaJu — Praia da Juréia"
+    assert titulo("/login") == "Entrar — VillaJu"

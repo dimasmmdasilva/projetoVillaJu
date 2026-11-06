@@ -41,6 +41,10 @@ _registrador = logging.getLogger(__name__)
 # Quando a parceira enviar o texto definitivo, troca-se aqui.
 HOSPEDARIA = {
     "nome": "VillaJu",
+    # Título da aba do navegador. Curto de propósito: a aba tem pouco
+    # espaço e corta o que passar disso, e é também o que aparece como
+    # título no resultado de busca.
+    "titulo_curto": "VillaJu — Praia da Juréia",
     "chamada": "Cinco chalés na Praia da Juréia, em São Sebastião.",
     "apresentacao": (
         "A VillaJu fica na Alameda Jubéris, a poucos minutos a pé da "
