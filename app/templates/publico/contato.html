@@ -24,6 +24,35 @@
      navegador de um visitante enviar pedidos em nome dele. #}
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
+  {# ------------------------------------------------------------------
+     Campo-armadilha
+
+     Pessoa alguma vê este campo; todo preenchedor automático o encontra,
+     porque robô lê o HTML e não a tela. Vindo preenchido, o envio é
+     descartado em silêncio.
+
+     Três atributos o tornam inalcançável por quem não enxerga a tela, e
+     os três importam:
+
+       aria-hidden   leitor de tela não o anuncia
+       tabindex=-1   navegação por teclado não para nele
+       autocomplete  o navegador não o preenche sozinho
+
+     Sem eles, a armadilha pegaria justamente quem navega sem ver — e
+     descartar em silêncio o pedido de uma pessoa cega seria pior do que
+     não ter armadilha nenhuma.
+
+     Está escondido por classe, não por `style=`: a política de conteúdo
+     bloqueia estilo embutido. E não é `type="hidden"`, porque robô
+     costuma ignorar campo oculto — o que se quer é um campo de texto
+     comum que só a tela esconde.
+     ------------------------------------------------------------------ #}
+  <div class="armadilha" aria-hidden="true">
+    <label for="assunto">Assunto</label>
+    <input type="text" id="assunto" name="assunto"
+           tabindex="-1" autocomplete="off">
+  </div>
+
   <label for="nome">Nome *</label>
   <input type="text" id="nome" name="nome" required autofocus
          maxlength="150" autocomplete="name"

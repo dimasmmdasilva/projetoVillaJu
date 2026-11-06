@@ -270,3 +270,20 @@ body.entrada main {
   border: 1px solid #bbb;
   border-radius: 3px;
 }
+
+/* Campo-armadilha.
+ *
+ * Fora da tela, e não `display: none`. A diferença: `display: none` é o
+ * que um robô mais experiente procura justamente para evitar a armadilha,
+ * enquanto um campo posicionado fora da área visível continua sendo, para
+ * ele, um campo de texto comum.
+ *
+ * Quem não enxerga a tela é protegido pelos atributos do HTML —
+ * aria-hidden, tabindex e autocomplete —, não por esta regra. */
+.armadilha {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

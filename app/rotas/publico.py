@@ -30,6 +30,7 @@ import logging
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app.dados import chale_repo, contato_repo
+from app.extensoes import limiter
 
 publico = Blueprint("publico", __name__)
 
@@ -124,7 +125,28 @@ def inicio():
 # Pedido de contato
 # ---------------------------------------------------------------------------
 
+# Nome do campo-armadilha.
+#
+# Escolhido para parecer plausível a um preenchedor automático e não
+# significar nada para a aplicação. "assunto" é campo comum em formulário
+# de contato, então um robô que preencha tudo o que encontra vai cair nele.
+CAMPO_ARMADILHA = "assunto"
+
+
+def _limite_publico():
+    """Lê o limite da configuração no momento da requisição.
+
+    Lido a cada chamada, e não na importação, para que o valor venha da
+    aplicação em execução — é o que permite a um teste subir uma
+    aplicação com limite próprio sem alterar as demais.
+    """
+    from flask import current_app
+
+    return current_app.config.get("LIMITE_PUBLICO", "3 per minute")
+
+
 @publico.route("/contato", methods=["GET", "POST"])
+@limiter.limit(_limite_publico, methods=["POST"])
 def contato():
     """O formulário de pedido de contato, e o seu envio.
 
@@ -168,6 +190,34 @@ def contato():
             "data_saida_desejada",
         )
     }
+
+    # ----------------------------------------------------------------
+    # Campo-armadilha
+    #
+    # Um campo que pessoa alguma vê e que todo preenchedor automático
+    # encontra, porque robô lê o HTML e não a tela. Vindo preenchido, o
+    # envio é descartado **em silêncio**: a resposta é a mesma da de um
+    # envio bem-sucedido.
+    #
+    # O silêncio é a parte que importa. Responder "você parece um robô"
+    # entrega ao autor do robô exatamente a informação de que ele precisa
+    # para ajustá-lo e tentar de novo. Devolvendo a página de confirmação,
+    # ele conclui que funcionou e vai embora.
+    #
+    # Fica o registro em log, sem o conteúdo: interessa contar quantos
+    # envios automatizados foram barrados, não guardar o que eles
+    # escreveram.
+    # ----------------------------------------------------------------
+    # Sem `strip()`: descarta qualquer conteúdo, inclusive só espaços.
+    # Um navegador envia o campo vazio, e nenhuma pessoa legítima digita
+    # nele — nem espaço. Aparar o valor antes de testar deixaria passar um
+    # preenchedor que escreve espaços, que é um caso real.
+    if request.form.get(CAMPO_ARMADILHA):
+        _registrador.info(
+            "envio descartado pelo campo-armadilha, origem %s",
+            request.remote_addr,
+        )
+        return redirect(url_for("publico.contato_enviado"))
 
     try:
         contato_repo.criar(dados, ip_origem=request.remote_addr)
@@ -224,3 +274,18 @@ def _chales_para_selecao() -> list:
     except Exception:  # noqa: BLE001
         _registrador.warning("formulário de contato servido sem a lista de chalés")
         return []
+
+
+@publico.errorhandler(429)
+def limite_excedido(erro):
+    """Resposta ao limite de envios, em página e não em erro cru.
+
+    O 429 do Flask-Limiter sai como página de erro do servidor, que
+    assusta quem só clicou duas vezes no botão achando que não tinha
+    enviado. A mensagem aqui diz o que aconteceu e o que fazer, sem
+    revelar qual é o limite — informação que serviria a quem está
+    medindo até onde pode ir.
+    """
+    return render_template(
+        "publico/limite.html", hospedaria=HOSPEDARIA
+    ), 429
