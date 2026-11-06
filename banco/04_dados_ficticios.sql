@@ -51,6 +51,25 @@
 -- auditoria vai por último porque as exclusões acima disparam triggers que
 -- escrevem nele.
 
+-- ---------------------------------------------------------------------------
+-- CODIFICACAO - leia antes de mudar a linha abaixo
+--
+-- Este arquivo esta em UTF-8 e contem acentos. O cliente `mysql.exe` no
+-- Windows assume por padrao a pagina de codigo do console (CP850, CP437 ou
+-- CP1252, conforme a maquina) e anuncia essa pagina ao servidor. Como os
+-- bytes enviados sao UTF-8, o servidor converte do charset errado e grava
+-- texto corrompido: "Embare" vira "Embar" seguido de dois simbolos, e o
+-- erro so aparece na tela, depois.
+--
+-- O SET NAMES abaixo informa ao servidor a codificacao de verdade dos
+-- comandos que seguem, tornando o script correto independentemente de como
+-- o cliente foi invocado. Sem ele, seria preciso lembrar de passar
+-- --default-character-set=utf8mb4 em toda chamada - e esquecer uma vez
+-- basta para corromper a base.
+-- ---------------------------------------------------------------------------
+
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 DELETE FROM reserva;
 DELETE FROM contato;
 DELETE FROM usuario;

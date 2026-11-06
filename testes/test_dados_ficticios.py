@@ -11,8 +11,11 @@ nenhum dado pessoal legível no banco.
 """
 
 import datetime as dt
+import pathlib
 
 import pytest
+
+RAIZ = pathlib.Path(__file__).resolve().parents[1]
 
 pytestmark = pytest.mark.banco
 
@@ -480,4 +483,68 @@ def test_valor_gravado_bate_com_o_calculo_noite_a_noite(banco_com_dados):
 
     assert not divergentes, "valores que não saem da tabela de tarifas:\n  " + (
         "\n  ".join(divergentes)
+    )
+
+
+@pytest.mark.parametrize(
+    "arquivo",
+    ["01_schema.sql", "02_triggers.sql", "03_usuario_app.sql",
+     "04_dados_ficticios.sql"],
+)
+def test_script_sql_declara_a_codificacao(arquivo):
+    """Todo script precisa de `SET NAMES utf8mb4` antes do primeiro comando.
+
+    Sem ele, o cliente `mysql.exe` no Windows anuncia ao servidor a página
+    de código do console — CP850 na máquina em que isto foi escrito — e o
+    servidor converte os bytes UTF-8 do arquivo a partir do charset errado.
+
+    O estrago é silencioso: o script termina com código 0, e o nome do
+    chalé "Embaré" fica gravado como "Embar" seguido de dois símbolos.
+    Aconteceu de verdade na Etapa 3, ao recarregar a massa no banco de
+    demonstração, e só apareceu quando alguém olhou a tela.
+
+    A alternativa seria lembrar de passar `--default-character-set=utf8mb4`
+    em toda invocação. Esquecer uma vez basta para corromper a base, e
+    quem recarrega a massa costuma estar com pressa.
+
+    Este teste não precisa de banco: lê o arquivo.
+    """
+    caminho = RAIZ / "banco" / arquivo
+    texto = caminho.read_text(encoding="utf-8")
+
+    # Antes de qualquer comando, não só em algum lugar do arquivo.
+    comandos = [
+        linha.strip()
+        for linha in texto.split("\n")
+        if linha.strip() and not linha.strip().startswith("--")
+    ]
+    assert comandos, f"{arquivo} não tem comando algum"
+    assert comandos[0].upper().startswith("SET NAMES UTF8MB4"), (
+        f"{arquivo}: o primeiro comando é {comandos[0][:60]!r}, "
+        f"e deveria ser SET NAMES utf8mb4"
+    )
+
+
+def test_os_nomes_acentuados_da_massa_estao_integros(banco_com_dados):
+    """Nenhum nome pode conter a assinatura de dupla codificação.
+
+    Quando UTF-8 é lido como CP850 e regravado, cada acento vira dois ou
+    três caracteres de desenho de caixa. "é" (C3 A9) vira "├®". Procurar
+    por esses caracteres acha a corrupção sem precisar saber qual acento
+    foi estragado.
+    """
+    suspeitos = "├┤┐└┘┬┴┼─│╚╔╩╦╠═╬Ã¢â€™"
+
+    banco_com_dados.execute("SELECT id, nome FROM chale")
+    linhas = [("chale", i, n) for i, n in banco_com_dados.fetchall()]
+    banco_com_dados.execute("SELECT id, nome FROM usuario")
+    linhas += [("usuario", i, n) for i, n in banco_com_dados.fetchall()]
+
+    corrompidos = [
+        f"{tabela} {identificador}: {nome!r}"
+        for tabela, identificador, nome in linhas
+        if any(c in nome for c in suspeitos)
+    ]
+    assert not corrompidos, "nomes com dupla codificação:\n  " + "\n  ".join(
+        corrompidos
     )
