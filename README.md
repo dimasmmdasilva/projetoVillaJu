@@ -214,21 +214,32 @@ semgrep --config=p/owasp-top-ten --config=p/flask --metrics=off app/ run.py scri
 ```
 projetoVillaJu/
 ├── app/
-│   ├── seguranca/      # cifragem, hash de senha, autorização
-│   ├── dados/          # repositórios; toda consulta parametrizada
-│   ├── rotas/          # face interna (autenticada) e face pública
-│   ├── templates/
-│   └── static/
-├── banco/              # schema, triggers, usuário de aplicação, dados fictícios
-├── testes/
-├── docs/
-├── scripts/            # geração de chaves, backup, restauração
-├── certs/              # certificado local (fora do Git)
-├── .env                # segredos locais (fora do Git)
-├── .env.example        # modelo versionado, sem valor real
-├── requirements.txt
-└── run.py
+│   ├── __init__.py          # fábrica da aplicação Flask
+│   ├── config.py            # configuração vinda do ambiente, validada na partida
+│   ├── extensoes.py         # CSRF e limitação de taxa
+│   ├── seguranca/           # cifragem AES-GCM, Argon2id, autorização por perfil
+│   ├── dados/               # repositórios; toda consulta parametrizada
+│   ├── rotas/               # face interna autenticada; face pública na Etapa 4
+│   ├── templates/           # Jinja2, escape automático, sem `|safe`
+│   └── static/              # CSS próprio; a pasta js/ está vazia por decisão
+├── banco/                   # bancos, schema, triggers, usuário de aplicação, massa
+├── testes/                  # conftest.py e 22 arquivos de teste
+├── scripts/                 # geração de chaves e de massa cifrada
+├── docs/                    # diagrama ER
+├── certs/                   # certificado local (fora do Git)
+├── .env                     # segredos locais (fora do Git)
+├── .env.example             # modelo versionado, sem valor real
+├── requirements.txt         # 10 dependências com versão fixada
+├── requirements-ferramentas.txt
+├── pytest.ini
+├── run.py
+└── README.md
 ```
+
+A pasta `app/static/js/` existe e está vazia de propósito: a aplicação não
+usa JavaScript nem recurso externo algum. Sem JavaScript não há superfície
+de XSS baseada em DOM; sem CDN não há terceiro capaz de injetar código nas
+páginas.
 
 ### O que nunca entra no repositório
 
@@ -259,10 +270,10 @@ O cookie de sessão usa `HttpOnly`, `Secure` e `SameSite=Lax`.
 |---|---|---|
 | 0 — Ambiente e repositório | 22/10 a 23/10 | concluída |
 | 1 — Banco de dados e triggers | 26/10 | concluída |
-| 2 — Núcleo de segurança | 04/11 a 05/11 | em andamento |
-| 3 — Reservas e disponibilidade | 05/11 | a iniciar |
-| 4 — Relatórios e análise estática | 06/11 | a iniciar |
-| 5 — Página pública | 09/11 | a iniciar |
+| 2 — Núcleo de segurança | 04/11 a 05/11 | concluída |
+| 3 — Reservas e disponibilidade | 05/11 a 06/11 | concluída |
+| 4 — Página pública e contato | 06/11 a 07/11 | a iniciar |
+| 5 — Relatórios e análise estática | 09/11 | a iniciar |
 | 6 — Análise dinâmica | a definir | — |
 | 7 — Validação e defesa | a definir | — |
 
