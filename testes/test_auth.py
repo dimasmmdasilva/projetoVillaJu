@@ -133,11 +133,22 @@ def test_painel_mostra_resumo_sem_dado_pessoal(cliente):
     assert "Hóspedes cadastrados" in corpo
 
 
-def test_sessao_guarda_o_perfil(cliente, aplicacao):
+def test_sessao_guarda_o_identificador_e_so(cliente, aplicacao):
+    """A sessão identifica quem entrou. Nada além disso.
+
+    Até a Etapa 3 este teste exigia `sessao["perfil"] == "recepcionista"`,
+    porque o login copiava login, nome e perfil para o cookie. A cópia foi
+    removida: ela envelhecia, e a barra de navegação passou a mostrar o
+    valor congelado no instante do login enquanto o corpo da página
+    mostrava o valor atual do banco.
+
+    Quem precisa do perfil chama `usuario_atual()`, que relê o registro.
+    A verificação detalhada está em `testes/test_barra_de_navegacao.py`.
+    """
     _entrar(cliente, RECEPCAO)
     with cliente.session_transaction() as sessao:
-        assert sessao["perfil"] == "recepcionista"
         assert sessao["usuario_id"]
+        assert "perfil" not in sessao
 
 
 def test_sessao_nao_guarda_a_senha(cliente):
@@ -300,9 +311,18 @@ def test_sessao_anterior_e_descartada_na_entrada(cliente):
 
     with cliente.session_transaction() as sessao:
         assert "plantado_pelo_atacante" not in sessao
-        assert sessao["perfil"] == "recepcionista", (
+
+        # O `perfil` plantado também some — a sessão não guarda mais essa
+        # chave, e `session.clear()` descarta o que houvesse. Antes, a
+        # verificação era que o valor fosse SUBSTITUÍDO pelo correto; agora
+        # é que ele desapareça, o que é mais forte: a aplicação sequer lê
+        # essa chave, então plantá-la não tem efeito algum.
+        assert "perfil" not in sessao, (
             "o perfil plantado sobreviveu ao login"
         )
+
+        # E a sessão passou a identificar quem de fato entrou.
+        assert sessao["usuario_id"]
 
 
 def test_cookie_de_sessao_muda_apos_entrar(cliente):

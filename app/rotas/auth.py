@@ -62,22 +62,30 @@ def _iniciar_sessao(usuario: dict) -> None:
     """
     session.clear()
     session["usuario_id"] = usuario["id"]
-    session["login"] = usuario["login"]
-    session["nome"] = usuario["nome"]
-    session["perfil"] = usuario["perfil"]
     session.permanent = True
 
 
-def usuario_da_sessao():
-    """Dados do usuário autenticado, ou None."""
-    if not session.get("usuario_id"):
-        return None
-    return {
-        "id": session["usuario_id"],
-        "login": session.get("login"),
-        "nome": session.get("nome"),
-        "perfil": session.get("perfil"),
-    }
+# Por que só o identificador vai para a sessão
+#
+# A primeira versão gravava também login, nome e perfil, e a barra de
+# navegação os exibia. O cookie virava uma cópia do registro do usuário,
+# congelada no instante do login — e cópia congelada envelhece.
+#
+# O defeito apareceu na Etapa 3, visível na tela: o corpo da página
+# mostrava "Recepção VillaJu" e a barra, no mesmo instante e na mesma
+# página, mostrava a versão corrompida que estava no banco quando aquela
+# sessão foi aberta. Dois valores para o mesmo dado, porque eram duas
+# fontes.
+#
+# O caso do nome é cosmético. O do perfil não seria: a barra diria
+# "recepcionista" para quem já tivesse sido rebaixado a hóspede. O
+# controle de acesso nunca dependeu dessa cópia — `requer_perfil` e
+# `tem_perfil` sempre releram do banco —, mas a tela mentiria.
+#
+# Com apenas o identificador na sessão, existe uma fonte só:
+# `usuario_atual()`, que relê o registro a cada requisição, guarda o
+# resultado no contexto para não repetir a consulta, e derruba a sessão se
+# a conta sumiu ou foi desativada.
 
 
 @auth.route("/login", methods=["GET", "POST"])

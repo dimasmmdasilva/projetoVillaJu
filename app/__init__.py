@@ -141,11 +141,21 @@ def _registrar_contexto(app: Flask) -> None:
 
     @app.context_processor
     def injetar():
-        from app.rotas.auth import usuario_da_sessao
-        from app.seguranca.autorizacao import tem_perfil
+        from app.seguranca.autorizacao import tem_perfil, usuario_atual
+
+        try:
+            # Relido do banco, não copiado do cookie: ver a nota em
+            # `app/rotas/auth.py` sobre por que a sessão guarda apenas o
+            # identificador.
+            atual = usuario_atual()
+        except Exception:  # noqa: BLE001
+            # A página de erro também estende `base.html`. Se o banco for
+            # justamente o que falhou, a barra não é desenhada — o que é
+            # melhor do que a página de erro falhar ao explicar o erro.
+            atual = None
 
         return {
-            "sessao_usuario": usuario_da_sessao(),
+            "sessao_usuario": atual,
             "tem_perfil": tem_perfil,
         }
 
