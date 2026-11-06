@@ -61,3 +61,12 @@ desktop.ini
 
 # Ambiente separado das ferramentas de análise
 venv-ferramentas/
+
+# Geração do relatório consolidado da Entrega 2. O script e o .docx ficam
+# fora do versionamento: o documento é material de entrega, não código, e
+# node_modules não tem por que entrar num repositório Python.
+gerar_relatorio.js
+node_modules/
+package-lock.json
+package.json
+*.docx
