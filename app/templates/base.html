@@ -17,7 +17,10 @@
   <title>{% block titulo %}VillaJu{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/villaju.css') }}">
 </head>
-<body>
+{# A classe do corpo permite que uma página peça tratamento próprio de
+   layout sem precisar de molde separado. A tela de entrada usa isso para
+   centralizar o cartão na vertical. #}
+<body class="{% block classe_corpo %}{% endblock %}">
 
 {% if sessao_usuario %}
 <header class="barra">

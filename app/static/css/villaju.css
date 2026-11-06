@@ -215,3 +215,36 @@ body.publico main {
 .foto-provisoria--3 { background: #4a6456; }
 .foto-provisoria--4 { background: #577667; }
 .foto-provisoria--5 { background: #648878; }
+
+/* Cartão da tela de entrada.
+ *
+ * O formulário tem 22rem e a `main` tem 44rem: sem este invólucro, ele
+ * encostava na borda esquerda do bloco centralizado e a tela parecia
+ * deslocada numa janela larga. Centralizar o cartão resolve, e o
+ * formulário dentro dele ocupa a largura inteira. */
+/* Centralização nos dois eixos.
+ *
+ * Horizontal, pelo `auto` nas laterais. Vertical, pelo flex na `main`:
+ * sem ele o cartão ficava colado no topo de uma janela alta, com toda a
+ * página vazia abaixo. `min-height: 100vh` com `box-sizing: border-box`
+ * para que o preenchimento da `main` não force rolagem. */
+body.entrada main {
+  box-sizing: border-box;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cartao-entrada {
+  width: 22rem;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.cartao-entrada .formulario { max-width: none; }
+
+.cartao-entrada .voltar {
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+}

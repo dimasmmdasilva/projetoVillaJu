@@ -428,3 +428,48 @@ def test_nenhum_template_usa_recurso_que_a_csp_bloqueia(atributo, explicacao):
         f"{explicacao}; o navegador bloqueia e a página falha em "
         f"silêncio:\n  " + "\n  ".join(violacoes)
     )
+
+
+def test_a_tela_de_entrada_oferece_volta_ao_sitio(visitante):
+    """Quem errou de porta precisa poder sair.
+
+    O caminho natural é: visitante chega à vitrine, clica em "Área da
+    equipe" por curiosidade, e encontra um pedido de senha. Sem link de
+    volta, a única saída é o botão do navegador — e a página de login
+    ficava sendo um beco.
+    """
+    html = visitante.get("/login").data.decode()
+
+    assert "Voltar" in html
+    assert 'href="/"' in html
+
+
+def test_o_cartao_de_entrada_e_centralizado(visitante):
+    """O formulário vive num invólucro próprio, e não solto na `main`.
+
+    `.formulario` tem 22rem e a `main` tem 44rem: solto, ele encostava na
+    borda esquerda do bloco centralizado e a tela parecia deslocada numa
+    janela larga. A centralização é do cartão, no CSS.
+    """
+    html = visitante.get("/login").data.decode()
+    assert 'class="cartao-entrada"' in html
+    assert 'class="entrada"' in html, "o corpo precisa declarar a classe"
+
+    import pathlib
+
+    css = (
+        pathlib.Path(__file__).resolve().parents[1]
+        / "app" / "static" / "css" / "villaju.css"
+    ).read_text(encoding="utf-8")
+
+    assert ".cartao-entrada" in css, "a classe existe no HTML mas não no CSS"
+
+    # Horizontal: `auto` nas laterais.
+    assert "margin: 0 auto" in css, "o cartão precisa centralizar na horizontal"
+
+    # Vertical: a `main` da tela de entrada vira um contêiner flex. Sem
+    # isso o cartão fica colado no topo de uma janela alta, com a página
+    # inteira vazia abaixo dele.
+    assert "body.entrada main" in css, "falta o tratamento vertical"
+    assert "align-items: center" in css
+    assert "min-height: 100vh" in css
