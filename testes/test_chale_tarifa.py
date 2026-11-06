@@ -108,6 +108,14 @@ def test_signal_da_trigger_vira_mensagem_legivel():
     assert isinstance(traduzido, RegraDoBanco)
     assert "reserva ativa" in str(traduzido)
 
+    # E o invólucro técnico precisa ter ficado de fora. A primeira versão
+    # deste teste verificava apenas a presença da frase, e por isso não
+    # detectou uma sabotagem que devolvia `str(erro)` inteiro — a forma
+    # "1644 (45000): <frase>" passava, porque a frase continuava lá.
+    texto = str(traduzido)
+    for termo in ("1644", "45000", "SIGNAL", "Error"):
+        assert termo not in texto, f"a mensagem vazou {termo!r}"
+
 
 def test_duplicidade_vira_mensagem_generica():
     import mysql.connector

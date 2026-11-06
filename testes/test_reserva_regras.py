@@ -536,3 +536,41 @@ def test_reserva_ja_concluida_tambem_nao_e_barrada(banco):
         _reserva("2027-07-02", "2027-07-04", situacao="concluida")
     )
     assert reserva_repo.buscar_por_id(identificador)["situacao"] == "concluida"
+
+
+def test_signal_real_da_trigger_chega_limpo_a_traducao(banco):
+    """O erro de verdade, vindo do driver, traduzido.
+
+    O teste de unidade em `test_chale_tarifa.py` constrói o erro à mão. Este
+    provoca a trigger por SQL direto, sem passar pela aplicação, e passa o
+    erro que o driver realmente levantou para `traduzir`.
+
+    A diferença importa: o objeto real tem `msg` com a frase limpa e
+    `str()` com o invólucro "1644 (45000): ...". Uma tradução que use a
+    forma errada vaza o número do erro e o SQLSTATE para a tela.
+    """
+    import mysql.connector
+
+    from app.dados.erros import RegraDoBanco, traduzir
+
+    with conexao.obter_conexao() as ligacao:
+        cursor = ligacao.cursor()
+        with pytest.raises(mysql.connector.Error) as capturado:
+            cursor.execute(
+                "INSERT INTO reserva (chale_id, hospede_id, data_entrada, "
+                "  data_saida, num_pessoas, situacao, criado_em, alterado_em) "
+                "VALUES (1, 1, '2026-12-16', '2026-12-18', 2, 'pendente', "
+                "  NOW(), NOW())"
+            )
+        cursor.close()
+
+    assert capturado.value.errno == 1644
+
+    traduzido = traduzir(capturado.value)
+
+    assert isinstance(traduzido, RegraDoBanco)
+
+    texto = str(traduzido)
+    assert "reserva" in texto.lower(), "a frase da trigger precisa sobreviver"
+    for termo in ("1644", "45000", "SIGNAL", "Traceback", "mysql"):
+        assert termo not in texto, f"a mensagem vazou {termo!r}"

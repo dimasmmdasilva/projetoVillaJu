@@ -240,17 +240,23 @@ def test_percurso_da_recepcao_do_login_a_confirmacao(aplicacao):
     # O percurso inteiro passou por nome, documento, telefone e e-mail. Se
     # algum deles tiver chegado ao disco em texto claro, tudo o que foi
     # verificado acima perde sentido.
+    # A varredura é sobre a linha INTEIRA, não só sobre as colunas `_cif`.
+    # A primeira versão deste passo olhava apenas os quatro campos
+    # cifrados, e por isso não veria um documento vazando pelo índice de
+    # busca — que é coluna própria, existe justamente para ser pesquisável
+    # e guarda um HMAC. Se o HMAC der lugar ao valor, a tabela passa a
+    # conter o documento em claro sem que nenhuma coluna `_cif` mude.
     with conexao.obter_conexao() as ligacao:
         cursor = ligacao.cursor()
-        cursor.execute(
-            "SELECT nome_cif, documento_cif, telefone_cif, email_cif "
-            "FROM hospede WHERE id = %s",
-            (hospede["id"],),
-        )
-        colunas = cursor.fetchone()
+        cursor.execute("SELECT * FROM hospede WHERE id = %s", (hospede["id"],))
+        linha = cursor.fetchone()
         cursor.close()
 
-    bytes_gravados = b"".join(coluna for coluna in colunas if coluna)
+    bytes_gravados = b"".join(
+        valor if isinstance(valor, bytes) else str(valor).encode("utf-8")
+        for valor in linha
+        if valor is not None
+    )
     for claro in (b"Helena", b"Queir", b"321.654", b"97777", b"helena@"):
         assert claro not in bytes_gravados, f"{claro!r} foi gravado em texto claro"
 
