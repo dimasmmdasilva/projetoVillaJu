@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block titulo %}Pedido {{ contato.id }} — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Pedido de contato {{ contato.id }}</h1>
+
+<table>
+  <tbody>
+    <tr><th>Nome</th><td>{{ contato.nome or '—' }}</td></tr>
+    <tr><th>E-mail</th><td>{{ contato.email or '—' }}</td></tr>
+    <tr><th>Telefone</th><td>{{ contato.telefone or '—' }}</td></tr>
+    <tr><th>Chalé de interesse</th><td>{{ contato.chale_nome or '—' }}</td></tr>
+    <tr>
+      <th>Período desejado</th>
+      <td>
+        {% if contato.data_entrada_desejada %}
+        {{ contato.data_entrada_desejada.strftime('%d/%m/%Y') }} a
+        {{ contato.data_saida_desejada.strftime('%d/%m/%Y') }}
+        {% else %}&mdash;{% endif %}
+      </td>
+    </tr>
+    <tr><th>Origem</th><td>{{ contato.origem or '—' }}</td></tr>
+    <tr><th>Situação</th><td><strong>{{ contato.situacao }}</strong></td></tr>
+    <tr>
+      <th>Recebido em</th>
+      <td>{{ contato.criado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+    </tr>
+    <tr>
+      <th>Pedidos anteriores</th>
+      {# Atender é diferente para quem pergunta pela primeira vez. E um
+         número alto é sinal de abuso. #}
+      <td>{{ anteriores }}{{ ' (primeira vez)' if anteriores == 0 }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Mensagem</h2>
+{# Único texto livre que um desconhecido grava no sistema, e por isso o
+   lugar mais provável de uma tentativa de XSS. Sem `|safe`: o escape do
+   Jinja2 transforma `<script>` em texto exibido. #}
+<p class="mensagem">{{ contato.mensagem or '—' }}</p>
+
+<h2>Situação</h2>
+{% if transicoes %}
+{% for destino in transicoes %}
+<form method="post" class="acao"
+      action="{{ url_for('contatos.mudar_situacao', identificador=contato.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="situacao" value="{{ destino }}">
+  <button type="submit">Marcar como {{ destino }}</button>
+</form>
+{% endfor %}
+{% else %}
+<p>Um pedido {{ contato.situacao }} não muda mais de situação.</p>
+{% endif %}
+
+<h2>Cadastro de hóspede</h2>
+
+{% if contato.hospede_id %}
+<p>
+  Este pedido já virou o hóspede
+  <a href="{{ url_for('hospedes.editar', identificador=contato.hospede_id) }}">{{ contato.hospede_id }}</a>.
+</p>
+
+{% elif hospede_existente %}
+{# Esta pessoa já é hóspede. Criar um segundo cadastro espalharia o
+   histórico dela por duas linhas, e faria a busca por documento devolver
+   uma das duas conforme a sorte. #}
+<p>
+  Já existe cadastro com este e-mail:
+  <strong>{{ hospede_existente.nome }}</strong>
+  (hóspede {{ hospede_existente.id }}).
+</p>
+<form method="post" class="acao"
+      action="{{ url_for('contatos.ligar', identificador=contato.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="hospede_id" value="{{ hospede_existente.id }}">
+  <button type="submit">Ligar a este cadastro</button>
+</form>
+
+{% else %}
+<p>
+  Converter abre o cadastro já preenchido com o que a pessoa informou.
+  Falta apenas o documento, que precisa ser obtido no contato — não se
+  pede o documento de quem ainda está perguntando o preço.
+</p>
+<p>
+  <a class="botao"
+     href="{{ url_for('contatos.converter', identificador=contato.id) }}">
+    Converter em hóspede
+  </a>
+</p>
+{% endif %}
+
+<p><a href="{{ url_for('contatos.listar') }}">Voltar à lista</a></p>
+{% endblock %}

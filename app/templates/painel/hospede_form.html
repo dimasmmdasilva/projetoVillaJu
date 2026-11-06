@@ -4,14 +4,26 @@
 {% block conteudo %}
 <h1>{{ 'Cadastrar hóspede' if novo else 'Editar hóspede ' ~ hospede.id }}</h1>
 
+{% if contato %}
+{# Chegou pela conversão de um pedido de contato: os campos vêm
+   preenchidos com o que a pessoa informou, e falta só o documento. #}
+<p class="subtitulo">
+  Convertendo o pedido de contato {{ contato.id }}. O documento não foi
+  pedido no formulário público e precisa ser obtido no atendimento.
+</p>
+{% endif %}
+
 {# Nome, documento, telefone e e-mail são cifrados com AES-256-GCM antes
    de qualquer INSERT. O que for digitado aqui chega ilegível ao banco —
    nem o administrador do MySQL consegue ler sem a chave, que vive no .env
    e nunca no repositório. #}
 
 <form method="post" class="formulario"
-      action="{{ url_for('hospedes.novo') if novo
-                else url_for('hospedes.editar', identificador=hospede.id) }}">
+      {# `acao` permite que a conversão de um pedido de contato reaproveite
+         este formulário, enviando para a própria rota dela. #}
+      action="{{ acao if acao
+                else (url_for('hospedes.novo') if novo
+                      else url_for('hospedes.editar', identificador=hospede.id)) }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
   <label for="nome">Nome completo *</label>

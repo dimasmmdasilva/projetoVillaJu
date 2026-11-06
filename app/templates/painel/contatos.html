@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block titulo %}Contatos — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Pedidos de contato</h1>
+
+{# Os dados pessoais chegam aqui decifrados pelo repositório. Nenhum campo
+   usa `|safe`: tudo passa pelo escape do Jinja2, inclusive a mensagem,
+   que é o único texto livre que um desconhecido grava no sistema. #}
+
+<p class="subtitulo">
+  {% for nome, quantos in resumo.items() %}
+  <a href="{{ url_for('contatos.listar', situacao=nome) }}">{{ nome }}</a>:
+  {{ quantos }}{{ ' · ' if not loop.last }}
+  {% endfor %}
+</p>
+
+<form method="get" action="{{ url_for('contatos.listar') }}">
+  <label for="situacao">Filtrar por situação</label>
+  <select id="situacao" name="situacao">
+    <option value="">todas</option>
+    {% for nome in situacoes %}
+    <option value="{{ nome }}" {{ 'selected' if situacao == nome }}>{{ nome }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filtrar</button>
+</form>
+
+{% if contatos %}
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Nome</th>
+      <th>Chalé</th>
+      <th>Período desejado</th>
+      <th>Situação</th>
+      <th>Recebido em</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for contato in contatos %}
+    <tr>
+      <td>{{ contato.id }}</td>
+      {% if not contato.legivel %}
+      {# O registro existe mas não decifra. Aparece marcado para que o
+         problema seja visível, em vez de a página inteira cair. #}
+      <td><em>não legível</em></td>
+      {% else %}
+      <td>{{ contato.nome }}</td>
+      {% endif %}
+      <td>{{ contato.chale_nome or '—' }}</td>
+      <td>
+        {% if contato.data_entrada_desejada %}
+        {{ contato.data_entrada_desejada.strftime('%d/%m/%Y') }} a
+        {{ contato.data_saida_desejada.strftime('%d/%m/%Y') }}
+        {% else %}&mdash;{% endif %}
+      </td>
+      <td><strong>{{ contato.situacao }}</strong></td>
+      <td>{{ contato.criado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+      <td>
+        <a href="{{ url_for('contatos.detalhe', identificador=contato.id) }}">Abrir</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Nenhum pedido {{ situacao or '' }} no momento.</p>
+{% endif %}
+{% endblock %}
