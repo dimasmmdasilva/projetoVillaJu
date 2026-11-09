@@ -14,12 +14,34 @@
 
 {% elif resumo %}
 <h2>Resumo</h2>
+{# Cada número leva à tela correspondente. Um painel cujos números não
+   são clicáveis obriga quem atende a ler "3 contatos novos" e depois
+   procurar onde eles estão — e os três links que o administrador vê aqui
+   são os mesmos que a barra oferece, só que com o contexto certo. #}
 <table>
   <tbody>
+    {% if tem_perfil('administrador') %}
+    <tr>
+      <th><a href="{{ url_for('chales.listar') }}">Chalés ativos</a></th>
+      <td>{{ resumo.chales }}</td>
+    </tr>
+    {% else %}
     <tr><th>Chalés ativos</th><td>{{ resumo.chales }}</td></tr>
-    <tr><th>Hóspedes cadastrados</th><td>{{ resumo.hospedes }}</td></tr>
-    <tr><th>Reservas ativas</th><td>{{ resumo.reservas_ativas }}</td></tr>
-    <tr><th>Contatos novos</th><td>{{ resumo.contatos_novos }}</td></tr>
+    {% endif %}
+    <tr>
+      <th><a href="{{ url_for('hospedes.listar') }}">Hóspedes cadastrados</a></th>
+      <td>{{ resumo.hospedes }}</td>
+    </tr>
+    <tr>
+      <th><a href="{{ url_for('reservas.listar') }}">Reservas ativas</a></th>
+      <td>{{ resumo.reservas_ativas }}</td>
+    </tr>
+    <tr>
+      <th>
+        <a href="{{ url_for('contatos.listar', situacao='novo') }}">Contatos novos</a>
+      </th>
+      <td>{{ resumo.contatos_novos }}</td>
+    </tr>
   </tbody>
 </table>
 {% else %}
@@ -32,6 +54,7 @@
   <li><a href="{{ url_for('reservas.disponibilidade') }}">Consultar disponibilidade</a></li>
   <li><a href="{{ url_for('reservas.nova') }}">Registrar reserva</a></li>
   <li><a href="{{ url_for('hospedes.novo') }}">Cadastrar hóspede</a></li>
+  <li><a href="{{ url_for('contatos.listar', situacao='novo') }}">Atender pedidos de contato</a></li>
 </ul>
 {% endif %}
 {% endblock %}

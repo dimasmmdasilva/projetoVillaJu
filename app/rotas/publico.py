@@ -25,6 +25,7 @@ conteúdo provisório desde o início, de modo que a troca seja substituição
 de arquivos em `static/img/chales/`, sem mexer em template nem em rota.
 """
 
+import datetime as dt
 import logging
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
@@ -175,6 +176,7 @@ def contato():
             "publico/contato.html",
             hospedaria=HOSPEDARIA,
             chales=chales,
+            hoje=dt.date.today().isoformat(),
             dados={"chale_interesse_id": request.args.get("chale", type=int)},
         )
 
@@ -185,11 +187,16 @@ def contato():
             "email",
             "telefone",
             "mensagem",
-            "chale_interesse_id",
             "data_entrada_desejada",
             "data_saida_desejada",
         )
     }
+
+    # Como inteiro, e não como texto. O template marca o chalé escolhido
+    # comparando com o identificador, que é inteiro, e em Jinja2 "5" == 5
+    # é falso — num envio recusado, a escolha do visitante se perdia e ele
+    # precisava procurar o chalé outra vez na lista.
+    dados["chale_interesse_id"] = request.form.get("chale_interesse_id", type=int)
 
     # ----------------------------------------------------------------
     # Campo-armadilha
@@ -229,6 +236,7 @@ def contato():
             "publico/contato.html",
             hospedaria=HOSPEDARIA,
             chales=chales,
+            hoje=dt.date.today().isoformat(),
             dados=dados,
         ), 400
     except Exception:  # noqa: BLE001
@@ -242,6 +250,7 @@ def contato():
             "publico/contato.html",
             hospedaria=HOSPEDARIA,
             chales=chales,
+            hoje=dt.date.today().isoformat(),
             dados=dados,
         ), 503
 

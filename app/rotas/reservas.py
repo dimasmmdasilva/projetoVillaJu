@@ -249,9 +249,20 @@ def mudar_situacao(identificador):
 
 
 def _dados_do_formulario() -> dict:
+    """Lê o formulário, com os identificadores como inteiros.
+
+    `type=int` não é detalhe. O formulário devolve texto, e o template
+    marca a opção escolhida comparando com o identificador do chalé, que
+    é inteiro. Em Jinja2, "1" == 1 é falso — então, num envio recusado, o
+    chalé e o hóspede voltavam ao campo vazio e a recepção precisava
+    escolher os dois de novo, depois de já ter preenchido tudo.
+
+    Valor ausente ou não numérico vira None, e o repositório responde
+    "Selecione o chalé e o hóspede".
+    """
     return {
-        "chale_id": request.form.get("chale_id"),
-        "hospede_id": request.form.get("hospede_id"),
+        "chale_id": request.form.get("chale_id", type=int),
+        "hospede_id": request.form.get("hospede_id", type=int),
         "data_entrada": request.form.get("data_entrada"),
         "data_saida": request.form.get("data_saida"),
         "num_pessoas": request.form.get("num_pessoas"),

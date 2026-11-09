@@ -397,3 +397,46 @@ def test_token_csrf_valido_e_aceito(aplicacao_com_csrf):
     assert resposta.status_code == 401, (
         f"esperado 401 por senha errada, veio {resposta.status_code}"
     )
+
+
+# ---------------------------------------------------------------------------
+# O painel não oferece caminho que o perfil não alcança
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "credenciais",
+    [("admin", "Villa@Admin2026"), ("recepcao", "Villa@Recep2026"),
+     ("joao", "Villa@Hospede2026")],
+    ids=["administrador", "recepcionista", "hospede"],
+)
+def test_todo_link_do_painel_responde_ao_proprio_perfil(aplicacao, credenciais):
+    """Um link que devolve 403 a quem o vê é defeito de interface.
+
+    O resumo do painel passou a ser clicável, e com isso cada número virou
+    um caminho. Esconder o link é conveniência — a rota continua decorada
+    —, mas oferecer um caminho que o próprio perfil não percorre faz a
+    tela mentir sobre o que a pessoa pode fazer.
+
+    Encontrado ao exercitar a interface: o resumo exibia quatro números e
+    nenhum levava a lugar algum, obrigando quem atende a ler "3 contatos
+    novos" e depois procurar onde eles estavam.
+    """
+    import re
+
+    cliente = _entrar(aplicacao, credenciais)
+    corpo = re.search(
+        r"<main>(.*?)</main>", cliente.get("/painel").data.decode(), re.S
+    ).group(1)
+
+    links = re.findall(r'<a href="(/[^"]*)"', corpo)
+    assert links, "o painel precisa oferecer algum caminho"
+
+    recusados = [
+        (url, cliente.get(url).status_code)
+        for url in dict.fromkeys(links)
+        if cliente.get(url).status_code >= 400
+    ]
+
+    assert not recusados, (
+        f"o painel oferece caminho que este perfil não alcança: {recusados}"
+    )

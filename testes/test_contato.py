@@ -464,3 +464,24 @@ def test_o_carimbo_de_tempo_vem_da_trigger(banco):
 
     assert isinstance(criado, dt.datetime)
     assert abs((dt.datetime.now() - criado).total_seconds()) < 60
+
+
+def test_pedido_recusado_preserva_o_chale_escolhido(visitante):
+    """O mesmo defeito de tipo da tela interna, na face pública.
+
+    O visitante clicou no chalé que queria, preencheu o formulário, errou
+    o e-mail — e perdia a escolha, tendo de procurar o chalé outra vez na
+    lista. Encontrado em teste prático da interface.
+    """
+    resposta = visitante.post(
+        "/contato",
+        data=dict(PEDIDO, email="errado-sem-arroba"),
+    )
+    html = resposta.data.decode()
+
+    assert resposta.status_code == 400
+    assert re.search(rf'<option value="{DUNAS}"\s*\n?\s*selected', html), (
+        "o chalé escolhido se perdeu no envio recusado"
+    )
+    assert "Helena Queirós" in html
+    assert PEDIDO["data_entrada_desejada"] in html

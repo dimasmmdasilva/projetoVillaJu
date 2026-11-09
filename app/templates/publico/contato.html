@@ -81,12 +81,19 @@
     {% endfor %}
   </select>
 
+  {# `min` com a data de hoje: pedir reserva para um período que já passou
+     é sempre engano, e o navegador impede antes de a pessoa enviar. Não
+     substitui a validação do servidor — `min` não existe para quem envia
+     a requisição por fora do navegador —, mas poupa uma ida e volta a
+     quem está só escolhendo as datas. #}
   <label for="data_entrada_desejada">Entrada desejada</label>
   <input type="date" id="data_entrada_desejada" name="data_entrada_desejada"
+         min="{{ hoje }}"
          value="{{ dados.data_entrada_desejada or '' }}">
 
   <label for="data_saida_desejada">Saída desejada</label>
   <input type="date" id="data_saida_desejada" name="data_saida_desejada"
+         min="{{ hoje }}"
          value="{{ dados.data_saida_desejada or '' }}">
 
   <label for="mensagem">Mensagem</label>

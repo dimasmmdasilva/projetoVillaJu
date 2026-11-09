@@ -574,3 +574,77 @@ def test_signal_real_da_trigger_chega_limpo_a_traducao(banco):
     assert "reserva" in texto.lower(), "a frase da trigger precisa sobreviver"
     for termo in ("1644", "45000", "SIGNAL", "Traceback", "mysql"):
         assert termo not in texto, f"a mensagem vazou {termo!r}"
+
+
+# ---------------------------------------------------------------------------
+# O formulário recusado não pode perder o que já foi preenchido
+# ---------------------------------------------------------------------------
+
+def test_formulario_recusado_preserva_chale_e_hospede(cliente, banco):
+    """Encontrado em teste prático da interface, com a suíte toda verde.
+
+    O formulário devolve `chale_id` como texto — "1" —, e o template
+    marcava a opção escolhida comparando com `chale.id`, que é inteiro.
+    Em Jinja2, "1" == 1 é falso. O resultado: num envio recusado, o chalé
+    e o hóspede voltavam ao campo vazio, e a recepção precisava escolher
+    os dois de novo depois de já ter preenchido tudo.
+
+    Os campos de texto não tinham o problema, porque `value="1"` e
+    `value=1` renderizam igual — o que torna o defeito parcial, e por
+    isso mais fácil de não notar.
+    """
+    import re
+
+    sessao = cliente(RECEPCAO)
+    pagina = sessao.get("/reservas/nova").data.decode()
+    achado = re.search(r'name="csrf_token" value="([^"]+)"', pagina)
+
+    dados = {
+        "chale_id": str(CHALE),
+        "hospede_id": str(HOSPEDE_ID),
+        # Período que colide com a reserva do Boracéia na massa de dados.
+        "data_entrada": "2027-02-11",
+        "data_saida": "2027-02-14",
+        "num_pessoas": "3",
+        "observacoes": "Chegada tarde da noite",
+    }
+    if achado:
+        dados["csrf_token"] = achado.group(1)
+
+    resposta = sessao.post("/reservas/nova", data=dados)
+    html = resposta.data.decode()
+
+    assert resposta.status_code == 409
+
+    assert re.search(rf'<option value="{CHALE}"\s*\n?\s*selected', html), (
+        "o chalé escolhido se perdeu no envio recusado"
+    )
+    assert re.search(rf'<option value="{HOSPEDE_ID}"\s*\n?\s*selected', html), (
+        "o hóspede escolhido se perdeu no envio recusado"
+    )
+    assert 'value="3"' in html
+    assert "Chegada tarde da noite" in html
+
+
+def test_formulario_sem_selecao_ainda_recusa_com_a_mensagem_certa(cliente, banco):
+    """A conversão para inteiro não pode transformar vazio em erro obscuro."""
+    import re
+
+    sessao = cliente(RECEPCAO)
+    pagina = sessao.get("/reservas/nova").data.decode()
+    achado = re.search(r'name="csrf_token" value="([^"]+)"', pagina)
+
+    dados = {
+        "chale_id": "",
+        "hospede_id": "",
+        "data_entrada": "2027-08-01",
+        "data_saida": "2027-08-05",
+        "num_pessoas": "2",
+    }
+    if achado:
+        dados["csrf_token"] = achado.group(1)
+
+    resposta = sessao.post("/reservas/nova", data=dados)
+
+    assert resposta.status_code == 400
+    assert "Selecione o chalé e o hóspede" in resposta.data.decode()
