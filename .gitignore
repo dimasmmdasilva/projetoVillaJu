@@ -61,3 +61,9 @@ desktop.ini
 
 # Ambiente separado das ferramentas de análise
 venv-ferramentas/
+
+# Documentos de entrega gerados fora do repositório. São material da
+# disciplina, não código, e não têm por que ser versionados aqui.
+Claude outputs/
+*.docx
+*.pdf
