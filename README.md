@@ -272,10 +272,11 @@ O cookie de sessão usa `HttpOnly`, `Secure` e `SameSite=Lax`.
 | 1 — Banco de dados e triggers | 26/10 | concluída |
 | 2 — Núcleo de segurança | 04/11 a 05/11 | concluída |
 | 3 — Reservas e disponibilidade | 05/11 a 06/11 | concluída |
-| 4 — Página pública e contato | 06/11 a 07/11 | a iniciar |
-| 5 — Relatórios e análise estática | 09/11 | a iniciar |
-| 6 — Análise dinâmica | a definir | — |
-| 7 — Validação e defesa | a definir | — |
+| 4 — Página pública e contato | 06/11 | concluída |
+| 5 — Autoatendimento do hóspede | 10/11 a 13/11 | a iniciar |
+| 6 — Relatórios e análise estática | 14/11 a 17/11 | a iniciar |
+| 7 — Análise dinâmica | a definir | — |
+| 8 — Validação e defesa | a definir | — |
 
 **Entrega 2:** 11/11/2026 · **Entrega final:** 25/11/2026
 
