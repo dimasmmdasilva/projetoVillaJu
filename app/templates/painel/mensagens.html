@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titulo %}Caixa de saída — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Caixa de saída</h1>
+
+<p class="subtitulo">
+  As mensagens que o sistema produziu. O envio está em <strong>modo
+  arquivo</strong>: nada sai para a internet, e cada mensagem é gravada em
+  disco.
+</p>
+
+{# Esta tela existe para que a demonstração funcione sem rede. Em modo
+   `smtp` ela responde 404, porque uma caixa de saída vazia num sistema
+   que envia de verdade só confundiria quem a abrisse. #}
+
+{% if mensagens %}
+{% for mensagem in mensagens %}
+<article class="mensagem-enviada">
+  <table>
+    <tbody>
+      <tr><th>Para</th><td>{{ mensagem.para }}</td></tr>
+      <tr><th>Assunto</th><td>{{ mensagem.assunto }}</td></tr>
+      <tr>
+        <th>Gerada em</th>
+        <td>{{ mensagem.quando.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  {# O corpo é conteúdo que o sistema escreveu, mas passa pelo escape do
+     Jinja2 como todo o resto: ele inclui o nome da pessoa, que veio de um
+     formulário público. #}
+  <pre class="corpo-mensagem">{{ mensagem.corpo }}</pre>
+
+  {% if mensagem.links %}
+  <p class="acao">
+    {% for link in mensagem.links %}
+    <a class="botao" href="{{ link }}">Abrir o link da mensagem</a>
+    {% endfor %}
+  </p>
+  {% endif %}
+</article>
+{% endfor %}
+
+{% else %}
+<p>Nenhuma mensagem gerada ainda.</p>
+<p><small>As mensagens serão gravadas em <code>{{ pasta }}</code>.</small></p>
+{% endif %}
+{% endblock %}

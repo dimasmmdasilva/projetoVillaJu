@@ -67,3 +67,7 @@ venv-ferramentas/
 Claude outputs/
 *.docx
 *.pdf
+
+# Mensagens gravadas pelo modo `arquivo` do correio. São conteúdo de
+# execução, não código — e carregam token de confirmação.
+instance/

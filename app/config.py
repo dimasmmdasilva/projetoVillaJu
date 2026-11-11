@@ -166,6 +166,35 @@ class Configuracao:
         self.LIMITE_PUBLICO = _opcional("VILLAJU_LIMITE_PUBLICO", "3 per minute")
         self.LIMITE_PADRAO = _opcional("VILLAJU_LIMITE_PADRAO", "200 per hour")
 
+        # --- Correio ---------------------------------------------------------
+        # Dois modos. `arquivo` grava a mensagem em disco e é o padrão: o
+        # sistema funciona inteiro sem nenhuma configuração de SMTP, e a
+        # demonstração roda sem rede. `smtp` envia de verdade.
+        #
+        # O padrão ser `arquivo` não é descuido. Um padrão que tentasse
+        # enviar falharia em toda instalação nova, e a falha apareceria no
+        # meio de um cadastro — não na partida, onde seria fácil de ver.
+        self.EMAIL_MODO = _opcional("VILLAJU_EMAIL_MODO", "arquivo")
+        self.EMAIL_REMETENTE = _opcional(
+            "VILLAJU_EMAIL_REMETENTE", "VillaJu <nao-responda@villaju.local>"
+        )
+        self.EMAIL_PASTA = RAIZ / _opcional(
+            "VILLAJU_EMAIL_PASTA", "instance/emails"
+        )
+
+        # Endereço público do sistema, usado para montar o link de
+        # confirmação. Vem da configuração porque o servidor não sabe por
+        # qual endereço foi alcançado, e adivinhar pelo cabeçalho `Host`
+        # permitiria a um atacante fazer o link apontar para o sítio dele.
+        self.EMAIL_BASE_URL = _opcional(
+            "VILLAJU_EMAIL_BASE_URL", f"https://{self.HOST}:{self.PORTA}"
+        )
+
+        self.SMTP_HOST = _opcional("VILLAJU_SMTP_HOST", "")
+        self.SMTP_PORTA = _inteiro("VILLAJU_SMTP_PORTA", 587)
+        self.SMTP_USUARIO = _opcional("VILLAJU_SMTP_USUARIO", "")
+        self.SMTP_SENHA = _opcional("VILLAJU_SMTP_SENHA", "")
+
     def como_dicionario(self) -> dict:
         """Apenas os atributos em maiúsculas, que o Flask consome."""
         return {
@@ -194,6 +223,11 @@ class Configuracao:
             "csrf_ativo": self.WTF_CSRF_ENABLED,
             "max_corpo_bytes": self.MAX_CONTENT_LENGTH,
             "limite_login": self.LIMITE_LOGIN,
+            # O modo e o remetente, nunca a senha de app do SMTP: ela é
+            # credencial, como a senha do banco e as chaves de cifragem.
+            "email_modo": self.EMAIL_MODO,
+            "email_remetente": self.EMAIL_REMETENTE,
+            "smtp_configurado": bool(self.SMTP_HOST and self.SMTP_USUARIO),
         }
 
 

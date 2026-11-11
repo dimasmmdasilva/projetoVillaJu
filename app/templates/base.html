@@ -45,6 +45,11 @@
     {% if tem_perfil('administrador') %}
     <a href="{{ url_for('painel.auditoria') }}">Auditoria</a>
     {% endif %}
+    {# A caixa de saída só existe em modo arquivo. O link some junto com a
+       rota, para não oferecer caminho que responde 404. #}
+    {% if tem_perfil('administrador') and config.EMAIL_MODO == 'arquivo' %}
+    <a href="{{ url_for('mensagens.listar') }}">Caixa de saída</a>
+    {% endif %}
   </nav>
   <span class="identificacao">
     {{ sessao_usuario.nome }} &middot; {{ sessao_usuario.perfil }}
