@@ -83,6 +83,18 @@ COLUNAS = {
         "criado_em": ("datetime", False),
         "alterado_em": ("datetime", False),
     },
+    # Tabela acrescentada na Etapa 5, para o fluxo de confirmação por
+    # e-mail. Guarda o HASH do token e nunca o token: quem obtiver leitura
+    # do banco não consegue abrir link nenhum.
+    "token_acesso": {
+        "id": ("int", False),
+        "usuario_id": ("int", False),
+        "token_hash": ("varbinary", False),
+        "tipo": ("enum", False),
+        "expira_em": ("datetime", False),
+        "consumido_em": ("datetime", True),
+        "criado_em": ("datetime", False),
+    },
     "log_auditoria": {
         "id": ("bigint", False),
         "usuario_id": ("int", True),
@@ -129,6 +141,9 @@ CHAVES_ESTRANGEIRAS = {
     # SET NULL, e não CASCADE: o contato é o registro de que alguém pediu
     # informação, e sobrevive à remoção do cadastro que ele originou.
     ("contato", "hospede_id"): ("hospede", "SET NULL"),
+    # CASCADE, ao contrário das demais: um token é autorização pendente,
+    # não histórico. Apagada a conta, ele não autoriza mais nada.
+    ("token_acesso", "usuario_id"): ("usuario", "CASCADE"),
 }
 
 UNICIDADE = [
@@ -141,6 +156,7 @@ UNICIDADE = [
 ENUMS = {
     ("reserva", "situacao"): {"pendente", "confirmada", "cancelada", "concluida"},
     ("usuario", "perfil"): {"administrador", "recepcionista", "hospede"},
+    ("token_acesso", "tipo"): {"confirmacao", "recuperacao"},
     ("contato", "situacao"): {
         "novo",
         "em_atendimento",
@@ -170,7 +186,7 @@ def _uma(cursor, sql, parametros=()):
 # Tabelas
 # ---------------------------------------------------------------------------
 
-def test_as_sete_tabelas_existem(estrutura):
+def test_todas_as_tabelas_existem(estrutura):
     estrutura.execute(
         "SELECT table_name FROM information_schema.tables "
         "WHERE table_schema = DATABASE()"
@@ -479,8 +495,13 @@ def test_bytes_cifrados_voltam_identicos(banco):
 # O leitor de scripts SQL
 # ---------------------------------------------------------------------------
 
-def test_schema_tem_sete_comandos():
-    """Um comando CREATE TABLE por tabela, nem mais nem menos."""
+def test_schema_cria_uma_tabela_por_entrada():
+    """Um comando CREATE TABLE por tabela, nem mais nem menos.
+
+    Os nomes destes dois testes diziam "sete" até a Etapa 5, quando
+    `token_acesso` entrou. A contagem sempre veio do dicionário acima — o
+    número no nome é que envelhecia.
+    """
     comandos = dividir_comandos(SCRIPT_SCHEMA.read_text(encoding="utf-8"))
     criacoes = [c for c in comandos if "CREATE TABLE" in c.upper()]
     assert len(criacoes) == len(TABELAS)

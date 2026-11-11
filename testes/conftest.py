@@ -38,6 +38,7 @@ SCRIPT_SCHEMA = BANCO / "01_schema.sql"
 SCRIPT_TRIGGERS = BANCO / "02_triggers.sql"
 SCRIPT_DADOS = BANCO / "04_dados_ficticios.sql"
 
+# A ordem importa na limpeza: as dependentes saem antes das referidas.
 TABELAS = [
     "chale",
     "hospede",
@@ -46,6 +47,8 @@ TABELAS = [
     "reserva",
     "log_auditoria",
     "contato",
+    # Acrescentada na Etapa 5, para o fluxo de confirmação por e-mail.
+    "token_acesso",
 ]
 
 

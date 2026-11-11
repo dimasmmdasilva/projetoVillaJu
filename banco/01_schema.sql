@@ -435,3 +435,67 @@ CREATE TABLE contato (
     -- Quantas vezes esta pessoa já escreveu.
     KEY idx_contato_email (email_busca, criado_em)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ===========================================================================
+-- TOKEN DE ACESSO
+-- ===========================================================================
+-- Prova de posse de um endereço de e-mail. O sistema cria a conta inativa,
+-- gera um token, e só a abertura do link contido na mensagem a ativa.
+--
+-- Avisar não bastaria: se o link aparecesse na tela do cadastro, bastaria
+-- digitar o endereço de outra pessoa para criar conta no nome dela.
+--
+-- --------------------------------------------------------------------------
+-- Por que a coluna guarda o HASH e não o token
+--
+-- Mesma lógica da senha. Quem obtiver leitura do banco não consegue abrir
+-- link nenhum: teria o hash, e o hash não volta ao token.
+--
+-- E por que SHA-256 aqui, enquanto a senha usa Argon2id: o token vem de
+-- `secrets.token_urlsafe(32)` e carrega 256 bits de aleatoriedade. Não há
+-- dicionário nem força bruta contra isso. Argon2id existe para proteger
+-- segredos de BAIXA entropia — senhas que pessoas escolhem e repetem — e
+-- o custo dele (0,658 s) seria desperdiçado num valor que já é
+-- impossível de adivinhar.
+-- --------------------------------------------------------------------------
+
+CREATE TABLE token_acesso (
+    id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+
+    usuario_id      INT UNSIGNED NOT NULL,
+
+    -- SHA-256 do token, 32 bytes exatos.
+    token_hash      VARBINARY(32) NOT NULL,
+
+    tipo            ENUM('confirmacao','recuperacao') NOT NULL,
+
+    expira_em       DATETIME NOT NULL,
+
+    -- Preenchido no consumo. Uso único: um link já aberto não abre de
+    -- novo, mesmo dentro do prazo. Sem isso, um link que vazasse depois de
+    -- usado continuaria valendo.
+    consumido_em    DATETIME NULL,
+
+    criado_em       DATETIME NOT NULL,
+
+    PRIMARY KEY (id),
+
+    -- Único: dois tokens com o mesmo hash seriam o mesmo token, e a
+    -- consulta de consumo precisa achar no máximo uma linha.
+    UNIQUE KEY uq_token_hash (token_hash),
+
+    -- CASCADE, ao contrário de `contato.hospede_id`, que é SET NULL. Um
+    -- token é autorização pendente, não histórico: apagada a conta, o
+    -- token não autoriza mais nada e guardá-lo seria guardar lixo com
+    -- poder.
+    CONSTRAINT fk_token_usuario
+        FOREIGN KEY (usuario_id) REFERENCES usuario (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+
+    -- Invalidar os pendentes de uma conta quando um token novo é emitido.
+    KEY idx_token_usuario (usuario_id, tipo, consumido_em),
+
+    -- Limpeza dos vencidos.
+    KEY idx_token_expiracao (expira_em)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

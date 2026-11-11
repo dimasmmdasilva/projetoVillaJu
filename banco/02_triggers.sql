@@ -474,6 +474,22 @@ BEGIN
 END$$
 
 
+DROP TRIGGER IF EXISTS trg_token_antes_inserir$$
+CREATE TRIGGER trg_token_antes_inserir
+BEFORE INSERT ON token_acesso
+FOR EACH ROW
+BEGIN
+    -- O carimbo vem do banco, não da aplicação. Um relógio de aplicação
+    -- adiantado produziria token que nasce vencido; atrasado, token que
+    -- vive além do previsto.
+    SET NEW.criado_em = NOW();
+
+    IF NEW.expira_em <= NOW() THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Token de acesso nao pode nascer vencido.';
+    END IF;
+END$$
+
 DROP TRIGGER IF EXISTS trg_contato_antes_inserir$$
 CREATE TRIGGER trg_contato_antes_inserir
 BEFORE INSERT ON contato

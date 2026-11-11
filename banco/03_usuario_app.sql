@@ -118,6 +118,12 @@ PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
 SET @sql = CONCAT('GRANT SELECT, INSERT, UPDATE, DELETE ON `', @banco, '`.contato TO ', @conta);
 PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
 
+-- Token de acesso. UPDATE é necessário para marcar o consumo; DELETE,
+-- para a limpeza dos vencidos. Um token vencido que permanecesse no banco
+-- seria lixo acumulando — e lixo que um dia alguém tenta reaproveitar.
+SET @sql = CONCAT('GRANT SELECT, INSERT, UPDATE, DELETE ON `', @banco, '`.token_acesso TO ', @conta);
+PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
+
 -- Auditoria: apenas leitura e acréscimo. Sem UPDATE, sem DELETE.
 SET @sql = CONCAT('GRANT SELECT, INSERT ON `', @banco, '`.log_auditoria TO ', @conta);
 PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
