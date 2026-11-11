@@ -40,6 +40,18 @@ h2 { font-size: 1.1rem; margin-top: 2rem; }
   color: #fff;
 }
 
+/* O `gap` da `.barra` separa os filhos diretos dela — marca, nav,
+ * identificação e o formulário de saída. Não alcança os links dentro do
+ * `nav`, que ficavam separados apenas pelo espaço do HTML e se
+ * amontoavam à medida que telas novas entravam na navegação.
+ *
+ * O cabeçalho da face pública já tinha este tratamento; o interno não. */
+.barra nav {
+  display: flex;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+}
+
 .barra a { color: #fff; }
 .barra .identificacao { margin-left: auto; font-size: 0.9rem; }
 .barra form { margin: 0; }

@@ -186,8 +186,25 @@ class Configuracao:
         # confirmação. Vem da configuração porque o servidor não sabe por
         # qual endereço foi alcançado, e adivinhar pelo cabeçalho `Host`
         # permitiria a um atacante fazer o link apontar para o sítio dele.
+        #
+        # O padrão é `localhost`, e NÃO o valor de `VILLAJU_HOST`. São
+        # coisas diferentes: `HOST` é o endereço em que o servidor escuta —
+        # `127.0.0.1`, ou `0.0.0.0`, que nem sequer é navegável. O endereço
+        # pelo qual se navega é outro.
+        #
+        # A primeira versão derivava do `HOST` e produzia links para
+        # `https://127.0.0.1:5000` enquanto a pessoa navegava em
+        # `https://localhost:5000`. Para o navegador são **origens
+        # diferentes**: a exceção de certificado aceita numa não vale na
+        # outra, e o cookie de sessão de uma não acompanha a outra. Clicar
+        # no link do e-mail levava a um aviso de certificado e a uma origem
+        # sem sessão.
+        #
+        # O certificado local cobre `localhost`, `villaju.local` e
+        # `127.0.0.1`, então qualquer um funciona — o que não funciona é
+        # misturá-los.
         self.EMAIL_BASE_URL = _opcional(
-            "VILLAJU_EMAIL_BASE_URL", f"https://{self.HOST}:{self.PORTA}"
+            "VILLAJU_EMAIL_BASE_URL", f"https://localhost:{self.PORTA}"
         )
 
         self.SMTP_HOST = _opcional("VILLAJU_SMTP_HOST", "")

@@ -552,3 +552,53 @@ def test_caixa_vazia_diz_onde_as_mensagens_apareceriam(aplicacao):
 
     assert "Nenhuma mensagem gerada ainda" in html
     assert "emails" in html
+
+
+def test_o_endereco_base_nao_vem_do_endereco_de_escuta():
+    """`HOST` é onde o servidor escuta; não é por onde se navega.
+
+    Encontrado ao clicar no link de uma mensagem real. O padrão derivava
+    de `VILLAJU_HOST`, que vale `127.0.0.1`, enquanto a navegação
+    acontecia em `localhost`. Para o navegador são **origens diferentes**:
+    a exceção de certificado aceita numa não vale na outra, e o cookie de
+    sessão não atravessa. O link do e-mail caía num aviso de certificado.
+
+    E `HOST` pode valer `0.0.0.0`, que não é navegável de forma alguma.
+    """
+    import os
+
+    if not os.environ.get("VILLAJU_SECRET_KEY"):
+        pytest.skip("configuração real ausente neste ambiente")
+
+    configuracao = Configuracao(modo_teste=True)
+
+    assert "0.0.0.0" not in configuracao.EMAIL_BASE_URL
+    assert configuracao.EMAIL_BASE_URL.startswith("https://")
+
+    # O endereço de escuta não governa o endereço do link.
+    if configuracao.HOST in ("127.0.0.1", "0.0.0.0"):
+        assert configuracao.HOST not in configuracao.EMAIL_BASE_URL, (
+            "o link do e-mail foi montado a partir do endereço de escuta"
+        )
+
+
+def test_a_barra_de_navegacao_separa_os_links():
+    """Sem espaçamento próprio, os links se amontoam.
+
+    O `gap` da barra separa os filhos diretos dela — marca, navegação,
+    identificação —, e não alcança os links dentro do `nav`. Eles ficavam
+    separados apenas pelo espaço do HTML, e o problema piorava a cada tela
+    nova na navegação.
+    """
+    import pathlib as caminho_padrao
+
+    css = (
+        caminho_padrao.Path(__file__).resolve().parents[1]
+        / "app" / "static" / "css" / "villaju.css"
+    ).read_text(encoding="utf-8")
+
+    assert ".barra nav" in css, "a navegação interna precisa de espaçamento"
+
+    bloco = css.split(".barra nav")[1].split("}")[0]
+    assert "gap" in bloco
+    assert "flex" in bloco
