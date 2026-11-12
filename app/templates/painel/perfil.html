@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titulo %}Meu perfil — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Meu perfil</h1>
+
+{# Os dados desta pessoa, decifrados para quem é dono deles.
+
+   O identificador do hóspede vem da linha do usuário no banco, lida a
+   cada requisição — não da URL nem do formulário. Não há número nesta
+   página para alguém trocar. #}
+
+{% if hospede %}
+<dl class="dados-do-perfil">
+  <dt>Nome</dt>
+  <dd>{{ hospede.nome }}</dd>
+
+  <dt>Documento</dt>
+  <dd>{{ hospede.documento }}</dd>
+
+  <dt>E-mail</dt>
+  <dd>{{ hospede.email or '—' }}</dd>
+
+  <dt>Telefone</dt>
+  <dd>{{ hospede.telefone or '—' }}</dd>
+</dl>
+
+<p class="nota-campo">
+  Estes dados estão cifrados no banco. Nem o administrador do servidor de
+  banco de dados consegue lê-los sem a chave, que não vive no repositório.
+</p>
+
+<h2>Para corrigir</h2>
+<p>
+  <strong>Nome e telefone</strong> são corrigidos pela recepção — fale com
+  ela e o ajuste é feito na hora.
+</p>
+<p>
+  <strong>O documento</strong> também, e com conferência: ele é identidade,
+  e a recepção compara com o papel.
+</p>
+<p>
+  <strong>O e-mail</strong> é o seu acesso ao sistema. Trocá-lo é trocar a
+  chave da porta, e exige confirmar o endereço novo antes de valer — é um
+  caminho próprio, que ainda não está construído. Por enquanto, a recepção
+  resolve.
+</p>
+
+{% else %}
+<p>Não há cadastro a mostrar.</p>
+{% endif %}
+
+<h2>Acesso</h2>
+<dl class="dados-do-perfil">
+  <dt>Entrada no sistema</dt>
+  <dd>o seu e-mail</dd>
+
+  <dt>Perfil</dt>
+  <dd>{{ usuario.perfil }}</dd>
+
+  {% if usuario.ultimo_acesso %}
+  <dt>Último acesso</dt>
+  <dd>{{ usuario.ultimo_acesso.strftime('%d/%m/%Y às %H:%M') }}</dd>
+  {% endif %}
+</dl>
+
+<p class="acao-chale">
+  <a class="botao" href="{{ url_for('reservas.trocar_senha') }}">
+    Trocar a senha
+  </a>
+</p>
+
+<p class="voltar">
+  <a href="{{ url_for('reservas.minhas') }}">Minhas reservas</a>
+</p>
+{% endblock %}

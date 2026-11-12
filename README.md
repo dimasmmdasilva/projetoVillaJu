@@ -415,19 +415,34 @@ afrouxar a política.
 | 3 | Autocadastro público com confirmação | concluído |
 | 4 | Caminho único e descarte do não confirmado | concluído |
 | 5 | Consulta pública de disponibilidade | concluído |
-| 6 | Portal do hóspede | a fazer |
+| 6 | Portal do hóspede — perfil, troca de senha, reservas separadas | concluído |
 | 7 | Reserva com sinal de 50% e prazo de 24 h | a fazer |
-| 8 | Painel de pagamentos da equipe | a fazer |
+| 8 | Controle de pagamentos no painel do administrador | a fazer |
 | 9 | Cancelamento com cálculo da devolução | a fazer |
-| 10 | Página de cada chalé | a fazer |
-| 11 | Contas da equipe | a fazer |
+| 10 | Página de cada chalé, com galeria | concluído |
 | 12 | Mensagem em HTML | opcional |
+| 13 | Ajustes de interface | concluído |
+| 14 | Recuperação de senha pelo link de e-mail | concluído |
+
+> **O Bloco 11 — contas da equipe — saiu do escopo em 13/11.** Contas de
+> administrador e recepcionista são provisionadas uma vez, na instalação,
+> por `banco/04_dados_ficticios.sql` — são três pessoas numa hospedaria
+> de cinco chalés. O RF07 e o RF08 continuam atendidos: eles exigem
+> autenticação e os três perfis operando, e os três operam.
+>
+> Conta de **hóspede**, essa sim, é criada pela própria pessoa, com
+> confirmação por e-mail — que era o buraco que deu origem a esta etapa.
 
 **Entrega 2:** 11/11/2026 · **Entrega final:** 25/11/2026
 
 > **Sobre o controle de pagamento.** Os Blocos 7 a 9 registram o sinal de
-> 50% e contam o prazo de 24 horas, a pedido do professor. **O sistema
-> não transaciona.** O Pix acontece inteiramente fora dele, entre o
+> 50% e contam o prazo de 24 horas, a pedido do professor. Ele aparece
+> como **uma seção do painel do administrador**, e não como módulo
+> financeiro: o sistema cuida do aluguel dos chalés, e o dinheiro é o
+> estado de uma reserva. Faturamento, contas a receber e fechamento não
+> estão no escopo e não vão estar.
+>
+> **O sistema não transaciona.** O Pix acontece inteiramente fora dele, entre o
 > aplicativo do banco do hóspede e o da hospedaria; o que o sistema faz é
 > registrar que alguém da equipe conferiu a entrada, contar o tempo e
 > calcular a elegibilidade da devolução. Não há intermediário de

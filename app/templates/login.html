@@ -58,6 +58,15 @@
 
   {# Caminho de volta. Quem clica em "Área da equipe" na vitrine e descobre
      que errou de porta ficava preso numa página sem saída. #}
+  {# O caminho de quem esqueceu a senha.
+
+     Sem ele, a pessoa fica sem saída: desde a Etapa 5, ninguém conhece a
+     senha de ninguém — nem a recepção, nem o administrador, nem o banco,
+     que guarda só o hash Argon2id. #}
+  <p class="voltar">
+    <a href="{{ url_for('auth.esqueci_senha') }}">Esqueci a senha</a>
+  </p>
+
   <p class="voltar">
     Não tem conta?
     <a href="{{ url_for('publico.criar_conta') }}">Criar conta</a>

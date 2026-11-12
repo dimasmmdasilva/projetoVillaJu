@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Esqueci a senha — VillaJu{% endblock %}
+{% block classe_corpo %}entrada{% endblock %}
+
+{# As mensagens ficam dentro do cartão, abaixo do formulário — como na
+   tela de entrada. Fora dele, viram um segundo item do flex e empurram o
+   cartão para o lado. #}
+{% block avisos %}{% endblock %}
+
+{% block conteudo %}
+<div class="cartao-entrada">
+  <h1>Esqueci a senha</h1>
+  <p class="subtitulo">
+    Informe o seu e-mail e enviaremos um link para escolher uma senha nova.
+  </p>
+
+  <form method="post" action="{{ url_for('auth.esqueci_senha') }}"
+        class="formulario">
+    {# Token obrigatório. Sem ele, um sítio hostil faria o navegador de um
+       visitante disparar pedidos de redefinição em nome dele. #}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <label for="email">E-mail</label>
+    <input type="email" id="email" name="email" required autofocus
+           maxlength="150" autocomplete="email"
+           value="{{ email or '' }}">
+
+    <button type="submit">Enviar o link</button>
+  </form>
+
+  <div class="avisos">
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% for categoria, texto in mensagens %}
+      <p class="aviso aviso-{{ categoria }}">{{ texto }}</p>
+      {% endfor %}
+    {% endwith %}
+  </div>
+
+  <p class="voltar">
+    Lembrou? <a href="{{ url_for('auth.login') }}">Entrar</a>
+  </p>
+
+  <p class="voltar">
+    <a href="{{ url_for('publico.inicio') }}">Voltar ao início</a>
+  </p>
+</div>
+{% endblock %}

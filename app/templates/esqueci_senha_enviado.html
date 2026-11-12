@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}Confira o seu e-mail — VillaJu{% endblock %}
+{% block classe_corpo %}entrada{% endblock %}
+
+{% block conteudo %}
+<div class="cartao-entrada">
+  <h1>Confira o seu e-mail</h1>
+
+  {# A redação é condicional de propósito, e é verdadeira nos dois casos.
+
+     Dizer "enviamos o link" revelaria que o endereço tem conta, e dizer
+     "este e-mail não está cadastrado" revelaria o contrário. Qualquer das
+     duas transformaria esta tela num levantamento de quem é cliente da
+     hospedaria — exatamente o que o cadastro se esforça para evitar. #}
+
+  <p>
+    Se este endereço tiver conta na VillaJu, você receberá uma mensagem
+    com um link para escolher uma senha nova.
+  </p>
+
+  <p>
+    O link vale por <strong>48 horas</strong> e só pode ser usado uma vez.
+  </p>
+
+  <h2>Se a mensagem não chegar</h2>
+  <p>
+    Confira a pasta de spam. Se ainda assim não aparecer, pode ser que a
+    conta tenha sido criada com outro endereço — tente o outro, ou fale
+    com a recepção.
+  </p>
+
+  <p class="voltar">
+    <a href="{{ url_for('auth.login') }}">Ir para a tela de entrada</a>
+  </p>
+
+  <p class="voltar">
+    <a href="{{ url_for('publico.inicio') }}">Voltar ao início</a>
+  </p>
+</div>
+{% endblock %}

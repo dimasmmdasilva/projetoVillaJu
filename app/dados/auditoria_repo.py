@@ -30,6 +30,12 @@ LOGIN_FALHA = "LOGIN_FALHA"
 LOGOUT = "LOGOUT"
 ACESSO_NEGADO = "ACESSO_NEGADO"
 
+# A pessoa trocou a própria senha. Registrado porque é a única operação
+# pela qual alguém que tenha tomado uma sessão emprestada consegue
+# transformar um acesso temporário em permanente — e, quando isso
+# acontece, a linha do log é o que permite datar o momento.
+SENHA_ALTERADA = "SENHA_ALTERADA"
+
 # Teto da coluna `detalhe` no schema. Texto maior seria truncado pelo
 # banco ou rejeitado, dependendo do modo estrito em vigor.
 TAMANHO_DO_DETALHE = 255

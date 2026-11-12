@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block titulo %}Trocar a senha — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Trocar a senha</h1>
+
+{# A senha atual é exigida, e não é burocracia.
+
+   Sem ela, quem tomasse uma sessão emprestada — um navegador aberto na
+   recepção, um cookie capturado — trocaria a senha e transformaria um
+   acesso temporário em permanente, expulsando a dona da conta.
+
+   A senha atual é a prova de que quem pede a troca é quem SABE a senha,
+   e não apenas quem está com a sessão. #}
+
+<p class="subtitulo">
+  A senha atual é pedida para confirmar que é você — e não alguém que
+  encontrou esta tela aberta.
+</p>
+
+<form method="post" action="{{ url_for('reservas.trocar_senha') }}"
+      class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <label for="senha_atual">Senha atual</label>
+  <input type="password" id="senha_atual" name="senha_atual" required
+         autofocus autocomplete="current-password" maxlength="1024">
+
+  <label for="senha_nova">Senha nova</label>
+  <input type="password" id="senha_nova" name="senha_nova" required
+         minlength="{{ minimo_da_senha }}" maxlength="128"
+         autocomplete="new-password">
+  <p class="nota-campo">
+    Ao menos {{ minimo_da_senha }} caracteres. Não há exigência de
+    maiúscula, número ou símbolo — comprimento protege mais do que regra
+    de composição.
+  </p>
+
+  <label for="senha_confirmacao">Repita a senha nova</label>
+  <input type="password" id="senha_confirmacao" name="senha_confirmacao"
+         required minlength="{{ minimo_da_senha }}" maxlength="128"
+         autocomplete="new-password">
+
+  {# Nenhum campo de senha volta preenchido num envio recusado.
+     Devolvê-los escreveria a senha no HTML, e dali ela chegaria ao
+     histórico do navegador e ao cache da página. #}
+
+  <button type="submit">Trocar a senha</button>
+</form>
+
+<p class="voltar">
+  <a href="{{ url_for('reservas.perfil') }}">Voltar ao perfil</a>
+</p>
+{% endblock %}

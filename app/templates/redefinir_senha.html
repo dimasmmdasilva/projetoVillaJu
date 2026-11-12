@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block titulo %}
+  {{ 'Escolher uma senha nova' if token else 'Link inválido' }} — VillaJu
+{% endblock %}
+{% block classe_corpo %}entrada{% endblock %}
+
+{% block avisos %}{% endblock %}
+
+{% block conteudo %}
+<div class="cartao-entrada">
+
+{% if token %}
+<h1>Escolher uma senha nova</h1>
+<p class="subtitulo">
+  Esta é a última etapa. Depois de trocar, entre com a senha nova.
+</p>
+
+<form method="post"
+      action="{{ url_for('auth.redefinir_senha', token=token) }}"
+      class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  {# `new-password` e não `current-password`: diz ao gerenciador de senhas
+     que esta é uma senha a criar, e não a preencher com a que ele
+     guardou. #}
+  <label for="senha">Senha nova</label>
+  <input type="password" id="senha" name="senha" required autofocus
+         minlength="{{ minimo_da_senha }}" maxlength="128"
+         autocomplete="new-password">
+  <p class="nota-campo">
+    Ao menos {{ minimo_da_senha }} caracteres. Não há exigência de
+    maiúscula, número ou símbolo — comprimento protege mais do que regra
+    de composição.
+  </p>
+
+  <label for="senha_confirmacao">Repita a senha nova</label>
+  <input type="password" id="senha_confirmacao" name="senha_confirmacao"
+         required minlength="{{ minimo_da_senha }}" maxlength="128"
+         autocomplete="new-password">
+
+  {# Nenhum campo de senha volta preenchido num envio recusado:
+     devolvê-lo escreveria a senha no HTML, e dali ela chegaria ao
+     histórico do navegador e ao cache da página. #}
+
+  <button type="submit">Trocar a senha</button>
+</form>
+
+<div class="avisos">
+  {% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% for categoria, texto in mensagens %}
+    <p class="aviso aviso-{{ categoria }}">{{ texto }}</p>
+    {% endfor %}
+  {% endwith %}
+</div>
+
+{% else %}
+{# Token inexistente, vencido, já usado e de outro tipo caem todos aqui.
+
+   As causas aparecem como possibilidades, sem que nenhuma seja apontada:
+   distinguir ensinaria a quem está sondando se um token existe. #}
+<h1>Este link não vale mais</h1>
+<p>
+  O link pode ter vencido, já ter sido usado ou estar incompleto — um
+  endereço copiado de um e-mail às vezes quebra em duas linhas e perde o
+  final.
+</p>
+
+<p>
+  Peça outro: o anterior deixa de valer assim que o novo for emitido.
+</p>
+
+<p class="acao-chale">
+  <a class="botao" href="{{ url_for('auth.esqueci_senha') }}">
+    Pedir outro link
+  </a>
+</p>
+{% endif %}
+
+<p class="voltar">
+  <a href="{{ url_for('auth.login') }}">Ir para a tela de entrada</a>
+</p>
+</div>
+{% endblock %}

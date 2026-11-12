@@ -30,10 +30,7 @@
   fechar.
 </p>
 
-{% if not vinculada %}
-<p>Nada a mostrar enquanto a conta não estiver vinculada.</p>
-
-{% elif reservas %}
+{% macro tabela_de_reservas(lista) %}
 <table>
   <thead>
     <tr>
@@ -48,7 +45,7 @@
     </tr>
   </thead>
   <tbody>
-    {% for reserva in reservas %}
+    {% for reserva in lista %}
     <tr>
       <td>{{ reserva.id }}</td>
       <td>{{ reserva.chale_nome }}</td>
@@ -76,12 +73,47 @@
     {% endfor %}
   </tbody>
 </table>
+{% endmacro %}
 
+{# Duas listas, e a separação não é cosmética.
+
+   **Em andamento** é a conjunção de duas coisas: situação que ainda vale
+   E saída de hoje em diante. As duas são necessárias.
+
+   Só a situação não bastaria — uma reserva confirmada cuja saída foi mês
+   passado está confirmada e acabada, e ficaria no topo empurrando para
+   baixo a que começa amanhã. Só a data também não — uma reserva
+   cancelada para a semana que vem não está em andamento coisa nenhuma.
+
+   A ordem dentro de cada lista também difere: em andamento, a mais
+   próxima primeiro, que é a que interessa; no histórico, a mais recente
+   primeiro, que é a última lembrança. #}
+
+{% if not vinculada %}
+<p>Nada a mostrar enquanto a conta não estiver vinculada.</p>
+
+{% else %}
+
+<h2>Em andamento</h2>
+{% if em_andamento %}
+{{ tabela_de_reservas(em_andamento) }}
+{% else %}
+<p>Nenhuma reserva em andamento.</p>
+{% endif %}
+
+<h2>Histórico</h2>
+{% if historico %}
+{{ tabela_de_reservas(historico) }}
 <p><small>Estadias que atravessam uma virada de temporada aparecem com as
    diárias discriminadas: cada noite é cobrada pela tarifa vigente na
    data.</small></p>
-
 {% else %}
-<p>Você ainda não tem reservas registradas.</p>
+<p>Nenhuma reserva anterior.</p>
 {% endif %}
+
+{% endif %}
+
+<p class="voltar">
+  <a href="{{ url_for('reservas.perfil') }}">Meu perfil</a>
+</p>
 {% endblock %}

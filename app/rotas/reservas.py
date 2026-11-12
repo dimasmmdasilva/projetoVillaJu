@@ -5,6 +5,7 @@ apenas as próprias reservas, em rota separada.
 """
 
 import datetime as dt
+import logging
 
 from flask import (
     Blueprint,
@@ -16,9 +17,10 @@ from flask import (
     url_for,
 )
 
-from app.dados import reserva_repo
+from app.dados import auditoria_repo, reserva_repo, usuario_repo
 from app.dados.erros import ErroDeDados
 from app.dados.reserva_repo import ConflitoDePeriodo
+from app.seguranca import senhas
 from app.seguranca.autorizacao import (
     ADMINISTRADOR,
     HOSPEDE,
@@ -26,6 +28,15 @@ from app.seguranca.autorizacao import (
     requer_perfil,
     usuario_atual,
 )
+from app.seguranca.cripto import FalhaDeAutenticacao
+
+# A exigência de tamanho da senha vive em `app/servicos/cadastro.py`, que
+# é onde a política foi escrita. Importada e não repetida: uma política
+# de senha em dois lugares é uma política que vai divergir, e o cadastro
+# aceitaria o que a troca recusa.
+from app.servicos.cadastro import TAMANHO_MINIMO_DA_SENHA
+
+_registrador = logging.getLogger(__name__)
 
 reservas = Blueprint("reservas", __name__, url_prefix="/reservas")
 
@@ -360,6 +371,8 @@ def minhas():
         usuario["hospede_id"], usuario_id=usuario["id"]
     )
 
+    em_andamento, historico = _separar_reservas(lista)
+
     # A conta de cada estadia, calculada noite a noite. Lacuna de tarifa
     # devolve None e a linha mostra um traço.
     contas = {reserva["id"]: _conta_da_reserva(reserva) for reserva in lista}
@@ -367,7 +380,230 @@ def minhas():
     return render_template(
         "painel/minhas_reservas.html",
         usuario=usuario,
+        em_andamento=em_andamento,
+        historico=historico,
         reservas=lista,
         contas=contas,
         vinculada=True,
     )
+
+
+# ---------------------------------------------------------------------------
+# Bloco 6 — o portal do hóspede
+# ---------------------------------------------------------------------------
+
+# As situações que mantêm uma reserva viva.
+#
+# As mesmas duas da trigger de não-sobreposição, e isso não é
+# coincidência: uma reserva que ocupa o chalé é uma reserva em andamento.
+SITUACOES_VIVAS = ("pendente", "confirmada")
+
+
+def _separar_reservas(lista):
+    """Divide as reservas em **em andamento** e **histórico**.
+
+    Em andamento é a conjunção de duas coisas, e as duas são
+    necessárias: situação que ainda vale E saída de hoje em diante.
+
+    Só a situação não basta — uma reserva confirmada cuja saída foi mês
+    passado está confirmada e acabada, e deixá-la no topo empurraria para
+    baixo a que começa amanhã. Só a data também não basta — uma reserva
+    cancelada para a semana que vem não está em andamento coisa nenhuma.
+
+    A separação é feita aqui e não no SQL de propósito: `listar_por_hospede`
+    já devolve as reservas desta pessoa, filtradas no `WHERE` por
+    `hospede_id`. Uma segunda consulta repetiria esse filtro — e repetir
+    filtro de autorização é criar um segundo lugar onde ele pode ser
+    esquecido.
+    """
+    hoje = dt.date.today()
+
+    em_andamento = []
+    historico = []
+
+    for reserva in lista:
+        saida = reserva["data_saida"]
+        if isinstance(saida, dt.datetime):
+            saida = saida.date()
+
+        viva = reserva["situacao"] in SITUACOES_VIVAS and saida >= hoje
+        (em_andamento if viva else historico).append(reserva)
+
+    # Em andamento, a mais próxima primeiro: é a que interessa.
+    # No histórico, a mais recente primeiro: é a última lembrança.
+    em_andamento.sort(key=lambda r: r["data_entrada"])
+    historico.sort(key=lambda r: r["data_entrada"], reverse=True)
+
+    return em_andamento, historico
+
+
+@reservas.route("/perfil")
+@requer_perfil(HOSPEDE)
+def perfil():
+    """Os próprios dados do hóspede, decifrados para quem é dono deles.
+
+    **De onde vem o identificador.** Da linha do usuário na tabela
+    `usuario`, lida do banco a cada requisição. Não da URL, não do
+    formulário, não da sessão do navegador — a mesma regra de `minhas`, e
+    pela mesma razão: se fosse parâmetro, trocar o número no endereço
+    mostraria o cadastro de outra pessoa.
+
+    **Por que é só leitura.** Documento e e-mail não se editam aqui, e
+    não por esquecimento:
+
+    O **documento** é identidade. Quem errou ao digitar precisa falar com
+    a recepção, que confere com o papel — deixar trocá-lo sozinho
+    permitiria a alguém com a sessão tomada assumir outra identidade no
+    sistema.
+
+    O **e-mail é o login**: o login desta conta é o HMAC do endereço.
+    Trocá-lo aqui mudaria a chave de acesso, e teria de reemitir
+    confirmação para o endereço novo antes de valer — é um fluxo próprio,
+    com prova de posse, e não um campo de formulário.
+
+    Nome e telefone são editáveis pela recepção, e o serão por aqui num
+    bloco futuro.
+    """
+    from app.dados import hospede_repo
+
+    usuario = usuario_atual()
+
+    if not usuario.get("hospede_id"):
+        flash(
+            "Sua conta não está vinculada a um cadastro de hóspede. "
+            "Procure a recepção.",
+            "erro",
+        )
+        return render_template(
+            "painel/perfil.html", usuario=usuario, hospede=None
+        )
+
+    try:
+        hospede = hospede_repo.buscar_por_id(
+            usuario["hospede_id"], usuario_id=usuario["id"]
+        )
+    except FalhaDeAutenticacao:
+        # O registro não passou na verificação de integridade. Para a
+        # pessoa dona dele, mostrar dado alterado seria pior do que não
+        # mostrar nada.
+        _registrador.exception("cadastro do hóspede não pôde ser decifrado")
+        flash(
+            "Não foi possível abrir o seu cadastro. Procure a recepção.",
+            "erro",
+        )
+        hospede = None
+
+    return render_template(
+        "painel/perfil.html", usuario=usuario, hospede=hospede
+    )
+
+
+@reservas.route("/perfil/senha", methods=["GET", "POST"])
+@requer_perfil(HOSPEDE)
+def trocar_senha():
+    """Troca da própria senha, exigindo a senha atual.
+
+    **Por que a senha atual é exigida.** Sem ela, quem tomasse uma sessão
+    emprestada — um navegador aberto na recepção, um cookie capturado —
+    trocaria a senha e transformaria um acesso temporário em permanente,
+    expulsando a dona da conta. A senha atual é a prova de que quem está
+    pedindo a troca é quem sabe a senha, e não apenas quem está com a
+    sessão.
+
+    **A mesma recusa para senha atual errada e para qualquer outra
+    falha**, e nenhuma delas revela mais do que precisa.
+
+    **A sessão é renovada ao fim.** Trocar a senha é o momento em que se
+    quer ter certeza de que o identificador de sessão em uso não é um que
+    alguém tenha visto antes.
+    """
+    usuario = usuario_atual()
+
+    if request.method == "GET":
+        return render_template(
+            "painel/trocar_senha.html",
+            usuario=usuario,
+            minimo_da_senha=TAMANHO_MINIMO_DA_SENHA,
+        )
+
+    atual = request.form.get("senha_atual") or ""
+    nova = request.form.get("senha_nova") or ""
+    confirmacao = request.form.get("senha_confirmacao") or ""
+
+    def recusar(mensagem):
+        flash(mensagem, "erro")
+        return render_template(
+            "painel/trocar_senha.html",
+            usuario=usuario,
+            minimo_da_senha=TAMANHO_MINIMO_DA_SENHA,
+        ), 400
+
+    # A senha atual primeiro, e sempre: validar o formato da nova antes
+    # de conferir a atual diria a quem não sabe a senha se a nova
+    # proposta seria aceita, o que é informação de graça.
+    if not senhas.verificar(usuario["senha_hash"], atual):
+        auditoria_repo.registrar(
+            auditoria_repo.LOGIN_FALHA,
+            usuario_id=usuario["id"],
+            detalhe="Senha atual incorreta na troca de senha",
+        )
+        return recusar("A senha atual não confere.")
+
+    if len(nova) < TAMANHO_MINIMO_DA_SENHA:
+        return recusar(
+            f"A senha nova precisa ter ao menos "
+            f"{TAMANHO_MINIMO_DA_SENHA} caracteres."
+        )
+    if len(nova) > senhas.TAMANHO_MAXIMO:
+        return recusar(
+            f"A senha nova tem {len(nova)} caracteres; o limite é "
+            f"{senhas.TAMANHO_MAXIMO}."
+        )
+    if nova != confirmacao:
+        return recusar("A senha nova e a confirmação não são iguais.")
+
+    if nova == atual:
+        return recusar("A senha nova precisa ser diferente da atual.")
+
+    usuario_repo.atualizar_hash(
+        usuario["id"], senhas.gerar_hash(nova), usuario_id=usuario["id"]
+    )
+
+    auditoria_repo.registrar(
+        auditoria_repo.SENHA_ALTERADA,
+        usuario_id=usuario["id"],
+        detalhe="Senha alterada pela própria pessoa",
+    )
+
+    # **Não há sessão a renovar aqui, e isto é uma limitação declarada.**
+    #
+    # A primeira versão limpava e reescrevia a sessão, com o comentário de
+    # que renovava o identificador. Era teatro: a sessão do Flask **vive
+    # no cookie assinado**, e não há identificador guardado no servidor.
+    # Reescrevê-la produz um cookie novo, mas o antigo continua sendo
+    # aceito — o servidor valida qualquer cookie bem assinado e dentro do
+    # prazo, e não tem lista de quais foram revogados.
+    #
+    # Quem descobriu foi uma sabotagem: remover a renovação não quebrou
+    # teste nenhum, e a investigação mostrou que não havia o que quebrar.
+    # O cookie de fato mudava de valor a cada resposta, mas por outro
+    # motivo — `flash` altera a sessão, e a assinatura carrega carimbo de
+    # tempo.
+    #
+    # **A consequência real:** trocar a senha NÃO derruba sessões abertas
+    # em outros navegadores. Se a troca está sendo feita porque alguém
+    # tomou a conta, quem tomou continua dentro até a sessão expirar — oito
+    # horas, pelo `PERMANENT_SESSION_LIFETIME`.
+    #
+    # Resolver exigiria guardar uma marca no banco e conferi-la a cada
+    # requisição, o que é decisão de arquitetura com custo em toda
+    # requisição. Está registrado como limitação conhecida, e há teste que
+    # a demonstra em vez de apenas afirmá-la.
+    #
+    # (A regeneração no LOGIN é outra coisa e continua valendo: contra
+    # fixação de sessão, o que importa é descartar o que o atacante
+    # plantou antes da autenticação — e `session.clear()` lá faz
+    # exatamente isso.)
+
+    flash("Senha alterada.", "sucesso")
+    return redirect(url_for("reservas.perfil"))

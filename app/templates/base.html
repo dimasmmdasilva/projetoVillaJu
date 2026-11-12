@@ -49,6 +49,7 @@
     {% endif %}
     {% if tem_perfil('hospede') %}
     <a href="{{ url_for('reservas.minhas') }}">Minhas reservas</a>
+    <a href="{{ url_for('reservas.perfil') }}">Meu perfil</a>
     {# As duas telas públicas que interessam a quem já tem conta.
 
        Elas não exigem sessão e sempre estiveram abertas — o que faltava

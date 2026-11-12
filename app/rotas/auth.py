@@ -21,8 +21,11 @@ deixam:
 5. **Registro em auditoria** de todo acesso e de toda recusa.
 """
 
+import logging
+
 from flask import (
     Blueprint,
+    current_app,
     flash,
     redirect,
     render_template,
@@ -34,8 +37,11 @@ from flask import (
 from app.dados import auditoria_repo, usuario_repo
 from app.extensoes import limiter
 from app.seguranca import senhas
+from app.servicos import recuperacao
 
 auth = Blueprint("auth", __name__)
+
+_registrador = logging.getLogger(__name__)
 
 # Uma só mensagem para toda recusa, qualquer que seja o motivo: login
 # inexistente, senha errada ou conta desativada. Quem está tentando
@@ -188,4 +194,131 @@ def logout():
 
     session.clear()
     flash("Sessão encerrada.", "sucesso")
+    return redirect(url_for("auth.login"))
+
+
+# ---------------------------------------------------------------------------
+# Recuperação de senha — Bloco 14 da Etapa 5
+#
+# A Etapa 5 passou a criar contas com senha escolhida pela própria pessoa,
+# e isso tem uma consequência que não é opcional: **ninguém mais conhece a
+# senha de ninguém.** Nem a recepção, nem o administrador, nem o banco — só
+# o hash Argon2id, que não volta.
+#
+# Sem estas duas rotas, quem esquece a senha perde a conta.
+# ---------------------------------------------------------------------------
+
+@auth.route("/esqueci-senha", methods=["GET", "POST"])
+@limiter.limit(_limite_do_login, methods=["POST"])
+def esqueci_senha():
+    """Pede o link de redefinição por e-mail.
+
+    **Limitada por taxa, e aqui por uma razão a mais que a do login.**
+    Esta rota manda e-mail para um endereço que o visitante digitou: sem
+    limite, alguém a usaria para encher a caixa de entrada de outra
+    pessoa, com o nome da VillaJu no remetente. O limite do login serve,
+    porque o perfil de uso é o mesmo — uma pessoa, poucas tentativas.
+
+    **A resposta é sempre a mesma**, exista ou não a conta. Se
+    distinguisse, a tela viraria um levantamento de quem é cliente da
+    hospedaria — exatamente o que o cadastro se esforça para evitar, e
+    seria inútil evitá-lo lá e abri-lo aqui.
+    """
+    if request.method == "GET":
+        return render_template("esqueci_senha.html")
+
+    email = request.form.get("email") or ""
+
+    try:
+        recuperacao.solicitar(email, current_app.villaju)
+    except recuperacao.ErroDeRecuperacao as erro:
+        # Mensagem sobre o que a pessoa digitou — campo em branco,
+        # endereço malformado. Nunca sobre a conta existir.
+        flash(str(erro), "erro")
+        return render_template("esqueci_senha.html", email=email), 400
+    except Exception:  # noqa: BLE001
+        _registrador.exception("falha ao processar pedido de redefinição")
+        flash(
+            "Não foi possível processar o pedido agora. "
+            "Tente novamente em alguns minutos.",
+            "erro",
+        )
+        return render_template("esqueci_senha.html", email=email), 503
+
+    return redirect(url_for("auth.esqueci_senha_enviado"))
+
+
+@auth.route("/esqueci-senha/enviado")
+def esqueci_senha_enviado():
+    """Confirmação, em página própria e alcançada por redirecionamento.
+
+    A redação é condicional de propósito, e é verdadeira nos dois casos:
+    *"se este endereço tiver conta, você receberá um link"*.
+    """
+    return render_template("esqueci_senha_enviado.html")
+
+
+@auth.route("/redefinir/<token>", methods=["GET", "POST"])
+@limiter.limit(_limite_do_login, methods=["POST"])
+def redefinir_senha(token):
+    """Escolhe a senha nova, pelo link que chegou por e-mail.
+
+    **A abertura da página NÃO consome o token.** Se consumisse, o link
+    morreria antes de servir para alguma coisa, e quem fechasse a aba sem
+    querer teria de pedir outro. O consumo acontece no envio, e é ele que
+    autoriza — é uma atualização condicional, e duas aberturas
+    simultâneas do mesmo link não podem ambas ter sucesso.
+
+    **Não entra logado depois de redefinir.** A pessoa escolhe a senha e
+    entra com ela. Entrar automaticamente transformaria acesso ao e-mail
+    em acesso à conta sem que ninguém digitasse a senha — e o ponto do
+    link é provar posse do endereço, não substituir a senha.
+    """
+    if not recuperacao.token_vale(token):
+        # Token inexistente, vencido, já usado e de outro tipo dão a mesma
+        # tela. Distinguir ensinaria a quem está sondando se um token
+        # existe.
+        return render_template("redefinir_senha.html", token=None), 400
+
+    if request.method == "GET":
+        return render_template(
+            "redefinir_senha.html",
+            token=token,
+            minimo_da_senha=recuperacao.TAMANHO_MINIMO_DA_SENHA,
+        )
+
+    try:
+        trocou = recuperacao.redefinir(
+            token,
+            request.form.get("senha") or "",
+            request.form.get("senha_confirmacao") or "",
+        )
+    except recuperacao.ErroDeRecuperacao as erro:
+        # A senha é validada ANTES de o token ser consumido: um erro de
+        # digitação não queima o link.
+        flash(str(erro), "erro")
+        return render_template(
+            "redefinir_senha.html",
+            token=token,
+            minimo_da_senha=recuperacao.TAMANHO_MINIMO_DA_SENHA,
+        ), 400
+    except Exception:  # noqa: BLE001
+        _registrador.exception("falha ao redefinir a senha")
+        flash(
+            "Não foi possível trocar a senha agora. "
+            "Tente novamente em alguns minutos.",
+            "erro",
+        )
+        return render_template(
+            "redefinir_senha.html",
+            token=token,
+            minimo_da_senha=recuperacao.TAMANHO_MINIMO_DA_SENHA,
+        ), 503
+
+    if not trocou:
+        # O token venceu entre a abertura da página e o envio, ou outra
+        # requisição o consumiu primeiro.
+        return render_template("redefinir_senha.html", token=None), 400
+
+    flash("Senha redefinida. Entre com a senha nova.", "sucesso")
     return redirect(url_for("auth.login"))

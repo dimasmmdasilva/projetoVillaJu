@@ -224,6 +224,48 @@ def consumir(token: str, tipo: str = CONFIRMACAO, usuario_atuante=None):
     return linha["usuario_id"]
 
 
+def conferir(token: str, tipo: str = CONFIRMACAO, usuario_atuante=None):
+    """Diz a quem o token pertence **sem queimá-lo**. Devolve id ou None.
+
+    Existe por causa de um passo do fluxo de recuperação de senha. A
+    pessoa abre o link e precisa ver o formulário; só ao enviar a senha
+    nova é que o token deve ser consumido.
+
+    Se a abertura da página consumisse, o link morreria antes de servir
+    para alguma coisa — e quem fechasse a aba sem querer teria de pedir
+    outro.
+
+    **A mesma resposta uniforme de `consumir`**: `None` para token
+    inexistente, vencido, já consumido e de outro tipo. Quem está
+    sondando não aprende se um token existe — e esta função, por não
+    consumir, seria a ferramenta óbvia para sondar, se respondesse
+    diferente.
+
+    **Não substitui `consumir`.** Conferir e consumir são operações
+    distintas, e é o `consumir` que decide: ele é uma atualização
+    condicional, e duas aberturas simultâneas do mesmo link não podem
+    ambas ter sucesso. Quem usar só esta função para autorizar algo abre
+    uma janela de corrida entre a conferência e o efeito.
+    """
+    if not token or tipo not in TIPOS:
+        return None
+
+    with obter_cursor(usuario_id=usuario_atuante, dicionario=True) as cursor:
+        cursor.execute(_SQL_POR_HASH, (_resumir(token),))
+        linha = cursor.fetchone()
+
+    if linha is None:
+        return None
+    if linha["tipo"] != tipo:
+        return None
+    if linha["consumido_em"] is not None:
+        return None
+    if linha["expira_em"] <= dt.datetime.now():
+        return None
+
+    return linha["usuario_id"]
+
+
 def tem_pendente(usuario_id, tipo: str = CONFIRMACAO, usuario_atuante=None) -> bool:
     """Se há token válido e não consumido para esta conta e tipo."""
     with obter_cursor(usuario_id=usuario_atuante) as cursor:
