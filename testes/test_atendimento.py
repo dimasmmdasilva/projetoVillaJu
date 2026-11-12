@@ -167,7 +167,10 @@ def test_hospede_nao_alcanca_o_atendimento(sessao):
     assert cliente.get("/contatos/").status_code == 403
     assert cliente.get(f"/contatos/{identificador}").status_code == 403
     assert cliente.post(f"/contatos/{identificador}/situacao").status_code == 403
-    assert cliente.get(f"/contatos/{identificador}/converter").status_code == 403
+    # A rota de conversão saiu no Bloco 4 da Etapa 5. O alvo passou a ser
+    # a de detalhe, porque a propriedade verificada aqui é autorização por
+    # perfil, e não a conversão em si.
+    assert cliente.get(f"/contatos/{identificador}").status_code == 403
 
 
 def test_sem_sessao_leva_ao_login(aplicacao):
@@ -270,122 +273,29 @@ def test_mudanca_de_situacao_nao_atende_a_get(sessao):
 
 
 # ---------------------------------------------------------------------------
-# A conversão
+# A conversão saiu no Bloco 4 da Etapa 5
+#
+# Eram seis testes de uma rota que abria o formulário de hóspede
+# preenchido com o que o visitante informou e pedia à equipe que
+# **completasse o documento** obtido por telefone.
+#
+# A funcionalidade foi removida, e com ela os testes. O que ficou no
+# lugar está em `test_caminho_unico.py`, e verifica a ausência em três
+# níveis: a rota responde 404 inclusive ao administrador, nenhuma rota
+# registrada aponta para criação, e nenhum módulo em `app/rotas/` chama
+# `hospede_repo.criar`.
+#
+# **O que sobreviveu é `ligar`**, testado logo abaixo, e a diferença
+# entre as duas é o ponto do bloco: ligar associa o pedido a um cadastro
+# que a própria pessoa fez; converter criava o cadastro com dado digitado
+# por terceiro.
+#
+# Um teste foi reaproveitado em vez de apagado: o que confere que o
+# perfil hóspede não alcança o atendimento. Ele mudou de alvo, da rota de
+# conversão para a de detalhe, porque a propriedade que ele guarda —
+# autorização por perfil — continua valendo e não tem nada a ver com a
+# conversão.
 # ---------------------------------------------------------------------------
-
-def test_a_conversao_abre_o_formulario_preenchido(sessao):
-    """O fim da redigitação, que era o incômodo real.
-
-    Três campos vêm preenchidos; o documento vem vazio, porque não foi
-    pedido a um desconhecido e precisa ser obtido no atendimento.
-    """
-    identificador = contato_repo.criar(PEDIDO)
-
-    html = sessao().get(f"/contatos/{identificador}/converter").data.decode()
-
-    assert 'value="Helena Queirós"' in html
-    assert 'value="helena@exemplo.test"' in html
-    assert 'value="12 97777-3333"' in html
-
-    documento = re.search(r'id="documento"[^>]*value="([^"]*)"', html)
-    assert documento and documento.group(1) == "", (
-        "o documento precisa vir em branco"
-    )
-
-
-def test_a_conversao_cria_o_hospede_e_liga_o_pedido(sessao):
-    identificador = contato_repo.criar(PEDIDO)
-
-    resposta = sessao().post(
-        f"/contatos/{identificador}/converter",
-        data={
-            "nome": "Helena Queirós",
-            "documento": "321.654.987-00",
-            "telefone": "12 97777-3333",
-            "email": "helena@exemplo.test",
-        },
-        follow_redirects=True,
-    )
-
-    assert resposta.status_code == 200
-
-    convertido = contato_repo.buscar_por_id(identificador)
-    assert convertido["situacao"] == "convertido"
-    assert convertido["hospede_id"] is not None
-
-    hospede = hospede_repo.buscar_por_id(convertido["hospede_id"])
-    assert hospede["nome"] == "Helena Queirós"
-    assert hospede["documento"] == "321.654.987-00"
-
-
-def test_o_pedido_permanece_depois_de_convertido(sessao):
-    """Não é apagado nem movido: é o registro de origem.
-
-    É o que permite responder de onde vieram os hóspedes de um período.
-    """
-    identificador = contato_repo.criar(PEDIDO)
-    antes = len(contato_repo.listar())
-
-    sessao().post(
-        f"/contatos/{identificador}/converter",
-        data={
-            "nome": "Helena Queirós",
-            "documento": "321.654.987-00",
-            "telefone": "",
-            "email": "helena@exemplo.test",
-        },
-        follow_redirects=True,
-    )
-
-    assert len(contato_repo.listar()) == antes
-    assert contato_repo.buscar_por_id(identificador) is not None
-
-
-def test_conversao_sem_documento_e_recusada(sessao):
-    """O documento é o único dado que a conversão exige e o público não dá."""
-    identificador = contato_repo.criar(PEDIDO)
-
-    resposta = sessao().post(
-        f"/contatos/{identificador}/converter",
-        data={
-            "nome": "Helena Queirós",
-            "documento": "",
-            "telefone": "",
-            "email": "helena@exemplo.test",
-        },
-    )
-
-    assert resposta.status_code == 400
-    assert contato_repo.buscar_por_id(identificador)["hospede_id"] is None
-
-
-def test_pedido_ja_convertido_nao_converte_de_novo(sessao):
-    identificador = contato_repo.criar(PEDIDO)
-    cliente = sessao()
-
-    cliente.post(
-        f"/contatos/{identificador}/converter",
-        data={
-            "nome": "Helena Queirós",
-            "documento": "321.654.987-00",
-            "telefone": "",
-            "email": "helena@exemplo.test",
-        },
-        follow_redirects=True,
-    )
-
-    antes = hospede_repo.contar()
-    resposta = cliente.get(
-        f"/contatos/{identificador}/converter", follow_redirects=True
-    )
-
-    assert "já foi convertido" in _aviso(resposta)
-    assert hospede_repo.contar() == antes
-
-
-def test_converter_pedido_inexistente_devolve_404(sessao):
-    assert sessao().get("/contatos/9999/converter").status_code == 404
-
 
 # ---------------------------------------------------------------------------
 # Quando a pessoa já é hóspede

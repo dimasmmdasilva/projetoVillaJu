@@ -100,25 +100,40 @@ def test_percurso_da_recepcao_do_login_a_confirmacao(aplicacao):
     assert entrada.status_code == 200
     assert "recepcionista" in entrada.data.decode()
 
-    # --- 3. Cadastrar o hóspede ----------------------------------------
+    # --- 3. O hóspede já existe, porque ele mesmo se cadastrou ---------
+    #
+    # **Mudou no Bloco 4 da Etapa 5.** Este passo chamava
+    # `/hospedes/novo`, a tela em que a recepção digitava nome, documento,
+    # telefone e e-mail de outra pessoa. Essa tela não existe mais: dado
+    # pessoal é digitado por quem responde por ele.
+    #
+    # O percurso da recepção começa, agora, com o hóspede já cadastrado —
+    # e o teste cria esse estado pelo repositório, porque o caminho do
+    # autocadastro é exercitado de ponta a ponta em
+    # `test_percurso_visitante` e em `test_cadastro`. Repeti-lo aqui
+    # tornaria este percurso mais longo sem verificar nada de novo.
+    #
     # Nome, documento, telefone e e-mail são cifrados antes do INSERT. O
-    # que se digita aqui chega ilegível ao banco; a conferência vem no
-    # passo 9.
-    cadastro = sessao.post(
-        "/hospedes/novo",
-        data={
-            "nome": "Helena Queirós",
-            "documento": "321.654.987-00",
-            "telefone": "12 97777-3333",
-            "email": "helena@exemplo.test",
-        },
-        follow_redirects=True,
+    # que entra aqui chega ilegível ao banco; a conferência vem no passo 9.
+    hospede_id = hospede_repo.criar({
+        "nome": "Helena Queirós",
+        "documento": "321.654.987-00",
+        "telefone": "12 97777-3333",
+        "email": "helena@exemplo.test",
+    })
+
+    # E a tela da recepção **não oferece cadastrar**.
+    lista = sessao.get("/hospedes/")
+    assert lista.status_code == 200
+    assert "Cadastrar hóspede" not in lista.data.decode(), (
+        "a área interna voltou a oferecer criação de hóspede"
     )
-    assert cadastro.status_code == 200
+    assert sessao.get("/hospedes/novo").status_code == 404
 
     hospede = hospede_repo.buscar_por_documento("321.654.987-00")
-    assert hospede is not None, "o hóspede cadastrado pela tela precisa ser achável"
+    assert hospede is not None, "o hóspede precisa ser achável pelo documento"
     assert hospede["nome"] == "Helena Queirós"
+    assert hospede["id"] == hospede_id
 
     # --- 4. Consultar a disponibilidade --------------------------------
     # A consulta de disponibilidade lê `entrada`/`saida`; o formulário de

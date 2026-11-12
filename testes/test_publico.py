@@ -301,8 +301,8 @@ def test_o_servico_de_cadastro_nao_devolve_dado_de_pessoa():
     algum — seria apenas um repositório com outro nome.
 
     O teste verifica a anotação de retorno das funções públicas do
-    módulo: cada uma devolve `None` ou `bool`, nunca `dict`, `list` ou
-    coisa sem anotação.
+    módulo: cada uma devolve `None`, `bool` ou `int`, nunca `dict`,
+    `list` ou coisa sem anotação.
 
     **Por que a anotação e não o valor devolvido.** Chamar as funções
     exigiria banco, e-mail e massa, e verificaria apenas os caminhos que
@@ -318,7 +318,11 @@ def test_o_servico_de_cadastro_nao_devolve_dado_de_pessoa():
         (raiz / "app" / "servicos" / "cadastro.py").read_text(encoding="utf-8")
     )
 
-    permitidos = {"None", "bool"}
+    # `int` entrou no Bloco 4, com `descartar_vencidos`. Uma contagem não
+    # é dado de pessoa: ela diz quantos cadastros foram descartados, e
+    # nenhum campo de nenhum deles. A propriedade que importa continua
+    # valendo — nenhuma função devolve registro, lista ou campo.
+    permitidos = {"None", "bool", "int"}
     reprovadas = {}
 
     for no in arvore.body:

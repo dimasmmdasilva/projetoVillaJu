@@ -186,9 +186,16 @@ def test_hospede_nao_alcanca_nem_o_detalhe_da_propria_reserva(cliente):
 
 
 def test_hospede_nao_alcanca_o_cadastro_de_hospedes(cliente):
+    """A lista de hóspedes é da equipe, e o hóspede não a alcança.
+
+    A segunda verificação mudou no Bloco 4 da Etapa 5: `/hospedes/novo`
+    deixou de existir, e a resposta passou de 403 para 404. A distinção
+    importa e é deliberada — 403 diz "existe e você não pode", 404 diz
+    "não existe". Nenhuma tela da face interna cria hóspede.
+    """
     sessao = cliente()
     assert sessao.get("/hospedes/").status_code == 403
-    assert sessao.get("/hospedes/novo").status_code == 403
+    assert sessao.get("/hospedes/novo").status_code == 404
     assert sessao.post(f"/hospedes/{HOSPEDE_DO_JOAO}/excluir").status_code == 403
 
 

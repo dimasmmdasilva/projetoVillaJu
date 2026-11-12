@@ -56,36 +56,24 @@ def listar():
     )
 
 
-@hospedes.route("/novo", methods=["GET", "POST"])
-@requer_perfil(ADMINISTRADOR, RECEPCIONISTA)
-def novo():
-    usuario = usuario_atual()
-
-    if request.method == "GET":
-        return render_template(
-            "painel/hospede_form.html", usuario=usuario, dados={}, novo=True
-        )
-
-    dados = {campo: request.form.get(campo) for campo in hospede_repo.CAMPOS}
-
-    try:
-        identificador = hospede_repo.criar(dados, usuario_id=usuario["id"])
-    except hospede_repo.HospedeDuplicado:
-        flash("Já existe hóspede com este documento ou e-mail.", "erro")
-        return render_template(
-            "painel/hospede_form.html", usuario=usuario, dados=dados, novo=True
-        ), 409
-    except hospede_repo.ErroDeHospede as erro:
-        # A mensagem destas exceções é escrita pelo próprio repositório e
-        # fala de campo e tamanho, nunca de banco ou de biblioteca.
-        flash(str(erro), "erro")
-        return render_template(
-            "painel/hospede_form.html", usuario=usuario, dados=dados, novo=True
-        ), 400
-
-    flash(f"Hóspede cadastrado com o número {identificador}.", "sucesso")
-    return redirect(url_for("hospedes.listar"))
-
+# ---------------------------------------------------------------------------
+# A rota de cadastro saiu no Bloco 4 da Etapa 5
+#
+# **Nenhuma tela da face interna cria hospede.** Esta area passou a ser de
+# leitura e correcao: a equipe consulta, corrige um telefone errado e
+# desativa. Quem cria o registro e a propria pessoa, pelo autocadastro
+# publico com confirmacao por e-mail.
+#
+# O motivo nao e de arquitetura, e de responsabilidade. Dado pessoal
+# digitado por terceiro nao tem como ser conferido por quem e dono dele, e
+# o documento era obtido por telefone e transcrito a mao. Com o
+# autocadastro, cada campo foi digitado por quem responde por ele, e o
+# endereco de e-mail esta comprovado.
+#
+# Custo aceito e registrado: quem nao tem e-mail nao pode ser hospedado
+# pelo sistema. O atendimento por telefone passa a orientar a pessoa a se
+# cadastrar. A decisao e de 12/11/2026 e esta em `docs/contexto.md`.
+# ---------------------------------------------------------------------------
 
 @hospedes.route("/<int:identificador>/editar", methods=["GET", "POST"])
 @requer_perfil(ADMINISTRADOR, RECEPCIONISTA)
@@ -123,7 +111,6 @@ def editar(identificador):
             usuario=usuario,
             dados=dados,
             hospede=hospede,
-            novo=False,
         )
 
     dados = {campo: request.form.get(campo) for campo in hospede_repo.CAMPOS}
@@ -137,7 +124,6 @@ def editar(identificador):
             usuario=usuario,
             dados=dados,
             hospede=hospede,
-            novo=False,
         ), 409
     except hospede_repo.ErroDeHospede as erro:
         flash(str(erro), "erro")
@@ -146,7 +132,6 @@ def editar(identificador):
             usuario=usuario,
             dados=dados,
             hospede=hospede,
-            novo=False,
         ), 400
 
     flash("Dados do hóspede atualizados.", "sucesso")

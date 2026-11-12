@@ -79,16 +79,23 @@
 </form>
 
 {% else %}
+{# A equipe não cria cadastro de hóspede. Decisão do Bloco 4 da Etapa 5:
+   dado pessoal é digitado por quem responde por ele.
+
+   O que a recepção faz com um pedido de quem ainda não tem cadastro é
+   responder — por telefone ou e-mail — e orientar a pessoa a se
+   cadastrar. Quando ela se cadastrar, este pedido pode ser ligado ao
+   cadastro dela pelo bloco acima, e o relatório de origem dos contatos
+   continua possível. #}
 <p>
-  Converter abre o cadastro já preenchido com o que a pessoa informou.
-  Falta apenas o documento, que precisa ser obtido no contato — não se
-  pede o documento de quem ainda está perguntando o preço.
+  Esta pessoa ainda não tem cadastro. Oriente-a a criar o acesso em
+  <strong>/cadastro</strong>: ela informa os próprios dados e confirma
+  pelo e-mail, e então este pedido pode ser ligado ao cadastro dela.
 </p>
 <p>
-  <a class="botao"
-     href="{{ url_for('contatos.converter', identificador=contato.id) }}">
-    Converter em hóspede
-  </a>
+  O sistema não cadastra hóspede pela área interna — nem a recepção, nem
+  o administrador. É o que garante que nenhum documento seja transcrito
+  de ouvido.
 </p>
 {% endif %}
 

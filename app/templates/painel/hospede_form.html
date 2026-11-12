@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block titulo %}{{ 'Cadastrar' if novo else 'Editar' }} hóspede — VillaJu{% endblock %}
+{% block titulo %}Editar hóspede — VillaJu{% endblock %}
 
 {% block conteudo %}
-<h1>{{ 'Cadastrar hóspede' if novo else 'Editar hóspede ' ~ hospede.id }}</h1>
+<h1>Editar hóspede {{ hospede.id }}</h1>
 
 {% if contato %}
 {# Chegou pela conversão de um pedido de contato: os campos vêm
@@ -18,12 +18,11 @@
    nem o administrador do MySQL consegue ler sem a chave, que vive no .env
    e nunca no repositório. #}
 
+{# O parâmetro `acao` e a variável `novo` saíram no Bloco 4 da Etapa 5,
+   junto com as duas rotas que criavam hóspede. Este formulário serve
+   agora a um único destino: a correção de um cadastro que já existe. #}
 <form method="post" class="formulario"
-      {# `acao` permite que a conversão de um pedido de contato reaproveite
-         este formulário, enviando para a própria rota dela. #}
-      action="{{ acao if acao
-                else (url_for('hospedes.novo') if novo
-                      else url_for('hospedes.editar', identificador=hospede.id)) }}">
+      action="{{ url_for('hospedes.editar', identificador=hospede.id) }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
   <label for="nome">Nome completo *</label>
@@ -42,10 +41,10 @@
   <input type="email" id="email" name="email"
          maxlength="150" value="{{ dados.email or '' }}">
 
-  <button type="submit">{{ 'Cadastrar' if novo else 'Salvar' }}</button>
+  <button type="submit">Salvar</button>
 </form>
 
-{% if not novo and tem_perfil('administrador') %}
+{% if tem_perfil('administrador') %}
 <h2>Excluir</h2>
 <p>A exclusão é definitiva e só é permitida para hóspede sem reserva e sem
    conta de acesso. É a única operação do sistema que destrói dado.</p>

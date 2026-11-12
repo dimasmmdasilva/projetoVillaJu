@@ -68,9 +68,23 @@ def aplicacao(conexao_banco):
     aplicar_script(cursor, SCRIPT_DADOS)
     cursor.close()
 
-    conexao.iniciar_pool(Configuracao(modo_teste=True))
-    app = create_app(Configuracao(modo_teste=True))
+    import tempfile
+
+    configuracao = Configuracao(modo_teste=True)
+
+    # Modo arquivo, em pasta própria: o percurso passa pela confirmação
+    # por e-mail, e a mensagem precisa ser legível pelo teste. Pasta nova
+    # a cada execução para que um percurso não veja o e-mail do anterior.
+    configuracao.EMAIL_MODO = "arquivo"
+    configuracao.EMAIL_PASTA = pathlib.Path(
+        tempfile.mkdtemp(prefix="villaju-percurso-")
+    )
+    configuracao.EMAIL_BASE_URL = "https://localhost:5000"
+
+    conexao.iniciar_pool(configuracao)
+    app = create_app(configuracao)
     app.config["SESSION_COOKIE_SECURE"] = False
+    app.villaju = configuracao
     yield app
     conexao.encerrar_pool()
 
@@ -79,7 +93,7 @@ def aplicacao(conexao_banco):
 # O percurso
 # ---------------------------------------------------------------------------
 
-def test_percurso_do_visitante_ao_cadastro_de_hospede(aplicacao):
+def test_percurso_do_visitante_ao_acesso_proprio(aplicacao):
     """Um teste só, longo, porque é um percurso.
 
     Os outros arquivos verificam peças. Cada peça pode estar correta e o
@@ -87,8 +101,24 @@ def test_percurso_do_visitante_ao_cadastro_de_hospede(aplicacao):
     cujo nome não é o que a rota lê, um redirecionamento que perde o
     identificador. Nada disso aparece em teste de unidade, e tudo isso
     aparece na demonstração.
+
+    **Reescrito no Bloco 4 da Etapa 5.** Antes, o percurso terminava com
+    a recepção convertendo o pedido de contato em cadastro de hóspede,
+    completando o documento obtido por telefone. Esse caminho foi
+    removido: dado pessoal é digitado por quem responde por ele.
+
+    O percurso agora é o do autoatendimento inteiro — pedido de contato
+    sem documento, autocadastro com documento, confirmação por e-mail,
+    entrada com o próprio e-mail — e termina com a recepção **ligando** o
+    pedido ao cadastro que a pessoa fez, sem ter digitado nada dela.
     """
+    from app.dados import usuario_repo
+    from app.servicos import correio
+
     visitante = aplicacao.test_client()
+
+    class _Caixa:
+        EMAIL_PASTA = aplicacao.villaju.EMAIL_PASTA
 
     # --- 1. Chega ao sítio, sem sessão -------------------------------
     inicio = visitante.get("/")
@@ -96,11 +126,14 @@ def test_percurso_do_visitante_ao_cadastro_de_hospede(aplicacao):
 
     pagina = inicio.data.decode()
     assert "Dunas" in pagina
-    assert f"/contato?chale={DUNAS}" in pagina, (
-        "a vitrine precisa oferecer o pedido por chalé"
-    )
+    assert "/cadastro" in pagina, "a vitrine precisa oferecer o cadastro"
 
-    # --- 2. Clica em Solicitar reserva no Dunas ----------------------
+    # Nenhum valor na face pública. A decisão é da Etapa 4 e continua
+    # valendo: publicar a tabela faria a hospedaria perder a margem de
+    # negociar caso a caso.
+    assert "R$" not in pagina
+
+    # --- 2. Pergunta primeiro, sem dar documento ---------------------
     formulario = visitante.get(f"/contato?chale={DUNAS}")
     assert formulario.status_code == 200
 
@@ -110,27 +143,19 @@ def test_percurso_do_visitante_ao_cadastro_de_hospede(aplicacao):
     )
     assert "csrf_token" in html
     assert 'name="assunto"' in html, "o campo-armadilha precisa estar lá"
+    assert "documento" not in html, (
+        "não se pede o CPF de quem ainda está perguntando o preço"
+    )
 
-    # O formulário público não pede documento: não se pede o CPF de quem
-    # ainda está perguntando o preço.
-    assert "documento" not in html
-
-    # --- 3. Envia o pedido -------------------------------------------
     envio = visitante.post(
         "/contato",
         data=dict(VISITANTE, chale_interesse_id=str(DUNAS)),
     )
     assert envio.status_code == 302
-    assert "/contato/enviado" in envio.headers["Location"]
-
     confirmacao = visitante.get(envio.headers["Location"]).data.decode()
     assert "Pedido enviado" in confirmacao
-    assert "Nada foi reservado ainda" in confirmacao, (
-        "o visitante precisa saber que ainda não há reserva"
-    )
+    assert "Nada foi reservado ainda" in confirmacao
 
-    # --- 4. Nada foi criado além do pedido ---------------------------
-    assert not reserva_repo.listar_por_hospede(0)
     pedido = next(
         c for c in contato_repo.listar() if c["email"] == VISITANTE["email"]
     )
@@ -138,76 +163,109 @@ def test_percurso_do_visitante_ao_cadastro_de_hospede(aplicacao):
     assert pedido["hospede_id"] is None
     assert pedido["chale_interesse_id"] == DUNAS
 
-    # E o visitante continua anônimo: a sessão guarda o token CSRF e
-    # nada mais. Ver CHAVES_PERMITIDAS, mais abaixo.
+    # O visitante continua anônimo: a sessão guarda o token CSRF e nada
+    # mais. Ver CHAVES_PERMITIDAS, mais abaixo.
     with visitante.session_transaction() as sessao:
         assert "usuario_id" not in dict(sessao)
         assert set(dict(sessao)) <= {"csrf_token"}
 
-    # --- 5. A recepção entra e vê o pedido ---------------------------
-    recepcao = aplicacao.test_client()
-    pagina_login = recepcao.get("/login").data.decode()
-    dados = {"login": RECEPCAO[0], "senha": RECEPCAO[1]}
-    achado = re.search(r'name="csrf_token" value="([^"]+)"', pagina_login)
-    if achado:
-        dados["csrf_token"] = achado.group(1)
-    recepcao.post("/login", data=dados)
+    # --- 3. Decide criar conta, e aí sim dá o documento --------------
+    tela = visitante.get("/cadastro")
+    assert tela.status_code == 200
 
-    lista = recepcao.get("/contatos/?situacao=novo").data.decode()
-    assert "Helena Queirós" in lista
-    assert "Dunas" in lista
+    html = tela.data.decode()
+    assert 'name="documento"' in html, (
+        "quem cria conta para reservar está entrando numa relação, e "
+        "pousada pede documento"
+    )
+    assert 'name="senha"' in html
+    assert "csrf_token" in html
+    assert 'name="assunto"' in html
+    assert "R$" not in html
 
-    # --- 6. Abre o pedido --------------------------------------------
-    detalhe = recepcao.get(f"/contatos/{pedido['id']}").data.decode()
-    assert "helena@exemplo.test" in detalhe
-    assert "O Dunas está livre em julho?" in detalhe
-    assert "primeira vez" in detalhe
+    SENHA = "jureia-praia-2026"
+    criacao = visitante.post("/cadastro", data={
+        "nome": "Helena Queirós",
+        "documento": "321.654.987-00",
+        "email": VISITANTE["email"],
+        "telefone": "12 97777-3333",
+        "senha": SENHA,
+        "senha_confirmacao": SENHA,
+    })
+    assert criacao.status_code == 302
+    assert "/cadastro/enviado" in criacao.headers["Location"]
 
-    # --- 7. Marca em atendimento e converte --------------------------
-    recepcao.post(
-        f"/contatos/{pedido['id']}/situacao",
-        data={"situacao": "em_atendimento"},
+    aviso = visitante.get(criacao.headers["Location"]).data.decode()
+    assert "Se este endereço estiver disponível" in aviso, (
+        "a redação precisa ser condicional: afirmar que a conta foi criada "
+        "revelaria que o endereço não tinha cadastro"
+    )
+
+    # --- 4. A conta existe, inativa, e não autentica -----------------
+    login = usuario_repo.login_de_email(VISITANTE["email"])
+    conta = usuario_repo.buscar_por_login(login)
+
+    assert conta is not None
+    assert conta["perfil"] == "hospede"
+    assert not conta["ativo"], "a conta tem de nascer inativa"
+    assert conta["senha_hash"].startswith("$argon2id$")
+    assert SENHA not in conta["senha_hash"]
+
+    # O login guardado é o HMAC do endereço, nunca o endereço.
+    assert "@" not in conta["login"]
+
+    recusado = aplicacao.test_client().post(
+        "/login", data={"login": VISITANTE["email"], "senha": SENHA}
+    )
+    assert recusado.status_code == 401, (
+        "a conta não pode autenticar antes de o e-mail ser confirmado"
+    )
+
+    # --- 5. Abre o link que chegou por e-mail ------------------------
+    mensagens = correio.listar_enviadas(_Caixa)
+    assert len(mensagens) == 1
+
+    corpo = mensagens[0]["corpo"]
+    assert SENHA not in corpo, "a senha não tem o que fazer no e-mail"
+    assert "321.654" not in corpo, "nem o documento"
+
+    achado = re.search(r"/confirmar/([A-Za-z0-9_\-]+)", corpo)
+    assert achado, "o e-mail precisa trazer o link de confirmação"
+
+    ativacao = visitante.get(f"/confirmar/{achado.group(1)}")
+    assert ativacao.status_code == 200
+    assert "sucesso" in ativacao.data.decode().lower()
+
+    # Uso único: o mesmo link não vale de novo.
+    assert visitante.get(f"/confirmar/{achado.group(1)}").status_code == 400
+
+    # --- 6. Entra com o próprio e-mail -------------------------------
+    hospede_cliente = aplicacao.test_client()
+    entrada = hospede_cliente.post(
+        "/login",
+        data={"login": VISITANTE["email"], "senha": SENHA},
         follow_redirects=True,
     )
+    assert entrada.status_code == 200
+    assert "Helena" in entrada.data.decode()
 
-    cadastro = recepcao.get(
-        f"/contatos/{pedido['id']}/converter"
-    ).data.decode()
-    assert 'value="Helena Queirós"' in cadastro
-    assert 'value="12 97777-3333"' in cadastro
+    # E vê a própria área, ainda sem reserva nenhuma.
+    minhas = hospede_cliente.get("/reservas/minhas")
+    assert minhas.status_code == 200
 
-    documento = re.search(r'id="documento"[^>]*value="([^"]*)"', cadastro)
-    assert documento and documento.group(1) == "", (
-        "o documento é o único campo que a recepção precisa obter"
-    )
-
-    recepcao.post(
-        f"/contatos/{pedido['id']}/converter",
-        data={
-            "nome": "Helena Queirós",
-            "documento": "321.654.987-00",
-            "telefone": "12 97777-3333",
-            "email": "helena@exemplo.test",
-        },
-        follow_redirects=True,
-    )
-
-    # --- 8. O pedido virou cadastro, e continua existindo ------------
-    convertido = contato_repo.buscar_por_id(pedido["id"])
-    assert convertido["situacao"] == "convertido"
-    assert convertido["hospede_id"] is not None
-
-    hospede = hospede_repo.buscar_por_id(convertido["hospede_id"])
+    # --- 7. Nada disso ficou legível no banco ------------------------
+    hospede = hospede_repo.buscar_por_documento("321.654.987-00")
+    assert hospede is not None
     assert hospede["nome"] == "Helena Queirós"
-    assert hospede["documento"] == "321.654.987-00"
 
-    # --- 9. Nada disso ficou legível no banco ------------------------
     with conexao.obter_conexao() as ligacao:
         cursor = ligacao.cursor()
         cursor.execute("SELECT * FROM contato WHERE id = %s", (pedido["id"],))
         linha_contato = cursor.fetchone()
         cursor.execute("SELECT * FROM hospede WHERE id = %s", (hospede["id"],))
         linha_hospede = cursor.fetchone()
+        cursor.execute("SELECT * FROM usuario WHERE id = %s", (conta["id"],))
+        linha_usuario = cursor.fetchone()
         cursor.close()
 
     def _bytes(linha):
@@ -221,7 +279,57 @@ def test_percurso_do_visitante_ao_cadastro_de_hospede(aplicacao):
     for claro in (b"Helena", b"Queir", b"helena@", b"97777", b"321.654"):
         assert claro not in gravado, f"{claro!r} ficou legível no banco"
 
-    # --- 10. A recepção sai, e a vitrine continua de pé --------------
+    # A tabela `usuario` guarda o nome em claro — e isso é decisão
+    # documentada: ele aparece na barra de navegação a cada página, e
+    # cifrá-lo custaria uma operação AES por requisição para proteger o
+    # que a própria pessoa vê na tela. O que ela NÃO pode guardar é o
+    # endereço de e-mail, porque a coluna é única e em texto claro.
+    bruto_usuario = _bytes(linha_usuario)
+    assert b"helena@" not in bruto_usuario, (
+        "o endereço de e-mail ficou em claro na tabela usuario"
+    )
+    assert SENHA.encode("utf-8") not in bruto_usuario
+
+    # --- 8. A recepção entra e liga o pedido ao cadastro -------------
+    recepcao = aplicacao.test_client()
+    pagina_login = recepcao.get("/login").data.decode()
+    dados = {"login": RECEPCAO[0], "senha": RECEPCAO[1]}
+    achado = re.search(r'name="csrf_token" value="([^"]+)"', pagina_login)
+    if achado:
+        dados["csrf_token"] = achado.group(1)
+    recepcao.post("/login", data=dados)
+
+    lista = recepcao.get("/contatos/?situacao=novo").data.decode()
+    assert "Helena Queirós" in lista
+    assert "Dunas" in lista
+
+    detalhe = recepcao.get(f"/contatos/{pedido['id']}")
+    assert detalhe.status_code == 200
+
+    html = detalhe.data.decode()
+    assert "helena@exemplo.test" in html
+    assert "O Dunas está livre em julho?" in html
+    assert "Converter em hóspede" not in html, (
+        "a conversão saiu no Bloco 4: a equipe não digita documento alheio"
+    )
+
+    # O pedido é LIGADO ao cadastro que a pessoa fez — não convertido.
+    achado = re.search(r'name="csrf_token" value="([^"]+)"', html)
+    recepcao.post(
+        f"/contatos/{pedido['id']}/ligar",
+        data={
+            "hospede_id": hospede["id"],
+            "csrf_token": achado.group(1) if achado else "",
+        },
+        follow_redirects=True,
+    )
+
+    ligado = contato_repo.buscar_por_id(pedido["id"])
+    assert ligado["hospede_id"] == hospede["id"], (
+        "o relatório de origem dos contatos depende desta ligação"
+    )
+
+    # --- 9. A recepção sai, e a vitrine continua de pé ---------------
     recepcao.post("/logout", follow_redirects=True)
 
     assert recepcao.get("/contatos/", follow_redirects=False).status_code == 302

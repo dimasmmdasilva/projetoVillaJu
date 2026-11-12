@@ -127,79 +127,28 @@ def mudar_situacao(identificador):
     return redirect(url_for("contatos.detalhe", identificador=identificador))
 
 
-@contatos.route("/<int:identificador>/converter", methods=["GET", "POST"])
-@requer_perfil(ADMINISTRADOR, RECEPCIONISTA)
-def converter(identificador):
-    """Transforma o pedido num cadastro de hóspede.
-
-    O GET abre o formulário de hóspede preenchido com o que a pessoa
-    informou. O POST cria o cadastro e liga o contato a ele.
-
-    O documento vem em branco, e é obrigatório: é o único dado que a
-    recepção precisa obter, e o motivo pelo qual as duas tabelas são
-    separadas.
-    """
-    usuario = usuario_atual()
-
-    try:
-        contato = contato_repo.buscar_por_id(identificador, usuario_id=usuario["id"])
-    except FalhaDeAutenticacao:
-        flash(
-            "Este pedido não passou na verificação de integridade e não "
-            "pode ser convertido.",
-            "erro",
-        )
-        return redirect(url_for("contatos.listar"))
-
-    if contato is None:
-        abort(404)
-
-    if contato["hospede_id"] is not None:
-        flash("Este pedido já foi convertido.", "erro")
-        return redirect(url_for("contatos.detalhe", identificador=identificador))
-
-    contexto = {
-        "usuario": usuario,
-        "novo": True,
-        "contato": contato,
-        "acao": url_for("contatos.converter", identificador=identificador),
-    }
-
-    if request.method == "GET":
-        # Os três campos que a pessoa informou, mais o documento em
-        # branco. É aqui que a redigitação desaparece.
-        contexto["dados"] = {
-            "nome": contato["nome"],
-            "documento": "",
-            "telefone": contato["telefone"],
-            "email": contato["email"],
-        }
-        return render_template("painel/hospede_form.html", **contexto)
-
-    dados = {campo: request.form.get(campo) for campo in hospede_repo.CAMPOS}
-
-    try:
-        hospede_id = hospede_repo.criar(dados, usuario_id=usuario["id"])
-    except hospede_repo.HospedeDuplicado:
-        flash(
-            "Já existe hóspede com este documento ou e-mail. Use a opção de "
-            "ligar ao cadastro existente.",
-            "erro",
-        )
-        contexto["dados"] = dados
-        return render_template("painel/hospede_form.html", **contexto), 409
-    except hospede_repo.ErroDeHospede as erro:
-        flash(str(erro), "erro")
-        contexto["dados"] = dados
-        return render_template("painel/hospede_form.html", **contexto), 400
-
-    contato_repo.ligar_ao_hospede(identificador, hospede_id, usuario_id=usuario["id"])
-
-    flash(
-        f"Hóspede {hospede_id} cadastrado e ligado a este pedido.", "sucesso"
-    )
-    return redirect(url_for("contatos.detalhe", identificador=identificador))
-
+# ---------------------------------------------------------------------------
+# A rota de conversao saiu no Bloco 4 da Etapa 5
+#
+# Ela abria o formulario de hospede preenchido com o que o visitante
+# informou, e pedia a equipe que **completasse o documento** obtido por
+# telefone. Duas coisas erradas numa so tela:
+#
+# A equipe digitava o documento de outra pessoa, a partir de um pedido que
+# deliberadamente nao pede documento. E o mesmo registro de hospede passava
+# a ter duas origens possiveis — o autocadastro e a recepcao —, o que
+# significa dois fluxos para testar, dois caminhos para auditar e duas
+# respostas para a pergunta "de onde veio este cadastro?".
+#
+# Decidido em 12/11/2026: **o autocadastro publico e o unico caminho.** A
+# pessoa informa os proprios dados, e so ela.
+#
+# O que sobrevive e `ligar`, logo abaixo, e a diferenca entre as duas e o
+# ponto do bloco: **ligar associa, nao cria.** Quando a pessoa se cadastra
+# sozinha, a recepcao liga o pedido ao cadastro que ela fez, e o relatorio
+# de origem dos contatos continua possivel sem que ninguem da equipe tenha
+# digitado o documento de ninguem.
+# ---------------------------------------------------------------------------
 
 @contatos.route("/<int:identificador>/ligar", methods=["POST"])
 @requer_perfil(ADMINISTRADOR, RECEPCIONISTA)

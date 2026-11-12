@@ -207,6 +207,31 @@ class Configuracao:
             "VILLAJU_EMAIL_BASE_URL", f"https://localhost:{self.PORTA}"
         )
 
+        # --- Janela do cadastro não confirmado -------------------------------
+        # Quantos minutos uma conta recém-criada tem para ser confirmada.
+        # Passado o prazo, o link deixa de valer E os dados são descartados,
+        # liberando o e-mail e o documento.
+        #
+        # **Por que em minutos, e não em horas.** Decisão de 12/11/2026. Um
+        # cadastro não confirmado prende o endereço de e-mail e o documento
+        # de alguém. Se a pessoa digitou o endereço errado, a segunda
+        # tentativa com o documento certo seria recusada — e recusada em
+        # silêncio, pela regra de resposta uniforme, sem que nem ela nem a
+        # recepção conseguissem ver o motivo. Guardar por dias o que nunca
+        # foi confirmado é guardar dado pessoal sem ter prova de que a
+        # pessoa quis dá-lo.
+        #
+        # **O risco de 5 minutos é a entrega do e-mail.** O Gmail costuma
+        # levar segundos, mas filtro de spam e aplicativo de celular que
+        # sincroniza por agendamento podem consumir vários minutos. Por
+        # isso o valor é configurável: trocar para 15 é uma linha no .env,
+        # e nenhuma alteração de código.
+        #
+        # Se a janela expirar, nada se perde de forma definitiva — a pessoa
+        # se cadastra de novo e funciona, porque o descarte libera o e-mail
+        # e o documento. O custo é um incômodo, não um impasse.
+        self.CADASTRO_MINUTOS = _inteiro("VILLAJU_CADASTRO_MINUTOS", 5)
+
         self.SMTP_HOST = _opcional("VILLAJU_SMTP_HOST", "")
         self.SMTP_PORTA = _inteiro("VILLAJU_SMTP_PORTA", 587)
         self.SMTP_USUARIO = _opcional("VILLAJU_SMTP_USUARIO", "")
@@ -245,6 +270,7 @@ class Configuracao:
             "email_modo": self.EMAIL_MODO,
             "email_remetente": self.EMAIL_REMETENTE,
             "smtp_configurado": bool(self.SMTP_HOST and self.SMTP_USUARIO),
+            "cadastro_minutos": self.CADASTRO_MINUTOS,
         }
 
 

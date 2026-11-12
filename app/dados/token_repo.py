@@ -21,6 +21,10 @@ segredos de **baixa** entropia, que pessoas escolhem e repetem; gastar
 0,658 segundo por verificação num valor já impossível de adivinhar seria
 desperdício, e transformaria a abertura de um link numa espera.
 
+**Prazo por tipo.** O link de confirmação de cadastro vale minutos, e
+acompanha a janela em que os dados não confirmados são descartados — ver
+`VALIDADE_POR_TIPO`. O de recuperação de senha vale dois dias.
+
 **Uso único.** Um link já aberto não abre de novo, mesmo dentro do prazo.
 Sem isso, um link que vazasse depois de usado — no histórico do
 navegador, num encaminhamento de e-mail — continuaria valendo.
@@ -46,10 +50,37 @@ CONFIRMACAO = "confirmacao"
 RECUPERACAO = "recuperacao"
 TIPOS = (CONFIRMACAO, RECUPERACAO)
 
-# Quantas horas o link vale. Dois dias cobre quem só abre o e-mail no fim
-# de semana, e é curto o bastante para que um link esquecido numa caixa de
-# entrada antiga não sirva meses depois.
-VALIDADE_PADRAO = 48
+# Quantos MINUTOS o link vale, por tipo.
+#
+# A unidade mudou de horas para minutos no Bloco 4 da Etapa 5, quando a
+# janela do cadastro não confirmado passou a ser de 5 minutos. Com horas,
+# o prazo mais curto que se podia expressar era uma hora — doze vezes
+# maior que a janela, e o link continuaria "válido" apontando para uma
+# conta que já havia sido descartada.
+#
+# **Dois relógios diferentes para o mesmo prazo é fábrica de defeito**, e
+# este é o tipo de defeito que não aparece em teste nenhum: o token passa
+# na verificação, a conta não existe, e a mensagem de erro fala de link
+# inválido quando o problema foi o descarte.
+#
+# Os dois tipos têm prazos propositalmente distintos:
+#
+# **Confirmação** acompanha a janela de descarte, e quem a define é a
+# configuração da aplicação — por isso o valor aqui é apenas o padrão de
+# quem chamar sem dizer nada. `app/servicos/cadastro.py` passa o valor
+# configurado.
+#
+# **Recuperação de senha** vale dois dias, e não cinco minutos. A
+# diferença não é descuido: recuperar senha não cria nem descarta dado
+# nenhum. Quem pede o link já é cliente, já teve o endereço comprovado, e
+# um prazo curto aqui só produziria gente trancada fora da própria conta.
+VALIDADE_POR_TIPO = {
+    CONFIRMACAO: 15,
+    RECUPERACAO: 48 * 60,
+}
+
+# Mantido para quem chamar sem indicar o tipo.
+VALIDADE_PADRAO = VALIDADE_POR_TIPO[CONFIRMACAO]
 
 # Bytes de aleatoriedade. 32 bytes são 256 bits — a mesma ordem de grandeza
 # de uma chave AES-256, e muito além do que qualquer força bruta alcança.
@@ -102,7 +133,7 @@ def _resumir(token: str) -> bytes:
     return hashlib.sha256(token.encode("utf-8")).digest()
 
 
-def gerar(usuario_id, tipo: str = CONFIRMACAO, horas: int = VALIDADE_PADRAO,
+def gerar(usuario_id, tipo: str = CONFIRMACAO, minutos: int = None,
           usuario_atuante=None) -> str:
     """Emite um token e devolve o valor em claro.
 
@@ -112,11 +143,13 @@ def gerar(usuario_id, tipo: str = CONFIRMACAO, horas: int = VALIDADE_PADRAO,
     """
     if tipo not in TIPOS:
         raise ErroDeToken(f"Tipo de token desconhecido: {tipo}")
-    if horas < 1:
-        raise ErroDeToken("A validade do token precisa ser de ao menos uma hora.")
+    if minutos is None:
+        minutos = VALIDADE_POR_TIPO[tipo]
+    if minutos < 1:
+        raise ErroDeToken("A validade do token precisa ser de ao menos um minuto.")
 
     token = secrets.token_urlsafe(BYTES_DO_TOKEN)
-    expira_em = dt.datetime.now() + dt.timedelta(hours=horas)
+    expira_em = dt.datetime.now() + dt.timedelta(minutes=minutos)
 
     with obter_conexao(usuario_id=usuario_atuante) as conexao:
         cursor = conexao.cursor()

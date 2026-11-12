@@ -174,7 +174,53 @@ def _limpar(dados: dict) -> dict:
 # Mensagens
 # ---------------------------------------------------------------------------
 
-def _corpo_da_confirmacao(nome: str, link: str) -> str:
+def _janela(configuracao) -> int:
+    """Minutos que o cadastro tem para ser confirmado.
+
+    Lido da configuração a cada chamada, e não guardado em constante de
+    módulo, porque é o que permite a um teste subir uma aplicação com
+    janela própria sem alterar as demais.
+    """
+    return int(getattr(configuracao, "CADASTRO_MINUTOS", 5) or 5)
+
+
+def _texto_do_prazo(minutos: int) -> str:
+    """O prazo em português, para o corpo do e-mail.
+
+    Escrito à mão e não com uma biblioteca de formatação: são três casos,
+    e o texto precisa dizer também que o link é de uso único — informação
+    que nenhuma formatação de duração traria.
+    """
+    if minutos < 60:
+        quanto = f"{minutos} minutos"
+    elif minutos % 60 == 0:
+        horas = minutos // 60
+        quanto = "1 hora" if horas == 1 else f"{horas} horas"
+    else:
+        quanto = f"{minutos // 60} h {minutos % 60} min"
+
+    return (
+        f"O link vale por {quanto} e só pode ser usado uma vez. "
+        "Passado o prazo, o cadastro é descartado e você pode fazê-lo de novo."
+    )
+
+
+def descartar_vencidos() -> int:
+    """Remove cadastros cujo prazo de confirmação venceu. Devolve quantos.
+
+    Exposta aqui, e não apenas em `usuario_repo`, porque quem a dispara
+    alcança este módulo e não o repositório.
+
+    **Não recebe a janela.** O prazo está no token, que é o mesmo valor
+    que decide se o link abre — um relógio só. A configuração
+    `CADASTRO_MINUTOS` governa a emissão do token, e não o descarte.
+
+    Devolve um inteiro, que é contagem e não dado de pessoa.
+    """
+    return usuario_repo.descartar_nao_confirmados()
+
+
+def _corpo_da_confirmacao(nome: str, link: str, prazo: str) -> str:
     return (
         f"Olá, {nome}.\n"
         "\n"
@@ -183,7 +229,7 @@ def _corpo_da_confirmacao(nome: str, link: str) -> str:
         "\n"
         f"{link}\n"
         "\n"
-        "O link vale por 48 horas e só pode ser usado uma vez.\n"
+        f"{prazo}\n"
         "\n"
         "Se não foi você que se cadastrou, não faça nada: a conta não é\n"
         "ativada sem que este link seja aberto.\n"
@@ -262,6 +308,16 @@ def registrar(dados: dict, configuracao) -> None:
     o endereço já existe.
     """
     limpo = _limpar(dados)
+
+    # Antes de qualquer consulta: libera o endereço e o documento de
+    # cadastros que não foram confirmados na janela.
+    #
+    # A ordem importa. Se a varredura viesse depois, uma pessoa que
+    # digitou o endereço errado e tenta de novo seria recusada pelo
+    # cadastro vencido dela mesma — e recusada em silêncio, porque a
+    # resposta é uniforme. Ela não teria como descobrir o motivo, e a
+    # recepção também não.
+    descartar_vencidos()
 
     login = usuario_repo.login_de_email(limpo["email"])
     base = getattr(configuracao, "EMAIL_BASE_URL", "").rstrip("/")
@@ -363,12 +419,20 @@ def registrar(dados: dict, configuracao) -> None:
     # ------------------------------------------------------------------
     # O token e o convite.
     # ------------------------------------------------------------------
-    token = token_repo.gerar(usuario_id, token_repo.CONFIRMACAO)
+    token = token_repo.gerar(
+        usuario_id,
+        token_repo.CONFIRMACAO,
+        minutos=_janela(configuracao),
+    )
 
     _enviar(
         limpo["email"],
         ASSUNTO_DA_CONFIRMACAO,
-        _corpo_da_confirmacao(limpo["nome"], f"{base}/confirmar/{token}"),
+        _corpo_da_confirmacao(
+            limpo["nome"],
+            f"{base}/confirmar/{token}",
+            _texto_do_prazo(_janela(configuracao)),
+        ),
         configuracao,
     )
 

@@ -11,6 +11,7 @@ Com concatenação, ele viraria parte da consulta.
 """
 
 import base64
+import datetime as dt
 import logging
 
 import mysql.connector
@@ -76,6 +77,95 @@ _SQL_LISTAR = (
     "FROM usuario ORDER BY nome"
 )
 
+
+# As contas candidatas ao descarte.
+#
+# **O prazo é lido do token, e não da data de criação da conta.** A
+# primeira versão deste comando comparava `usuario.criado_em` com um
+# limite calculado em Python, e tinha dois problemas.
+#
+# O primeiro é que não funcionava: `trg_usuario_antes_alterar` faz
+# `SET NEW.criado_em = OLD.criado_em`, protegendo a data de criação de
+# qualquer alteração. A trigger está certa — data de criação não se
+# reescreve — e o efeito foi que nenhum teste conseguia envelhecer uma
+# conta, e o descarte passava sem nunca descartar nada.
+#
+# O segundo é mais sério, e é o mesmo que motivou passar a validade do
+# token de horas para minutos: **dois relógios para o mesmo prazo.** Um
+# link válido apontando para uma conta já descartada, ou uma conta
+# descartada enquanto o link ainda valia, são dois estados impossíveis de
+# explicar a quem reclama — e nenhum teste os pega, porque cada metade,
+# isolada, está correta.
+#
+# Com o prazo no token há um relógio só: o mesmo valor decide se o link
+# abre e se os dados ficam. Não existe janela em que os dois discordem.
+#
+# Cada condição fecha uma porta, e nenhuma é dispensável:
+#
+#   ativo = FALSE          nunca toca conta que funciona
+#   perfil = 'hospede'     redundante por invariante do banco — ver abaixo
+#   EXISTS (token)         nunca toca conta que nasceu sem confirmação a
+#                          fazer — é o caso da conta inativa criada pelo
+#                          administrador, que espera ativação manual e não
+#                          tem prazo nenhum correndo
+#   NOT EXISTS (válido)    só descarta depois de o prazo vencer
+#   NOT EXISTS (reserva)   nunca toca hóspede com histórico
+#   COUNT(conta) = 1       nunca toca hóspede que tenha outra conta
+#
+# A penúltima e a última são as menos óbvias. Um hóspede pode ter mais de
+# uma conta — foi o caminho do ataque que `existe_para_hospede` fechou —, e
+# sem a contagem o descarte de uma conta inativa levaria consigo o registro
+# de hóspede de que a conta ATIVA depende.
+#
+# ---
+#
+# **`perfil = 'hospede'` é redundante, e fica.** A sabotagem que a removeu
+# não quebrou teste nenhum, e a investigação mostrou por quê: a trigger
+# `trg_usuario_antes_inserir` recusa `perfil <> 'hospede'` com
+# `hospede_id` preenchido. Como esta consulta já exige
+# `hospede_id IS NOT NULL`, o banco garante que toda candidata é de perfil
+# hóspede — a condição em Python nunca descarta nada.
+#
+# Fica porque a redundância é contra o futuro, não contra o presente: se
+# algum dia a trigger for afrouxada, esta linha passa a ser a única
+# proteção. O que não pode ficar é a redundância **silenciosa**, e por
+# isso `test_caminho_unico` verifica que a invariante existe na trigger.
+# Se ela sair, o teste avisa que esta condição deixou de ser enfeite.
+#
+# **`ativo = FALSE` aparece aqui E no DELETE, e não é a mesma coisa.**
+# Aqui é critério de seleção: conta que funciona não é nem considerada.
+# No DELETE é guarda de corrida: entre a seleção e a remoção, alguém pode
+# ter clicado no link de confirmação, e sem a condição lá a conta de quem
+# acabou de confirmar seria apagada.
+#
+# As duas sabotagens correspondentes escaparam uma da outra — cada metade
+# cobria a ausência da outra —, e a resposta não foi remover a
+# duplicação, foi dar a cada uma o seu teste: um confere que a seleção é
+# precisa, outro executa o DELETE contra conta ativa e exige zero linhas.
+_SQL_CANDIDATAS_AO_DESCARTE = (
+    "SELECT u.id AS usuario_id, u.hospede_id "
+    "FROM usuario u "
+    "WHERE u.ativo = FALSE "
+    "  AND u.perfil = 'hospede' "
+    "  AND u.hospede_id IS NOT NULL "
+    "  AND EXISTS ("
+    "        SELECT 1 FROM token_acesso t "
+    "        WHERE t.usuario_id = u.id AND t.tipo = 'confirmacao'"
+    "      ) "
+    "  AND NOT EXISTS ("
+    "        SELECT 1 FROM token_acesso t "
+    "        WHERE t.usuario_id = u.id AND t.tipo = 'confirmacao' "
+    "          AND t.consumido_em IS NULL AND t.expira_em > NOW()"
+    "      ) "
+    "  AND NOT EXISTS ("
+    "        SELECT 1 FROM reserva r WHERE r.hospede_id = u.hospede_id"
+    "      ) "
+    "  AND ("
+    "        SELECT COUNT(*) FROM usuario o WHERE o.hospede_id = u.hospede_id"
+    "      ) = 1"
+)
+
+_SQL_APAGAR_CONTA = "DELETE FROM usuario WHERE id = %s AND ativo = FALSE"
 
 _SQL_CONTA_DO_HOSPEDE = (
     "SELECT COUNT(*) FROM usuario WHERE hospede_id = %s"
@@ -347,3 +437,90 @@ def ativar(identificador, usuario_id=None) -> bool:
     if mudou:
         _registrador.info("conta %s ativada", identificador)
     return mudou
+
+
+def descartar_nao_confirmados(usuario_id=None) -> int:
+    """Remove cadastros cujo prazo de confirmação venceu. Devolve quantos.
+
+    **Não recebe janela.** O prazo está no token, que é o mesmo valor que
+    decide se o link abre. Receber um número aqui recriaria o segundo
+    relógio que esta versão existe para eliminar.
+
+    **Por que apagar, e não apenas deixar vencido.** Um cadastro não
+    confirmado prende o endereço de e-mail e o documento de alguém. Se a
+    pessoa digitou o endereço errado, a segunda tentativa com o documento
+    certo seria recusada — e recusada **em silêncio**, pela regra de
+    resposta uniforme, sem que nem ela nem a recepção conseguissem ver o
+    motivo. Uma letra errada trancaria um CPF para sempre.
+
+    Há também a razão de princípio: guardar por tempo indeterminado dado
+    pessoal que nunca foi confirmado é guardar dado sem ter prova de que a
+    pessoa quis dá-lo.
+
+    **O que se perde, e como se compensa.** A linha do token sai junto,
+    por `ON DELETE CASCADE`. Quem clicar no link um minuto depois do
+    descarte recebe a resposta de token inexistente, e não de token
+    vencido — para quem clicou é a mesma tela, mas o log perderia o
+    motivo. Por isso o descarte **registra a si mesmo** no log, com o
+    identificador da conta: a reclamação "meu link não funcionou" continua
+    respondível, pela linha do descarte em vez da do consumo.
+
+    **A ordem das remoções é imposta pela chave estrangeira.**
+    `fk_usuario_hospede` é `ON DELETE RESTRICT`: não se apaga hóspede que
+    tenha conta. Então a conta sai primeiro, e o hóspede depois.
+
+    O `RESTRICT` deixou de ser obstáculo e passou a ser rede: se a seleção
+    das candidatas tivesse um defeito e escolhesse um hóspede com conta
+    ativa, a remoção do hóspede **falharia** em vez de apagar a conta de
+    alguém. A regra do banco protege contra o erro do código que a chama.
+
+    Uma transação por cadastro, e não uma só para todos: um cadastro que
+    não possa ser removido não deve impedir a remoção dos outros.
+    """
+    with obter_cursor(usuario_id=usuario_id, dicionario=True) as cursor:
+        cursor.execute(_SQL_CANDIDATAS_AO_DESCARTE)
+        candidatas = cursor.fetchall()
+
+    if not candidatas:
+        return 0
+
+    from app.dados import hospede_repo
+
+    descartados = 0
+    for linha in candidatas:
+        try:
+            with obter_conexao(usuario_id=usuario_id) as conexao:
+                cursor = conexao.cursor()
+                try:
+                    cursor.execute(_SQL_APAGAR_CONTA, (linha["usuario_id"],))
+                    if cursor.rowcount != 1:
+                        # A conta foi ativada entre a seleção e aqui. É o
+                        # caso de quem clicou no link no último segundo, e
+                        # a condição `ativo = FALSE` no DELETE é o que
+                        # impede que a corrida apague a conta de alguém que
+                        # acabou de confirmar.
+                        _registrador.info(
+                            "conta %s não foi descartada: deixou de estar inativa",
+                            linha["usuario_id"],
+                        )
+                        continue
+                finally:
+                    cursor.close()
+
+            hospede_repo.excluir(linha["hospede_id"], usuario_id=usuario_id)
+            descartados += 1
+
+            # Registrado uma a uma, e não só o total: é esta linha que
+            # responde a "meu link não funcionou" depois de o token ter
+            # sido apagado junto com a conta.
+            _registrador.info(
+                "cadastro não confirmado descartado: conta %s, hóspede %s",
+                linha["usuario_id"], linha["hospede_id"],
+            )
+        except Exception:  # noqa: BLE001
+            _registrador.exception(
+                "falha ao descartar o cadastro não confirmado %s",
+                linha["usuario_id"],
+            )
+
+    return descartados

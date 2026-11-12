@@ -134,7 +134,7 @@ def test_tipo_desconhecido_e_recusado(banco):
 
 def test_validade_invalida_e_recusada(banco):
     with pytest.raises(ErroDeToken):
-        token_repo.gerar(USUARIO, horas=0)
+        token_repo.gerar(USUARIO, minutos=0)
 
 
 def test_o_carimbo_de_criacao_vem_do_banco(banco):
@@ -258,7 +258,7 @@ def test_o_token_vencido_nao_vale(banco):
 
 def test_o_token_no_limite_do_prazo_ainda_vale(banco):
     """A borda: vencido é `<=` agora, não `<`."""
-    token = token_repo.gerar(USUARIO, horas=1)
+    token = token_repo.gerar(USUARIO, minutos=60)
     assert token_repo.consumir(token) == USUARIO
 
 
@@ -439,3 +439,88 @@ def test_a_aplicacao_alcanca_a_tabela_de_tokens(banco):
     with conexao.obter_cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM token_acesso")
         assert cursor.fetchone()[0] >= 0
+
+
+# ---------------------------------------------------------------------------
+# A validade por tipo, que entrou no Bloco 4 da Etapa 5
+# ---------------------------------------------------------------------------
+
+def test_a_confirmacao_vale_minutos_e_a_recuperacao_vale_dias(banco):
+    """Dois prazos propositalmente diferentes, e o contraste importa.
+
+    A **confirmação** acompanha a janela em que o cadastro não confirmado
+    é descartado, que é de minutos. Se ela fosse maior, haveria link
+    válido apontando para conta já apagada.
+
+    A **recuperação de senha** vale dois dias. Recuperar senha não cria
+    nem descarta dado nenhum: quem pede o link já é cliente e já teve o
+    endereço comprovado. Um prazo de minutos aqui só produziria gente
+    trancada fora da própria conta.
+
+    Sem este teste, igualar os dois por descuido — numa simplificação
+    bem-intencionada do dicionário — não quebraria nada.
+    """
+    confirmacao = token_repo.VALIDADE_POR_TIPO[token_repo.CONFIRMACAO]
+    recuperacao = token_repo.VALIDADE_POR_TIPO[token_repo.RECUPERACAO]
+
+    assert confirmacao < 60, (
+        "a confirmação precisa valer menos de uma hora, para acompanhar a "
+        "janela de descarte do cadastro não confirmado"
+    )
+    assert recuperacao >= 24 * 60, (
+        "a recuperação de senha precisa valer ao menos um dia"
+    )
+    assert recuperacao > confirmacao * 10
+
+
+def test_o_prazo_gravado_e_o_do_tipo_pedido(banco):
+    """A tabela de validade chega de fato ao banco.
+
+    Verificado na coluna `expira_em`, e não no dicionário: um `gerar` que
+    ignorasse o tipo e usasse sempre o mesmo prazo passaria no teste
+    anterior sem erro algum.
+    """
+    confirmacao = _linha_do_token(
+        token_repo.gerar(USUARIO, token_repo.CONFIRMACAO)
+    )
+    recuperacao = _linha_do_token(
+        token_repo.gerar(USUARIO, token_repo.RECUPERACAO)
+    )
+
+    minutos_da_confirmacao = (
+        confirmacao["expira_em"] - confirmacao["criado_em"]
+    ).total_seconds() / 60
+    minutos_da_recuperacao = (
+        recuperacao["expira_em"] - recuperacao["criado_em"]
+    ).total_seconds() / 60
+
+    # Um minuto de folga para o relógio: `criado_em` vem do `NOW()` do
+    # banco e `expira_em` é calculado em Python, e as duas leituras não
+    # acontecem no mesmo instante.
+    assert abs(
+        minutos_da_confirmacao
+        - token_repo.VALIDADE_POR_TIPO[token_repo.CONFIRMACAO]
+    ) < 1
+    assert abs(
+        minutos_da_recuperacao
+        - token_repo.VALIDADE_POR_TIPO[token_repo.RECUPERACAO]
+    ) < 1
+
+
+def test_a_validade_em_minutos_permite_prazo_menor_que_uma_hora(banco):
+    """A razão da mudança de unidade, verificada diretamente.
+
+    Com a validade em horas, o menor prazo expressável era **uma hora** —
+    doze vezes a janela de cinco minutos. O link continuaria "válido"
+    apontando para uma conta já descartada, e a mensagem de erro falaria
+    de link inválido quando o problema foi o descarte.
+
+    Dois relógios para o mesmo prazo é o tipo de defeito que nenhum teste
+    pega, porque cada metade, isolada, está correta.
+    """
+    linha = _linha_do_token(token_repo.gerar(USUARIO, minutos=5))
+
+    duracao = (linha["expira_em"] - linha["criado_em"]).total_seconds() / 60
+    assert 4 < duracao < 6, (
+        f"um prazo de 5 minutos saiu com {duracao:.1f} minutos"
+    )

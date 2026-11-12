@@ -49,7 +49,89 @@ def create_app(configuracao=None, iniciar_banco: bool = True) -> Flask:
     _registrar_cabecalhos_de_seguranca(app)
     _registrar_paginas_de_erro(app)
 
+    if iniciar_banco:
+        _registrar_varredura_de_cadastros(app)
+
     return app
+
+
+def _registrar_varredura_de_cadastros(app: Flask) -> None:
+    """Descarta cadastros não confirmados, ao fim de qualquer requisição.
+
+    **Por que aqui, e não num agendador.** O projeto não tem agendador, e
+    introduzir um — cron, Celery, APScheduler — seria um componente novo
+    para instalar, configurar, documentar e defender, para uma única
+    necessidade. Com a janela em 5 minutos, "descartado em 5 minutos"
+    precisa ser verdade, e uma varredura que só rodasse a cada tentativa
+    de cadastro deixaria os dados parados pelo tempo que ninguém se
+    cadastrasse.
+
+    Num gancho de requisição, **qualquer** acesso ao sistema a dispara —
+    inclusive a abertura da vitrine por um visitante qualquer.
+
+    **Por que aqui, e não dentro de uma rota.** A regra de isolamento da
+    face pública proíbe `app/rotas/publico.py` de alcançar repositório.
+    Este gancho vive na fábrica, que já alcança tudo por construção, e
+    chama o módulo de serviço. Nenhuma rota ganha alcance novo, e o teste
+    de travessia de importações continua valendo como está.
+
+    **A trava de um minuto** existe porque um gancho sem ela faria uma
+    consulta de seleção a cada imagem, folha de estilo e página servida.
+    Com ela, a varredura roda no máximo uma vez por minuto, e a janela de
+    5 minutos vira "entre 5 e 6 minutos" — precisão suficiente para uma
+    regra cujo propósito é não guardar dado não confirmado.
+
+    A contagem é do processo, em memória, e não compartilhada entre
+    trabalhadores. Com vários processos, cada um varre uma vez por minuto;
+    o resultado é mais varredura, não menos, e nenhuma delas incorreta —
+    porque a seleção é por `criado_em`, e não por quem varreu.
+
+    **Nenhuma falha aqui pode derrubar uma resposta.** A varredura é
+    manutenção; a resposta é o que a pessoa pediu. Erro vai para o log e a
+    página sai normalmente.
+    """
+    import threading
+    import time
+
+    INTERVALO = 60.0
+
+    # O estado da trava vive na aplicação, e não apenas no fecho da função.
+    #
+    # Duas razões. A primeira é poder olhá-lo: quando alguém perguntar por
+    # que um cadastro vencido ainda está lá, `app.varredura_de_cadastros`
+    # responde quando foi a última varredura, sem precisar instrumentar
+    # nada.
+    #
+    # A segunda é que a trava e a varredura são **duas propriedades
+    # distintas**, e um teste que não consiga zerar a trava não consegue
+    # verificar a varredura: a requisição anterior do mesmo teste já teria
+    # consumido o minuto. Foi exatamente o que aconteceu na primeira
+    # versão — o teste falhou, e o que ele acusava era a trava
+    # funcionando, não a varredura quebrada.
+    app.varredura_de_cadastros = {"ultima": 0.0, "intervalo": INTERVALO}
+    estado = app.varredura_de_cadastros
+    tranca = threading.Lock()
+
+    @app.after_request
+    def varrer(resposta):
+        agora = time.monotonic()
+
+        # A decisão de varrer é tomada sob tranca, e a varredura acontece
+        # fora dela: segurar a tranca durante o acesso ao banco faria uma
+        # requisição lenta bloquear todas as outras.
+        with tranca:
+            if agora - estado["ultima"] < estado["intervalo"]:
+                return resposta
+            estado["ultima"] = agora
+
+        try:
+            from app.servicos import cadastro
+
+            cadastro.descartar_vencidos()
+        except Exception:  # noqa: BLE001
+            app.logger.exception("falha na varredura de cadastros não confirmados")
+
+        return resposta
 
 
 def _registrar_paginas_de_erro(app: Flask) -> None:

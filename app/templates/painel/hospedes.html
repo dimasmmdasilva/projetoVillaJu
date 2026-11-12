@@ -4,8 +4,15 @@
 {% block conteudo %}
 <h1>Hóspedes</h1>
 
-<p>{{ total }} cadastrado{{ 's' if total != 1 }}.
-   <a href="{{ url_for('hospedes.novo') }}">Cadastrar hóspede</a></p>
+<p>{{ total }} cadastrado{{ 's' if total != 1 }}.</p>
+
+{# Sem botão de cadastrar. Esta área é de leitura e correção desde o
+   Bloco 4 da Etapa 5: quem cria o registro é a própria pessoa, pelo
+   autocadastro público com confirmação por e-mail. #}
+<p class="nota-campo">
+  O cadastro é feito pela própria pessoa, em <strong>/cadastro</strong>,
+  com confirmação por e-mail. Aqui a equipe consulta, corrige e desativa.
+</p>
 
 {# Busca pelo índice HMAC. O campo cifrado não é pesquisável: o AES-GCM é
    não determinístico, e cifrar o mesmo e-mail duas vezes produz bytes
