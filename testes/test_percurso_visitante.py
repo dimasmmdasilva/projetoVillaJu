@@ -243,6 +243,23 @@ REPOSITORIOS_PROIBIDOS = {
     "calculo",
 }
 
+# A única porta que a Etapa 5 abriu, e o que exatamente passa por ela.
+#
+# O autocadastro do hóspede precisa escrever em `hospede` e em `usuario`.
+# A regra de isolamento não foi abandonada — foi estreitada, do mesmo
+# modo que a especificação prescreve para o Bloco 8: a face pública
+# alcança um módulo de serviço com duas entradas e nenhuma leitura, e
+# **continua sem alcançar os repositórios por qualquer outro caminho**.
+PORTA_DO_CADASTRO = "app/servicos/cadastro.py"
+
+# Liberados, e só através da porta.
+LIBERADOS_PELO_CADASTRO = {"hospede_repo", "usuario_repo"}
+
+# Proibidos em termos absolutos, inclusive para a porta. `reserva_repo` é
+# o mais importante da lista: nem o cadastro tem motivo para tocá-lo, e
+# alcançá-lo daria à face pública caminho até dado de reserva alheia.
+PROIBIDOS_SEM_EXCECAO = REPOSITORIOS_PROIBIDOS - LIBERADOS_PELO_CADASTRO
+
 
 def _importados(caminho: pathlib.Path) -> set:
     """Módulos da aplicação que este arquivo importa.
@@ -275,14 +292,22 @@ def _importados(caminho: pathlib.Path) -> set:
     return nomes
 
 
-def _alcance(inicial: str) -> dict:
+def _alcance(inicial: str, bloqueados=()) -> dict:
     """Todos os módulos da aplicação alcançáveis a partir de um deles.
 
     Percorre as importações em largura. Um repositório proibido alcançado
     de segunda mão é alcançado do mesmo jeito: se `publico.py` importa
     um módulo que importa `hospede_repo`, a rota pública tem como chegar
     lá, e basta uma linha mal escrita para que chegue.
+
+    `bloqueados` interrompe a travessia nos módulos indicados, que são
+    registrados como alcançados mas não têm as importações seguidas. É o
+    que permite perguntar *"o que a face pública alcançaria se esta porta
+    não existisse?"* — e, com isso, provar que todo caminho até um
+    repositório liberado passa por ela, em vez de confiar na primeira
+    trilha que a busca em largura encontrar.
     """
+    bloqueados = set(bloqueados)
     visitados = {}
     fila = [(inicial, [inicial])]
 
@@ -297,6 +322,9 @@ def _alcance(inicial: str) -> dict:
 
         visitados[atual] = caminho_ate_aqui
 
+        if atual in bloqueados:
+            continue
+
         for nome in _importados(arquivo):
             if not nome.startswith("app."):
                 continue
@@ -308,24 +336,103 @@ def _alcance(inicial: str) -> dict:
 
 
 @pytest.mark.parametrize("modulo", MODULOS_PUBLICOS)
-def test_a_face_publica_nao_alcanca_repositorio_proibido(modulo):
-    """A regra verificada na árvore inteira, não só no primeiro nível.
+def test_a_face_publica_so_alcanca_hospede_e_usuario_pelo_cadastro(modulo):
+    """Todo caminho até um repositório liberado passa pela porta.
 
-    O teste do Bloco 1 olhava apenas as importações diretas de
-    `publico.py`. Este segue a cadeia: se um módulo importado importar
-    `hospede_repo`, a verificação acusa e mostra o caminho.
+    Não basta constatar que `hospede_repo` é alcançado *através* do
+    cadastro: a busca em largura guarda uma trilha por módulo, e a
+    primeira que ela achar pode ser a inocente enquanto outra, direta,
+    existe ao lado.
+
+    A pergunta certa é a inversa, e é a que este teste faz: **com a porta
+    fechada, o repositório ainda é alcançável?** Se não for, então ela é
+    o único caminho — e isso vale para todos os caminhos, não para o que
+    a travessia escolheu mostrar.
+    """
+    sem_a_porta = _alcance(modulo, bloqueados={PORTA_DO_CADASTRO})
+
+    culpados = []
+    for caminho, trilha in sem_a_porta.items():
+        if pathlib.Path(caminho).stem in REPOSITORIOS_PROIBIDOS:
+            culpados.append(" -> ".join(trilha))
+
+    assert not culpados, (
+        "a face pública alcança repositório proibido por fora do "
+        "serviço de cadastro:\n  " + "\n  ".join(culpados)
+    )
+
+
+@pytest.mark.parametrize("modulo", MODULOS_PUBLICOS)
+def test_nem_o_cadastro_alcanca_reserva_tarifa_ou_auditoria(modulo):
+    """A porta é estreita, e esta é a medida da estreiteza.
+
+    O estreitamento liberou **dois** repositórios, `hospede_repo` e
+    `usuario_repo`, porque criar conta exige escrever nos dois. Não
+    liberou os outros quatro.
+
+    `reserva_repo` é o que mais importa: alcançá-lo daria à face pública
+    caminho até reserva de terceiro, que é precisamente o dado que a
+    Etapa 4 se propôs a manter fora do alcance de quem não autentica.
+    `tarifa_repo` e `calculo` seguem proibidos porque a decisão de não
+    publicar preço continua valendo, e `auditoria_repo` porque o log é
+    de leitura administrativa.
+
+    Aqui a travessia é a completa, **sem bloquear a porta** — justamente
+    para enxergar o que o cadastro arrasta consigo.
     """
     alcancaveis = _alcance(modulo)
 
     culpados = []
     for caminho, trilha in alcancaveis.items():
-        nome = pathlib.Path(caminho).stem
-        if nome in REPOSITORIOS_PROIBIDOS:
+        if pathlib.Path(caminho).stem in PROIBIDOS_SEM_EXCECAO:
             culpados.append(" -> ".join(trilha))
 
     assert not culpados, (
-        "a face pública alcança repositório proibido:\n  "
-        + "\n  ".join(culpados)
+        "o serviço de cadastro arrasta repositório que ninguém na face "
+        "pública deveria alcançar:\n  " + "\n  ".join(culpados)
+    )
+
+
+def test_o_bloqueio_da_travessia_e_o_que_torna_o_isolamento_verificavel():
+    """Prova de que o bloqueio faz o que diz.
+
+    Sem este teste, um `bloqueados` que não bloqueasse nada — ou que
+    bloqueasse tudo — deixaria o teste principal verde sem verificar
+    coisa alguma. É a mesma armadilha de
+    `test_o_alcance_cobre_mais_de_um_nivel`, num mecanismo novo.
+
+    As duas metades importam. Com a porta aberta, `usuario_repo`
+    **precisa** aparecer: se não aparecesse, o autocadastro não estaria
+    ligado e o teste principal passaria por ausência de funcionalidade.
+    Com a porta fechada, precisa desaparecer: é isso que mostra que o
+    bloqueio interrompe a travessia de verdade.
+    """
+    com_a_porta = {
+        pathlib.Path(c).stem for c in _alcance("app/rotas/publico.py")
+    }
+    sem_a_porta = {
+        pathlib.Path(c).stem
+        for c in _alcance(
+            "app/rotas/publico.py", bloqueados={PORTA_DO_CADASTRO}
+        )
+    }
+
+    assert "usuario_repo" in com_a_porta, (
+        "com a porta aberta o autocadastro tem de alcançar usuario_repo; "
+        "se não alcança, a funcionalidade não está ligada e o teste de "
+        "isolamento passa de graça"
+    )
+    assert "hospede_repo" in com_a_porta
+
+    assert "usuario_repo" not in sem_a_porta, (
+        "o bloqueio não interrompeu a travessia"
+    )
+    assert "hospede_repo" not in sem_a_porta
+
+    # A porta em si continua visível nos dois casos: ela é alcançada, o
+    # que se interrompe é o que vem depois dela.
+    assert PORTA_DO_CADASTRO in _alcance(
+        "app/rotas/publico.py", bloqueados={PORTA_DO_CADASTRO}
     )
 
 

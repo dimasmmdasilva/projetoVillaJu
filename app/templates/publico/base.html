@@ -35,6 +35,11 @@
      cinco cartões e não se alcança sem rolar. #}
   <nav>
     <a href="#localizacao">Localização</a>
+    {# As duas portas da face pública ficam na navegação, porque nenhuma
+       delas está na vitrine o tempo todo: o pedido de contato só aparece
+       no botão de cada chalé, e o cadastro em lugar nenhum. #}
+    <a href="{{ url_for('publico.contato') }}">Solicitar reserva</a>
+    <a href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
   </nav>
   {# Link discreto, e não botão em destaque: quem precisa dele são três
      pessoas da equipe. Para quem já tem sessão aberta, leva direto ao

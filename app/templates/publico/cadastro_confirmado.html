@@ -1,0 +1,53 @@
+{% extends "publico/base.html" %}
+{% block titulo %}
+  {{ 'Conta ativada' if ativada else 'Link inválido' }} — {{ hospedaria.nome }}
+{% endblock %}
+
+{% block conteudo %}
+{# Uma página, duas mensagens.
+
+   O sucesso é distinto da falha, e precisa ser: quem acabou de confirmar
+   tem de saber que já pode entrar.
+
+   O que NÃO se distingue são as falhas entre si. Token vencido,
+   inexistente, já consumido e de outro tipo caem todos no mesmo texto,
+   porque distinguir ensinaria a quem está sondando se um token existe —
+   é o requisito do Bloco 2, e a razão por que `token_repo.consumir`
+   devolve `None` uniforme para os quatro casos.
+
+   Nenhuma das duas mensagens cita nome, e-mail ou identificador. Esta
+   rota é pública e a resposta dela não carrega dado da conta. #}
+
+{% if ativada %}
+<h1>Cadastro realizado com sucesso</h1>
+<p>
+  O seu endereço de e-mail foi confirmado e o acesso está liberado. Entre
+  com o seu e-mail e a senha que você escolheu no cadastro.
+</p>
+
+<p class="acao-chale">
+  <a class="botao" href="{{ url_for('auth.login') }}">Entrar</a>
+</p>
+
+{% else %}
+<h1>Este link não vale mais</h1>
+<p>
+  O link pode ter vencido, já ter sido usado ou estar incompleto — um
+  endereço copiado de um e-mail às vezes quebra em duas linhas e perde o
+  final.
+</p>
+
+<p>
+  Se a sua conta ainda não está ativa, faça o cadastro outra vez com o
+  mesmo e-mail. Você receberá um link novo, e o anterior deixa de valer.
+</p>
+
+<p class="acao-chale">
+  <a class="botao" href="{{ url_for('publico.criar_conta') }}">Cadastrar outra vez</a>
+</p>
+{% endif %}
+
+<p class="voltar">
+  <a href="{{ url_for('publico.inicio') }}">Voltar ao início</a>
+</p>
+{% endblock %}

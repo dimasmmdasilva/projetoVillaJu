@@ -100,7 +100,21 @@ def login():
     login_informado = (request.form.get("login") or "").strip()
     senha_informada = request.form.get("senha") or ""
 
-    usuario = usuario_repo.buscar_por_login(login_informado)
+    # Busca que aceita os dois formatos: o apelido da equipe (`admin`,
+    # `recepcao`) e o endereço de e-mail do hóspede.
+    #
+    # **Por que o hóspede entra pelo e-mail e a conta não guarda e-mail.**
+    # O login dele é o HMAC-SHA256 do endereço, o mesmo índice que
+    # `hospede.email_busca` usa — e a tradução acontece aqui. A coluna
+    # `login` é texto claro com restrição de unicidade; guardar o endereço
+    # nela desfaria a cifragem que a tabela `hospede` aplica ao mesmo
+    # dado, e um UNIQUE sobre e-mail em claro é por si um oráculo de
+    # enumeração.
+    #
+    # Os dois caminhos fazem exatamente uma consulta, de modo que o tempo
+    # de resposta não distingue um apelido de equipe de um endereço de
+    # hóspede.
+    usuario = usuario_repo.buscar_por_login_ou_email(login_informado)
 
     if usuario is None:
         # Gasta o mesmo tempo de uma verificação real. Sem isso, a

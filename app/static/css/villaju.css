@@ -320,3 +320,19 @@ body.entrada main {
   font-size: 0.86rem;
   margin: 0.75rem 0 0;
 }
+
+/* Nota explicativa sob um campo de formulário.
+ *
+ * Existe porque duas decisões do cadastro precisam ser ditas na tela e
+ * não só no código: que o e-mail é também o acesso, e que a senha não
+ * exige maiúscula nem símbolo. Sem a explicação, a segunda parece
+ * descuido em vez de escolha.
+ *
+ * `margin-top` negativo para encostar na caixa a que se refere, que o
+ * `gap` do formulário afastaria. */
+.nota-campo {
+  margin: -0.1rem 0 0;
+  font-size: 0.82rem;
+  color: #555;
+  line-height: 1.35;
+}

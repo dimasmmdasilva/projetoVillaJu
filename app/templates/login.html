@@ -33,6 +33,11 @@
   {# Caminho de volta. Quem clica em "Área da equipe" na vitrine e descobre
      que errou de porta ficava preso numa página sem saída. #}
   <p class="voltar">
+    Não tem conta?
+    <a href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
+  </p>
+
+  <p class="voltar">
     <a href="{{ url_for('publico.inicio') }}">Voltar</a>
   </p>
 </div>

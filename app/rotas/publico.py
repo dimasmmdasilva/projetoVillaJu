@@ -6,6 +6,17 @@ Esta é a única parte do sistema que um desconhecido alcança. Por isso ela
     a face pública não compartilha sessão com a área autenticada e não
     acessa nenhuma tabela além de `chale` (leitura) e `contato` (escrita).
 
+**A regra foi estreitada na Etapa 5, não abandonada.** O autocadastro do
+hóspede precisa escrever em `hospede` e em `usuario`, e por isso esta
+face alcança agora um terceiro módulo: `app.servicos.cadastro`, que tem
+duas entradas e **nenhuma função que devolva dado** — uma devolve `None`,
+a outra um booleano.
+
+A propriedade essencial se mantém, e o teste que a verifica mudou de
+"não importa repositório proibido" para "entre os módulos que escrevem
+em tabela de pessoa, importa apenas `cadastro`": **a face pública pode
+criar um cadastro, e não tem como ler nenhum.**
+
 **Por que a regra importa mais do que parece.** Um sítio de divulgação é
 o alvo mais exposto que o projeto tem: não exige senha, é indexado por
 buscadores e recebe tráfego automatizado o tempo todo. Se uma rota daqui
@@ -28,10 +39,19 @@ de arquivos em `static/img/chales/`, sem mexer em template nem em rota.
 import datetime as dt
 import logging
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 
 from app.dados import chale_repo, contato_repo
 from app.extensoes import limiter
+from app.servicos import cadastro
 
 publico = Blueprint("publico", __name__)
 
@@ -266,6 +286,131 @@ def contato_enviado():
     com um POST no histórico do navegador.
     """
     return render_template("publico/contato_enviado.html", hospedaria=HOSPEDARIA)
+
+
+# ---------------------------------------------------------------------------
+# Autocadastro do hóspede
+# ---------------------------------------------------------------------------
+
+@publico.route("/cadastro", methods=["GET", "POST"])
+@limiter.limit(_limite_publico, methods=["POST"])
+def criar_conta():
+    """O formulário de cadastro, e o seu envio.
+
+    **As mesmas três defesas do formulário de contato**, porque é o mesmo
+    tipo de porta: token CSRF, limitação de taxa por origem e
+    campo-armadilha. A diferença é que esta porta cria conta, o que a
+    torna mais atraente para abuso, não menos.
+
+    **A resposta é sempre a mesma.** Erro de formulário — campo em
+    branco, senha curta, e-mail malformado — é mostrado, porque fala
+    apenas do que a pessoa digitou. Tudo o mais termina na página de
+    confirmação, inclusive o caso em que o endereço já tem conta. O
+    raciocínio está no cabeçalho de `app/servicos/cadastro.py`: responder
+    diferente transformaria o formulário num levantamento da lista de
+    clientes.
+    """
+    if request.method == "GET":
+        return render_template(
+            "publico/cadastro.html",
+            hospedaria=HOSPEDARIA,
+            minimo_da_senha=cadastro.TAMANHO_MINIMO_DA_SENHA,
+            dados={},
+        )
+
+    dados = {
+        campo: request.form.get(campo)
+        for campo in ("nome", "documento", "email", "telefone")
+    }
+
+    # A senha vai para o serviço e **não volta ao template**. Num envio
+    # recusado, os outros campos são devolvidos preenchidos para que a
+    # pessoa não digite tudo de novo; a senha, não. Devolvê-la a
+    # escreveria no HTML, e dali ela chegaria ao histórico do navegador,
+    # ao cache de página e a qualquer registro de proxy no caminho.
+    dados["senha"] = request.form.get("senha")
+    dados["senha_confirmacao"] = request.form.get("senha_confirmacao")
+
+    # Campo-armadilha, com a mesma lógica da rota de contato: descarte em
+    # silêncio, resposta idêntica à de um envio bem-sucedido, registro em
+    # log sem o conteúdo.
+    if request.form.get(CAMPO_ARMADILHA):
+        _registrador.info(
+            "cadastro descartado pelo campo-armadilha, origem %s",
+            request.remote_addr,
+        )
+        return redirect(url_for("publico.conta_solicitada"))
+
+    def recusar(mensagem: str, estado: int):
+        flash(mensagem, "erro")
+        devolver = {
+            campo: dados[campo]
+            for campo in ("nome", "documento", "email", "telefone")
+        }
+        return render_template(
+            "publico/cadastro.html",
+            hospedaria=HOSPEDARIA,
+            minimo_da_senha=cadastro.TAMANHO_MINIMO_DA_SENHA,
+            dados=devolver,
+        ), estado
+
+    try:
+        cadastro.registrar(dados, current_app.villaju)
+    except cadastro.ErroDeCadastro as erro:
+        return recusar(str(erro), 400)
+    except Exception:  # noqa: BLE001
+        _registrador.exception("falha ao processar cadastro público")
+        return recusar(
+            "Não foi possível concluir o seu cadastro agora. "
+            "Tente novamente em alguns minutos.",
+            503,
+        )
+
+    return redirect(url_for("publico.conta_solicitada"))
+
+
+@publico.route("/cadastro/enviado")
+def conta_solicitada():
+    """Confirmação, em página própria e alcançada por redirecionamento.
+
+    A mensagem é condicional de propósito — *"se este endereço estiver
+    disponível, você receberá um link"*. Ela é verdadeira nos dois casos
+    e informativa em nenhum, que é exatamente o que se quer: quem acabou
+    de se cadastrar entende o que fazer, e quem está sondando endereços
+    não aprende nada.
+    """
+    return render_template(
+        "publico/cadastro_enviado.html", hospedaria=HOSPEDARIA
+    )
+
+
+@publico.route("/confirmar/<token>")
+@limiter.limit(_limite_publico)
+def confirmar_conta(token):
+    """Ativa a conta pelo link do e-mail.
+
+    **Limitada por taxa**, como o Bloco 2 previu. Sem o limite, esta rota
+    aceitaria tentativas ilimitadas de adivinhar token — o que não
+    quebraria os 256 bits de aleatoriedade, mas custaria uma consulta ao
+    banco por tentativa e serviria de alavanca para esgotar o servidor.
+
+    **Uma página, duas mensagens.** Token vencido, inexistente, já usado
+    e de outro tipo produzem a mesma resposta, sem distinguir entre eles
+    — é o requisito do Bloco 2. O sucesso é distinto da falha, e precisa
+    ser: uma pessoa que acabou de confirmar a conta tem de saber que pode
+    entrar.
+    """
+    try:
+        ativada = cadastro.confirmar(token, current_app.villaju)
+    except Exception:  # noqa: BLE001
+        _registrador.exception("falha ao confirmar cadastro")
+        ativada = False
+
+    return render_template(
+        "publico/cadastro_confirmado.html",
+        hospedaria=HOSPEDARIA,
+        ativada=ativada,
+    ), (200 if ativada else 400)
 
 
 def _chales_para_selecao() -> list:

@@ -227,22 +227,19 @@ def test_a_vitrine_nao_mostra_preco(visitante):
     assert "R$" not in visitante.get("/").data.decode()
 
 
-def test_o_modulo_publico_nao_importa_repositorio_proibido():
-    """A regra verificada no código, não só na saída.
+def _importados_por(caminho_relativo: str) -> set:
+    """Nomes que um módulo importa, lidos da árvore sintática.
 
-    Um teste sobre o HTML confirma que o dado não vazou *nesta* página,
-    com *esta* massa. Este confirma que a rota não tem como alcançá-lo:
-    `app/rotas/publico.py` não importa `hospede_repo`, `reserva_repo`,
-    `usuario_repo` nem `auditoria_repo`.
-
-    É a diferença entre não ter vazado e não poder vazar.
+    Sem importar o módulo: a análise é estática, e por isso vale mesmo
+    que a importação esteja dentro de uma função ou protegida por um
+    `if`.
     """
     import ast
     import pathlib
 
     raiz = pathlib.Path(__file__).resolve().parents[1]
     arvore = ast.parse(
-        (raiz / "app" / "rotas" / "publico.py").read_text(encoding="utf-8")
+        (raiz / caminho_relativo).read_text(encoding="utf-8")
     )
 
     importados = set()
@@ -255,6 +252,29 @@ def test_o_modulo_publico_nao_importa_repositorio_proibido():
         elif isinstance(no, ast.Import):
             for alvo in no.names:
                 importados.add(alvo.name)
+    return importados
+
+
+def test_o_modulo_publico_nao_importa_repositorio_proibido():
+    """A regra verificada no código, não só na saída.
+
+    Um teste sobre o HTML confirma que o dado não vazou *nesta* página,
+    com *esta* massa. Este confirma que a rota não tem como alcançá-lo.
+
+    É a diferença entre não ter vazado e não poder vazar.
+
+    **A regra foi estreitada na Etapa 5, não abandonada.** O autocadastro
+    precisa escrever em `hospede` e em `usuario`. A face pública passou a
+    alcançar `app.servicos.cadastro`, que é um módulo de duas entradas e
+    nenhuma leitura — e continua **proibida** de importar os
+    repositórios diretamente, porque importá-los lhe daria também as
+    funções de busca e listagem.
+
+    O par deste teste é
+    `test_o_servico_de_cadastro_nao_devolve_dado_de_pessoa`, que verifica
+    o outro lado: que o módulo intermediário não serve de passagem.
+    """
+    importados = _importados_por("app/rotas/publico.py")
 
     proibidos = {
         "hospede_repo",
@@ -269,6 +289,54 @@ def test_o_modulo_publico_nao_importa_repositorio_proibido():
     assert not achados, (
         f"a face pública importa repositório que não deveria alcançar: "
         f"{sorted(achados)}"
+    )
+
+
+def test_o_servico_de_cadastro_nao_devolve_dado_de_pessoa():
+    """O outro lado da regra estreitada.
+
+    `app/servicos/cadastro.py` é o único caminho da face pública até
+    `hospede` e `usuario`. Se ele devolvesse um registro, a rota pública
+    passaria a ter dado pessoal em mãos e o estreitamento não teria valor
+    algum — seria apenas um repositório com outro nome.
+
+    O teste verifica a anotação de retorno das funções públicas do
+    módulo: cada uma devolve `None` ou `bool`, nunca `dict`, `list` ou
+    coisa sem anotação.
+
+    **Por que a anotação e não o valor devolvido.** Chamar as funções
+    exigiria banco, e-mail e massa, e verificaria apenas os caminhos que
+    o teste pensou em exercitar. A anotação cobre todos: uma alteração
+    futura que passasse a devolver registro teria de mudá-la, e aí este
+    teste falha.
+    """
+    import ast
+    import pathlib
+
+    raiz = pathlib.Path(__file__).resolve().parents[1]
+    arvore = ast.parse(
+        (raiz / "app" / "servicos" / "cadastro.py").read_text(encoding="utf-8")
+    )
+
+    permitidos = {"None", "bool"}
+    reprovadas = {}
+
+    for no in arvore.body:
+        if not isinstance(no, ast.FunctionDef) or no.name.startswith("_"):
+            continue
+
+        retorno = no.returns
+        if retorno is None:
+            reprovadas[no.name] = "sem anotação de retorno"
+            continue
+
+        texto = ast.unparse(retorno)
+        if texto not in permitidos:
+            reprovadas[no.name] = texto
+
+    assert not reprovadas, (
+        f"o serviço de cadastro devolve mais do que None ou bool, e por aí "
+        f"dado pessoal alcançaria a face pública: {reprovadas}"
     )
 
 

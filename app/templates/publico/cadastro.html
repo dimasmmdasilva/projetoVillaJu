@@ -1,0 +1,96 @@
+{% extends "publico/base.html" %}
+{% block titulo %}Criar conta — {{ hospedaria.nome }}{% endblock %}
+
+{% block conteudo %}
+<h1>Criar conta</h1>
+<p class="subtitulo">
+  Com conta você acompanha as suas reservas e pode pedir cancelamento sem
+  precisar ligar.
+</p>
+
+{# A outra porta da face pública.
+
+   Esta pede documento; o pedido de contato não pede. A diferença é
+   deliberada e está na Etapa 5: não se pede o CPF de um desconhecido que
+   apenas pergunta o preço, mas quem cria conta para reservar está
+   entrando numa relação, e pousada pede documento.
+
+   Quem só quer perguntar continua tendo o caminho sem documento, com o
+   link ao pé desta página. #}
+
+{% with mensagens = get_flashed_messages(with_categories=true) %}
+  {% for categoria, texto in mensagens %}
+  <p class="aviso aviso-{{ categoria }}">{{ texto }}</p>
+  {% endfor %}
+{% endwith %}
+
+<form method="post" action="{{ url_for('publico.criar_conta') }}" class="formulario">
+  {# Token obrigatório, como no pedido de contato: sem ele um sítio hostil
+     faria o navegador de um visitante criar contas em nome dele. #}
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  {# Campo-armadilha, idêntico ao do formulário de contato. O raciocínio
+     completo — por que fora da tela e não `display: none`, por que não
+     `type="hidden"`, e por que os três atributos de acessibilidade são
+     obrigatórios — está comentado em `publico/contato.html`. #}
+  <div class="armadilha" aria-hidden="true">
+    <label for="assunto">Assunto</label>
+    <input type="text" id="assunto" name="assunto"
+           tabindex="-1" autocomplete="off">
+  </div>
+
+  <label for="nome">Nome completo *</label>
+  <input type="text" id="nome" name="nome" required autofocus
+         maxlength="150" autocomplete="name"
+         value="{{ dados.nome or '' }}">
+
+  <label for="documento">CPF ou documento de identidade *</label>
+  <input type="text" id="documento" name="documento" required
+         maxlength="60" autocomplete="off"
+         value="{{ dados.documento or '' }}">
+
+  <label for="email">E-mail *</label>
+  <input type="email" id="email" name="email" required
+         maxlength="150" autocomplete="email"
+         value="{{ dados.email or '' }}">
+  <p class="nota-campo">
+    É também o seu acesso ao sistema, e para onde vai o link de confirmação.
+  </p>
+
+  <label for="telefone">Telefone</label>
+  <input type="text" id="telefone" name="telefone"
+         maxlength="40" autocomplete="tel"
+         value="{{ dados.telefone or '' }}">
+
+  {# `autocomplete="new-password"` e não `current-password`: diz ao
+     gerenciador de senhas do navegador que este é um cadastro, e não uma
+     entrada — é o que faz ele oferecer uma senha nova em vez de
+     preencher com a de outro sítio. #}
+  <label for="senha">Senha *</label>
+  <input type="password" id="senha" name="senha" required
+         minlength="{{ minimo_da_senha }}" maxlength="128"
+         autocomplete="new-password">
+  <p class="nota-campo">
+    Ao menos {{ minimo_da_senha }} caracteres. Não há exigência de maiúscula,
+    número ou símbolo — comprimento protege mais do que regra de composição.
+  </p>
+
+  <label for="senha_confirmacao">Repita a senha *</label>
+  <input type="password" id="senha_confirmacao" name="senha_confirmacao" required
+         minlength="{{ minimo_da_senha }}" maxlength="128"
+         autocomplete="new-password">
+
+  {# Os campos de senha nunca voltam preenchidos num envio recusado. Não é
+     esquecimento: devolvê-los escreveria a senha no HTML, e dali ela
+     chegaria ao histórico do navegador e ao cache da página. #}
+
+  <button type="submit">Criar conta</button>
+</form>
+
+<p class="voltar">
+  Já tem conta? <a href="{{ url_for('auth.login') }}">Entrar</a>
+  &middot;
+  Só quer perguntar?
+  <a href="{{ url_for('publico.contato') }}">Solicitar reserva sem criar conta</a>
+</p>
+{% endblock %}
