@@ -447,10 +447,30 @@ def aplicacao(conexao_banco, tmp_path):
     aplicar_script(cursor, SCRIPT_DADOS)
     cursor.close()
 
-    modulo_conexao.iniciar_pool(Configuracao(modo_teste=True))
-    app = create_app(Configuracao(modo_teste=True))
+    configuracao = Configuracao(modo_teste=True)
+
+    # **O modo é fixado aqui, e não herdado do ambiente.**
+    #
+    # A tela da caixa de saída só existe em modo `arquivo` — em `smtp`
+    # ela responde 404, de propósito: não há arquivo nenhum para listar.
+    # Estes testes exercitam a tela, então precisam do modo em que ela
+    # existe.
+    #
+    # Sem esta linha, a suíte dependia do `.env` da máquina: quatro
+    # testes passavam enquanto `VILLAJU_EMAIL_MODO` estivesse em
+    # `arquivo` e quebravam no dia em que alguém configurasse o SMTP de
+    # verdade — que é exatamente o que se espera que aconteça. Foi o que
+    # aconteceu em 13/11.
+    #
+    # O mesmo vale para a pasta: ela vem de `tmp_path` para que cada
+    # teste comece com a caixa vazia, e não da configuração do ambiente.
+    configuracao.EMAIL_MODO = "arquivo"
+    configuracao.EMAIL_PASTA = tmp_path / "emails"
+
+    modulo_conexao.iniciar_pool(configuracao)
+    app = create_app(configuracao)
     app.config["SESSION_COOKIE_SECURE"] = False
-    app.config["EMAIL_PASTA"] = tmp_path / "emails"
+    app.villaju = configuracao
     yield app
     modulo_conexao.encerrar_pool()
 
