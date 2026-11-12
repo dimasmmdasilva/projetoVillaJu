@@ -602,3 +602,120 @@ def test_a_barra_de_navegacao_separa_os_links():
     bloco = css.split(".barra nav")[1].split("}")[0]
     assert "gap" in bloco
     assert "flex" in bloco
+
+
+# ---------------------------------------------------------------------------
+# Duas mensagens para o mesmo endereço no mesmo instante
+# ---------------------------------------------------------------------------
+
+def test_mensagens_seguidas_ao_mesmo_destinatario_nao_se_sobrescrevem(
+    configuracao, pasta
+):
+    """Defeito encontrado no Bloco 3, e corrigido aqui no Bloco 1.
+
+    O nome do arquivo era `AAAAMMDD-HHMMSS-destinatario.txt`, com
+    resolução de **segundo**. Duas mensagens para o mesmo endereço dentro
+    do mesmo segundo recebiam o mesmo nome, e a segunda sobrescrevia a
+    primeira sem erro, sem aviso e sem nada no log.
+
+    O caso é real e foi exatamente o que apareceu: quem se cadastra e
+    tenta de novo em seguida gera o convite e depois o aviso. Era o
+    convite que se perdia, e com ele o link de ativação — a caixa de
+    saída mostrava uma mensagem onde havia duas.
+
+    **Nenhuma sabotagem teria encontrado isto.** Não havia proteção a
+    remover; havia uma colisão que ninguém tinha provocado. Quem
+    encontrou foi um teste de fluxo que esperava duas mensagens e contou
+    uma.
+    """
+    for indice in range(5):
+        correio.enviar(
+            "mesma.pessoa@exemplo.com",
+            f"Mensagem {indice}",
+            f"Corpo da mensagem numero {indice}.\n",
+            configuracao,
+        )
+
+    arquivos = sorted(pasta.glob("*.txt"))
+    assert len(arquivos) == 5, (
+        f"foram enviadas 5 mensagens e restaram {len(arquivos)} arquivos: "
+        f"alguma sobrescreveu a outra"
+    )
+
+    assuntos = {m["assunto"] for m in correio.listar_enviadas(configuracao)}
+    assert len(assuntos) == 5, (
+        f"a caixa de saída não mostra as cinco mensagens: {sorted(assuntos)}"
+    )
+
+
+def test_o_guarda_colisao_segura_o_relogio_congelado(
+    configuracao, pasta, monkeypatch
+):
+    """A proteção que REALMENTE impede a perda, isolada da outra.
+
+    São duas proteções no nome do arquivo, e a sabotagem mostrou que elas
+    não são equivalentes:
+
+    - os **microssegundos** no carimbo de tempo;
+    - o **guarda-colisão**, que procura o próximo nome livre.
+
+    Remover os microssegundos e rodar a suíte **não quebrou nada**: o
+    guarda cobria o caso. Isso significa que o teste anterior, sozinho,
+    não prendia nenhuma das duas — ele só falhava se as duas saíssem, e
+    um teste assim deixa passar a remoção de qualquer uma delas.
+
+    Este congela o relógio num instante único. Com isso os microssegundos
+    deixam de ajudar, por construção, e o que resta a verificar é o
+    guarda. Ele falha se — e somente se — o guarda for removido, qualquer
+    que seja a resolução do relógio da plataforma.
+    """
+    import datetime as tempo
+
+    congelado = tempo.datetime(2026, 11, 12, 10, 30, 0, 123456)
+
+    class _RelogioParado(tempo.datetime):
+        @classmethod
+        def now(cls, fuso=None):
+            return congelado
+
+    monkeypatch.setattr(
+        "app.servicos.correio.dt.datetime", _RelogioParado
+    )
+
+    for indice in range(4):
+        correio.enviar(
+            "mesma.pessoa@exemplo.com",
+            f"Mensagem {indice}",
+            f"Corpo da mensagem numero {indice}.\n",
+            configuracao,
+        )
+
+    arquivos = sorted(pasta.glob("*.txt"))
+    assert len(arquivos) == 4, (
+        f"com o relógio parado restaram {len(arquivos)} de 4 arquivos: o "
+        f"guarda-colisão não impediu a sobrescrita"
+    )
+
+
+def test_o_nome_do_arquivo_carrega_fracao_de_segundo():
+    """A outra proteção, prendida pelo que ela entrega.
+
+    Sem a fração de segundo, cinco mensagens no mesmo segundo passariam
+    todas pelo guarda-colisão e sairiam com nomes `...-2`, `...-3`,
+    `...-4`. Funcionaria — nada se perde —, mas a caixa de saída passaria
+    a ordenar por contador em vez de por instante, e o nome deixaria de
+    dizer quando a mensagem foi produzida.
+
+    É uma afirmação pequena e por isso é testada diretamente, no formato
+    do nome, em vez de por um fluxo que não a distinguiria.
+    """
+    import datetime as tempo
+
+    nome = correio._nome_de_arquivo(
+        "alguem@exemplo.com", tempo.datetime(2026, 11, 12, 10, 30, 0, 123456)
+    )
+
+    assert nome.startswith("20261112-103000-123456-"), (
+        f"o nome perdeu a fração de segundo: {nome}"
+    )
+    assert nome.endswith(".txt")

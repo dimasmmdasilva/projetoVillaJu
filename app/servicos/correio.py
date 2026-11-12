@@ -94,7 +94,21 @@ def _nome_de_arquivo(destinatario: str, quando: dt.datetime) -> str:
     seguro = re.sub(r"\.{2,}", "_", seguro).lstrip("._-")
 
     seguro = seguro[:60] or "sem-destinatario"
-    return f"{quando:%Y%m%d-%H%M%S}-{seguro}.txt"
+
+    # Microssegundos no nome, e não apenas segundos.
+    #
+    # **Duas mensagens para o mesmo endereço no mesmo segundo recebiam o
+    # mesmo nome, e a segunda sobrescrevia a primeira — em silêncio.** O
+    # caso não é hipotético: é o que acontece quando alguém se cadastra e
+    # tenta de novo em seguida, e era justamente o convite que se perdia,
+    # substituído pelo aviso. Na demonstração, a caixa de saída mostrava
+    # uma mensagem onde havia duas, e o link de ativação desaparecia.
+    #
+    # Quem encontrou foi um teste que esperava duas mensagens e viu uma.
+    # Nenhuma das 32 sabotagens da Etapa 4 nem das 9 do Bloco 2 teria
+    # encontrado isto: não havia proteção a remover, havia uma colisão
+    # que ninguém tinha provocado.
+    return f"{quando:%Y%m%d-%H%M%S-%f}-{seguro}.txt"
 
 
 def montar(destinatario: str, assunto: str, corpo: str, remetente: str):
@@ -143,6 +157,28 @@ def _gravar_em_arquivo(mensagem, configuracao) -> str:
     pasta.mkdir(parents=True, exist_ok=True)
 
     caminho = pasta / _nome_de_arquivo(mensagem["To"], dt.datetime.now())
+
+    # Cinto e suspensório: os microssegundos resolvem o caso real, mas a
+    # resolução do relógio é da plataforma e não do programa — no Windows
+    # ela já foi de 15 milissegundos. Se o nome existir, procura o
+    # próximo livre em vez de sobrescrever.
+    #
+    # A perda silenciosa de uma mensagem é o pior resultado possível
+    # aqui: o sistema diz que enviou, o log diz que enviou, e o que a
+    # pessoa precisava ler não está em lugar nenhum.
+    # O contador entra ANTES da extensão, por recorte de texto e não com
+    # `with_suffix`. A primeira versão usava `with_suffix(".txt")` e tinha
+    # um defeito próprio: o nome contém o endereço, o endereço contém
+    # pontos, e `with_suffix` troca o último deles — `...exemplo.com-2`
+    # virava `...exemplo.txt`, perdendo o contador e podendo voltar a
+    # colidir.
+    if caminho.exists():
+        raiz = caminho.name[: -len(".txt")]
+        sufixo = 2
+        while caminho.exists():
+            caminho = pasta / f"{raiz}-{sufixo}.txt"
+            sufixo += 1
+
     caminho.write_text(str(mensagem), encoding="utf-8")
 
     # O destinatário vai para o log; o corpo não. A mensagem de
