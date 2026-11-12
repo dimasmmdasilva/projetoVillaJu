@@ -172,11 +172,24 @@ def _gravar_em_arquivo(mensagem, configuracao) -> str:
     # pontos, e `with_suffix` troca o último deles — `...exemplo.com-2`
     # virava `...exemplo.txt`, perdendo o contador e podendo voltar a
     # colidir.
+    # O contador é separado por **sublinhado**, e não por hífen. O motivo é
+    # ordenação, e custou um defeito para aparecer.
+    #
+    # `listar_enviadas` desempata por nome quando o `mtime` é igual — e ele
+    # é igual sempre que duas mensagens caem no mesmo tique de 15 ms do
+    # relógio de arquivos do Windows, que é exatamente o caso em que o
+    # contador existe.
+    #
+    # Comparando texto, `-` vale 45 e `.` vale 46. Com hífen,
+    # `...pessoa-2.txt` fica MENOR que `...pessoa.txt`, e a ordem
+    # decrescente põe a mensagem mais antiga no topo. Com sublinhado, que
+    # vale 95, o contador fica maior que o ponto e a ordem do nome
+    # coincide com a cronológica.
     if caminho.exists():
         raiz = caminho.name[: -len(".txt")]
         sufixo = 2
         while caminho.exists():
-            caminho = pasta / f"{raiz}-{sufixo}.txt"
+            caminho = pasta / f"{raiz}_{sufixo}.txt"
             sufixo += 1
 
     caminho.write_text(str(mensagem), encoding="utf-8")
@@ -247,8 +260,31 @@ def listar_enviadas(configuracao, limite: int = 50) -> list:
         return []
 
     mensagens = []
+    # Ordenado por data de modificação E por nome, nessa ordem.
+    #
+    # **Por que o nome entra.** A granularidade de escrita de arquivo no
+    # Windows é de cerca de 15 milissegundos: duas mensagens gravadas no
+    # mesmo tique recebem `st_mtime` idêntico. E `sorted(reverse=True)`
+    # **não inverte empates** — ele é estável, e empate preserva a ordem
+    # de entrada, que vem do `glob` em ordem crescente.
+    #
+    # O efeito era a caixa de saída mostrar a mensagem **mais antiga
+    # primeiro** justamente quando duas chegavam juntas — o contrário do
+    # que a tela promete. É o caso real de quem se cadastra e tenta de
+    # novo: recebe o convite e o aviso em sequência, e via o convite no
+    # topo como se fosse o último.
+    #
+    # Quem encontrou foi um teste que falhava só na bateria completa e
+    # passava isolado. A intermitência era a pista: sob carga, as duas
+    # gravações caem no mesmo tique com mais frequência.
+    #
+    # O nome resolve porque ele carrega o carimbo de tempo com
+    # microssegundos, que é mais preciso do que o `mtime` que o sistema
+    # de arquivos guarda.
     for caminho in sorted(
-        pasta.glob("*.txt"), key=lambda c: c.stat().st_mtime, reverse=True
+        pasta.glob("*.txt"),
+        key=lambda c: (c.stat().st_mtime, c.name),
+        reverse=True,
     )[:limite]:
         # `UnicodeDecodeError` não é `OSError`: um arquivo com bytes que não
         # formam UTF-8 derrubava a listagem inteira, escondendo todas as

@@ -719,3 +719,78 @@ def test_o_nome_do_arquivo_carrega_fracao_de_segundo():
         f"o nome perdeu a fração de segundo: {nome}"
     )
     assert nome.endswith(".txt")
+
+
+def test_a_caixa_de_saida_mostra_a_mais_recente_primeiro_com_mtime_igual(
+    configuracao, pasta
+):
+    """Defeito encontrado por um teste intermitente, na bateria do Bloco 4.
+
+    `listar_enviadas` ordenava só por `st_mtime`. A granularidade de
+    escrita de arquivo no Windows é de cerca de 15 milissegundos, e duas
+    mensagens gravadas no mesmo tique recebem `mtime` idêntico — e
+    `sorted(reverse=True)` **não inverte empates**, porque é estável.
+    Empate preservava a ordem do `glob`, que é crescente.
+
+    O resultado: a caixa de saída mostrava a mensagem **mais antiga
+    primeiro** justamente quando duas chegavam juntas. O caso é real — é
+    o de quem se cadastra e tenta de novo, recebendo o convite e o aviso
+    em sequência, e vendo o convite no topo como se fosse o último.
+
+    **O empate é forçado com `os.utime`, e não deixado à sorte.** A
+    primeira versão deste teste apenas gravava três mensagens em
+    sequência e passava — mas passava pelo `mtime`, que de fato diferia,
+    e portanto não verificava o desempate nenhum. Era um teste que
+    confirmava a correção sem exercitá-la: a terceira família da lista de
+    testes que não testam nada.
+
+    Forçado o empate, o desempate por nome é o único critério que resta —
+    e foi assim que apareceu o segundo defeito, no caractere que separa o
+    contador de colisão. Com hífen, `...pessoa-2.txt` fica menor que
+    `...pessoa.txt` na comparação de texto, e a ordem decrescente punha a
+    mais antiga no topo. Com sublinhado, a ordem do nome coincide com a
+    cronológica.
+    """
+    import os
+
+    for indice in range(3):
+        correio.enviar(
+            "mesma.pessoa@exemplo.com",
+            f"Mensagem {indice}",
+            f"Corpo numero {indice}.\n",
+            configuracao,
+        )
+
+    arquivos = sorted(pasta.glob("*.txt"))
+    assert len(arquivos) == 3, "as tres mensagens precisam existir"
+
+    # O empate, forçado: todos com o mesmo carimbo de modificação.
+    for caminho in arquivos:
+        os.utime(caminho, (1793000000, 1793000000))
+
+    assuntos = [m["assunto"] for m in correio.listar_enviadas(configuracao)]
+
+    assert assuntos == ["Mensagem 2", "Mensagem 1", "Mensagem 0"], (
+        f"com mtime igual, a caixa de saída saiu fora de ordem: {assuntos}"
+    )
+
+
+def test_o_contador_de_colisao_ordena_depois_do_nome_sem_contador():
+    """A regra de ordenação do nome, isolada do sistema de arquivos.
+
+    `-` vale 45 e `.` vale 46 na tabela de caracteres, então um contador
+    separado por hífen fica **antes** do nome sem contador — e a ordem
+    decrescente inverte o que se quer. `_` vale 95, e fica depois.
+
+    Verificado como comparação de texto puro porque é disso que se trata:
+    nenhum arquivo precisa existir para a regra valer ou falhar.
+    """
+    base = "20261112-140000-500000-pessoa"
+
+    nomes = [f"{base}.txt", f"{base}_2.txt", f"{base}_3.txt"]
+
+    assert sorted(nomes, reverse=True) == [
+        f"{base}_3.txt",
+        f"{base}_2.txt",
+        f"{base}.txt",
+    ], "o contador de colisão não ordena depois do nome sem contador"
