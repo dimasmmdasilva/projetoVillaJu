@@ -20,6 +20,7 @@ fluxo que os usa.
 
 import pathlib
 import re
+import secrets
 import tempfile
 
 import pytest
@@ -657,13 +658,34 @@ def test_a_armadilha_nao_enfileira_mensagem_na_sessao(visitante):
 # A rota de confirmação
 # ---------------------------------------------------------------------------
 
+# O caso "bem formado" é GERADO, e não escrito como literal.
+#
+# A primeira versão trazia uma cadeia de 39 caracteres alfanuméricos
+# escrita à mão, para ter o aspecto de um token de verdade. O gitleaks a
+# leu como `generic-api-key` e passou a reportar um vazamento no
+# repositório — falso, mas indistinguível de um verdadeiro na saída da
+# ferramenta.
+#
+# O custo não é o aviso: é que "gitleaks sem achados" deixa de ser um
+# sinal utilizável. Um relatório de segurança que precisa explicar os
+# seus próprios falsos positivos já perdeu metade do valor.
+#
+# `secrets.token_urlsafe(32)` resolve melhor em dois sentidos. Não há
+# literal na fonte para nenhuma ferramenta confundir com credencial, e o
+# valor é um token **genuinamente bem formado** — 256 bits de
+# aleatoriedade, no mesmo formato que `token_repo.gerar` produz — que
+# com certeza nunca foi emitido. É um caso de teste mais honesto do que
+# a cadeia inventada.
+TOKEN_BEM_FORMADO_MAS_NUNCA_EMITIDO = secrets.token_urlsafe(32)
+
+
 @pytest.mark.parametrize(
     "rotulo,token",
     [
         ("inexistente", "x" * 43),
         ("texto qualquer", "nao-existe"),
         ("curto", "a"),
-        ("com aparência de token", "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8S9t"),
+        ("bem formado, nunca emitido", TOKEN_BEM_FORMADO_MAS_NUNCA_EMITIDO),
     ],
 )
 def test_token_que_nao_serve_e_recusado(visitante, rotulo, token):

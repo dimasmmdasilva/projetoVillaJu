@@ -1,0 +1,24 @@
+# Achados do gitleaks declarados como falsos positivos.
+#
+# Cada linha é a impressão digital de um achado específico — commit,
+# arquivo, regra e linha. Ela não silencia a regra nem o arquivo: um
+# vazamento de verdade no mesmo arquivo continua sendo reportado.
+#
+# Este arquivo existe porque o histórico do Git é imutável sem reescrevê-lo,
+# e reescrever histórico publicado exige `push --force`, que apaga o
+# trabalho de quem já tiver clonado. A alternativa honesta é declarar a
+# exceção aqui, onde ela fica visível a quem revisa o repositório.
+
+# -----------------------------------------------------------------------
+# 12/11/2026 — cadeia sintética num caso de teste
+#
+# `testes/test_cadastro.py`, no commit da Etapa 5 Bloco 3, trazia uma
+# cadeia de 39 caracteres alfanuméricos escrita à mão para representar
+# "um token com aparência de válido". A regra `generic-api-key` a leu
+# como credencial.
+#
+# Não é segredo: é valor de teste, e o teste verifica justamente que um
+# token desses é RECUSADO. A fonte já foi corrigida — o valor passou a
+# ser gerado por `secrets.token_urlsafe(32)`, sem literal no código —,
+# mas o commit antigo permanece.
+5d9c2ca318a5b94c8cb9a0d762ab2bbe96c8df2b:testes/test_cadastro.py:generic-api-key:666
