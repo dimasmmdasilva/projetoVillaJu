@@ -28,6 +28,54 @@ O sistema elimina os três.
 
 ---
 
+## O que o sistema faz hoje
+
+O VillaJu tem duas faces, e a separação entre elas é decisão de
+segurança, não de organização.
+
+### Face pública — não exige login
+
+| Tela | O que faz |
+|---|---|
+| **Vitrine** | os cinco chalés, com comodidades e localização |
+| **Consultar disponibilidade** | diz se um chalé está livre num período, sem cadastro |
+| **Criar conta** | autocadastro do hóspede, confirmado por e-mail |
+| **Falar com a recepção** | pedido de contato, sem exigir documento |
+
+**Nenhuma delas mostra preço.** O valor aparece depois do cadastro
+confirmado, na tela de reserva, onde a pessoa já está identificada.
+Publicar a tabela faria a hospedaria perder a margem de negociar caso a
+caso.
+
+### Face interna — exige login, com três perfis
+
+Cadastro de chalés e tarifas, consulta de disponibilidade, criação e
+gestão de reservas com valor calculado noite a noite — inclusive na
+virada de temporada —, atendimento dos pedidos de contato, caixa de
+saída de e-mail e log de auditoria.
+
+**Nenhuma tela da face interna cria hóspede.** Quem informa os dados
+pessoais é a própria pessoa, pelo autocadastro público. A equipe
+consulta, corrige e desativa.
+
+### O fluxo do hóspede, de ponta a ponta
+
+```
+vitrine → consulta disponibilidade → cria conta → recebe o e-mail
+   → abre o link → conta ativada → entra com o próprio e-mail
+```
+
+A conta nasce **inativa**. Só a abertura do link a ativa, e abrir o link
+exige ter recebido a mensagem — o que só acontece para quem é dono do
+endereço. **O e-mail não avisa: ele prova.**
+
+Cadastro que não for confirmado no prazo é **descartado**, liberando o
+endereço e o documento. Sem isso, uma letra errada no e-mail trancaria um
+CPF indefinidamente — e a segunda tentativa seria recusada em silêncio,
+pela regra de resposta uniforme.
+
+---
+
 ## Decisões de arquitetura
 
 Três decisões definem o projeto e sustentam a sua defesa técnica.
@@ -66,6 +114,48 @@ segundos.
 As três chaves criptográficas e a senha do banco vêm de variável de ambiente,
 carregadas de um `.env` que nunca é versionado. O `.gitignore` foi o primeiro
 arquivo do repositório, criado antes de qualquer código.
+
+---
+
+### 4. A face pública não tem como ler dado de pessoa
+
+A face pública é o alvo mais exposto do projeto: não exige senha, é
+indexada por buscadores e recebe tráfego automatizado o tempo todo. Se
+uma rota dela tiver motivo para ler `hospede` ou `reserva`, qualquer
+defeito nela passa a ser um defeito com acesso a dado pessoal.
+
+Por isso ela alcança **dois módulos de porta**, e cada um tem uma
+direção só:
+
+| Módulo | Direção | Para quê |
+|---|---|---|
+| `app/servicos/cadastro.py` | escreve, não lê | criar a conta do hóspede |
+| `app/dados/vitrine.py` | lê, não escreve | dizer se um chalé está livre |
+
+Nenhuma função dos dois devolve registro de pessoa: o máximo que sai é um
+booleano, uma contagem e uma lista de nomes de chalé — que já estão
+impressos na própria vitrine.
+
+**A regra é verificada, não prometida.** Um teste percorre a árvore de
+importações inteira e **bloqueia a porta**, para fazer a pergunta certa:
+*com ela fechada, o repositório ainda é alcançável?* Se não for, ela é o
+único caminho — e isso vale para todos os caminhos, não para o primeiro
+que a busca encontrar. Outro teste prova que o bloqueio funciona, para
+que o anterior não passe de graça.
+
+### 5. O e-mail prova a posse do endereço
+
+O autocadastro cria a conta inativa e envia um link. Se o link aparecesse
+na tela, bastaria digitar o endereço de outra pessoa para criar conta no
+nome dela.
+
+É também o que torna o autocadastro seguro contra enumeração: **a
+resposta é sempre a mesma**, exista ou não o cadastro. Quem já tem conta
+recebe um aviso de tentativa; quem não tem recebe o convite. Do lado de
+fora, nada distingue os dois casos — nem a resposta, nem o código de
+estado, nem o tempo.
+
+O banco guarda o **hash** do token, nunca o token.
 
 ---
 
@@ -175,9 +265,23 @@ versão do Python, divergência de versão de dependência entre máquinas, prot
 do `.gitignore` contra vazamento de segredo, validade do certificado TLS e
 ausência de acento em identificadores e caminhos de arquivo.
 
-Todo teste de proteção foi validado por sabotagem deliberada: o alvo é quebrado
-de propósito e se confirma que o teste falha. Teste que nunca falha não protege
-nada.
+Todo teste de proteção foi validado por **sabotagem deliberada**: o alvo é
+quebrado de propósito e se confirma que o teste falha. Teste que nunca
+falha não protege nada.
+
+O método encontrou, até aqui, quatro famílias de teste que não testavam
+nada — e cada uma delas rendeu um teste novo:
+
+| Família | Exemplo encontrado |
+|---|---|
+| Verifica a presença do certo, não a ausência do errado | um `flash` que não aparecia na tela mas ficava na sessão |
+| Verifica no lugar errado | o argumento de `execute()` e não a constante; a tela e não a sessão; o primeiro nível e não a cadeia de importações |
+| Verifica só o resultado, com proteção redundante | duas condições fazendo o mesmo trabalho: remover qualquer uma não mudava o resultado |
+| Verifica presença quando o problema é **ordem** | a varredura rodava, mas depois das consultas — e quem pagava era quem errava uma letra no e-mail |
+
+Quando uma sabotagem é indetectável porque **o banco já garante a
+condição**, o teste honesto prende a invariante da trigger em vez de
+inventar um cenário que o banco não aceita.
 
 ---
 
@@ -193,6 +297,15 @@ pip-audit
 # Segredos no histórico completo do Git
 gitleaks git . --log-opts="--all" --redact
 ```
+
+Achados declarados como falsos positivos ficam em `.gitleaksignore`, cada
+um com a razão escrita e preso à impressão digital de um achado
+específico — commit, arquivo, regra e linha. Não silenciam a regra nem o
+arquivo: um vazamento de verdade no mesmo arquivo continua aparecendo.
+
+A razão de declarar em vez de apagar: um achado falso faz *"gitleaks sem
+achados"* deixar de ser um sinal utilizável, e reescrever histórico
+publicado exigiria `push --force`.
 
 O **Semgrep** vive em ambiente separado, porque traz cerca de 45 dependências
 próprias que a aplicação não usa. Instalá-lo junto inflaria o ambiente de 57
@@ -219,16 +332,19 @@ projetoVillaJu/
 │   ├── extensoes.py         # CSRF e limitação de taxa
 │   ├── seguranca/           # cifragem AES-GCM, Argon2id, autorização por perfil
 │   ├── dados/               # repositórios; toda consulta parametrizada
-│   ├── rotas/               # face interna autenticada; face pública na Etapa 4
+│   ├── servicos/            # correio (smtplib) e cadastro público
+│   ├── rotas/               # face interna autenticada e face pública
 │   ├── templates/           # Jinja2, escape automático, sem `|safe`
 │   └── static/              # CSS próprio; a pasta js/ está vazia por decisão
 ├── banco/                   # bancos, schema, triggers, usuário de aplicação, massa
-├── testes/                  # conftest.py e 22 arquivos de teste
+├── instance/emails/         # caixa de saída em modo arquivo (fora do Git)
+├── testes/                  # conftest.py e 32 arquivos de teste
 ├── scripts/                 # geração de chaves e de massa cifrada
 ├── docs/                    # diagrama ER
 ├── certs/                   # certificado local (fora do Git)
 ├── .env                     # segredos locais (fora do Git)
 ├── .env.example             # modelo versionado, sem valor real
+├── .gitleaksignore          # falsos positivos declarados, com a razão escrita
 ├── requirements.txt         # 10 dependências com versão fixada
 ├── requirements-ferramentas.txt
 ├── pytest.ini
@@ -258,9 +374,21 @@ páginas.
 | Força bruta | Limitação de taxa no login e no formulário público. |
 | Fixação de sessão | Regeneração do identificador após o login. |
 | Enumeração de usuários | Mensagem de erro idêntica para usuário inexistente e senha errada. |
+| Enumeração pelo cadastro | Resposta idêntica para e-mail novo e já cadastrado. Quem é dono do endereço recebe um aviso; quem submeteu não aprende nada. |
+| Envio automatizado | Campo-armadilha no formulário público e no de cadastro, com descarte **em silêncio**. |
+| Sondagem de token | Resposta idêntica para token válido, vencido, inexistente e de outro tipo. Uso único. |
+| Vazamento de e-mail pelo banco | O login do hóspede é o HMAC do endereço, nunca o endereço. A coluna é única e em texto claro. |
+| Retenção indevida | Cadastro não confirmado no prazo é apagado, liberando endereço e documento. |
+| Rastreamento por e-mail | Mensagens em texto puro: sem HTML, sem imagem remota, sem pixel de rastreio. |
 | Interceptação | HTTPS com TLS 1.2 ou superior, em qualquer ambiente. |
 
 O cookie de sessão usa `HttpOnly`, `Secure` e `SameSite=Lax`.
+
+A política de conteúdo é restritiva — `default-src 'self'`, sem
+`unsafe-inline` — e isso é aplicado também ao estilo. Uma versão anterior
+escrevia cor em atributo `style=` e o navegador a bloqueou, deixando
+blocos vazios na tela; a correção foi tirar o estilo do HTML, **não**
+afrouxar a política.
 
 ---
 
@@ -272,13 +400,40 @@ O cookie de sessão usa `HttpOnly`, `Secure` e `SameSite=Lax`.
 | 1 — Banco de dados e triggers | 26/10 | concluída |
 | 2 — Núcleo de segurança | 04/11 a 05/11 | concluída |
 | 3 — Reservas e disponibilidade | 05/11 a 06/11 | concluída |
-| 4 — Página pública e contato | 06/11 | concluída |
-| 5 — Autoatendimento do hóspede | 10/11 a 13/11 | a iniciar |
-| 6 — Relatórios e análise estática | 14/11 a 17/11 | a iniciar |
+| 4 — Página pública e contato | 06 e 07/11 | concluída |
+| 5 — Autoatendimento do hóspede | 10 a 20/11 | **em andamento** |
+| 6 — Relatórios e análise estática | a definir | a iniciar |
 | 7 — Análise dinâmica | a definir | — |
 | 8 — Validação e defesa | a definir | — |
 
+### Etapa 5, bloco a bloco
+
+| Bloco | O que é | Situação |
+|---|---|---|
+| 1 | Envio de e-mail, por SMTP ou arquivo | concluído |
+| 2 | Tokens de confirmação, guardando só o hash | concluído |
+| 3 | Autocadastro público com confirmação | concluído |
+| 4 | Caminho único e descarte do não confirmado | concluído |
+| 5 | Consulta pública de disponibilidade | concluído |
+| 6 | Portal do hóspede | a fazer |
+| 7 | Reserva com sinal de 50% e prazo de 24 h | a fazer |
+| 8 | Painel de pagamentos da equipe | a fazer |
+| 9 | Cancelamento com cálculo da devolução | a fazer |
+| 10 | Página de cada chalé | a fazer |
+| 11 | Contas da equipe | a fazer |
+| 12 | Mensagem em HTML | opcional |
+
 **Entrega 2:** 11/11/2026 · **Entrega final:** 25/11/2026
+
+> **Sobre o controle de pagamento.** Os Blocos 7 a 9 registram o sinal de
+> 50% e contam o prazo de 24 horas, a pedido do professor. **O sistema
+> não transaciona.** O Pix acontece inteiramente fora dele, entre o
+> aplicativo do banco do hóspede e o da hospedaria; o que o sistema faz é
+> registrar que alguém da equipe conferiu a entrada, contar o tempo e
+> calcular a elegibilidade da devolução. Não há intermediário de
+> pagamento, geração de cobrança, conciliação automática nem estorno
+> programático — se um intermediário saísse do ar, nada aqui pararia,
+> porque não existe intermediário.
 
 ---
 

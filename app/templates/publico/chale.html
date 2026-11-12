@@ -1,0 +1,118 @@
+{% extends "publico/base.html" %}
+{% block titulo %}{{ chale.nome }} — {{ hospedaria.nome }}{% endblock %}
+
+{% block conteudo %}
+<p class="migalha">
+  <a href="{{ url_for('publico.inicio') }}">{{ hospedaria.nome }}</a>
+  &rsaquo; {{ chale.nome }}
+</p>
+
+<h1>{{ chale.nome }}</h1>
+<p class="subtitulo">
+  Até {{ chale.capacidade }} pessoas &middot; {{ chale.configuracao_camas }}
+</p>
+
+{# ---------------------------------------------------------------------
+   A galeria, sem JavaScript
+
+   Cada miniatura é um **link** para esta mesma página com `?foto=N`, e o
+   servidor desenha aquela como a grande.
+
+   Três razões para ser assim, e a primeira é a mesma que justificou dar
+   endereço próprio a cada chalé:
+
+   - cada foto ganha endereço, compartilhável e indexável — e o RF10 é
+     sobre divulgação;
+   - funciona para quem navega por teclado ou leitor de tela, porque são
+     links de verdade e não controles simulados;
+   - carrega uma imagem de cada vez.
+
+   A alternativa em CSS puro — campos de rádio escondidos com `:checked ~`
+   — seria instantânea, mas baixaria as cinco fotos de uma vez, não daria
+   endereço a nenhuma, e o leitor de tela anunciaria as miniaturas como
+   botões de rádio.
+
+   CONTEÚDO PROVISÓRIO: enquanto as fotos da parceira não chegam, cada
+   lugar é um bloco de cor. A cor vem de CLASSE e não de atributo
+   `style=`, porque a política de conteúdo declara `style-src 'self'` sem
+   `unsafe-inline` — uma versão anterior escreveu a cor no HTML e o
+   navegador a bloqueou, deixando os blocos vazios na tela.
+   --------------------------------------------------------------------- #}
+<section class="galeria" aria-label="Fotos do chalé {{ chale.nome }}">
+  <div class="galeria-grande amostra--{{ cor_da_foto(chale.id, foto) }}">
+    <span>{{ chale.nome }} — foto {{ foto }} de {{ total_de_fotos }}</span>
+  </div>
+
+  <ul class="galeria-miniaturas">
+    {% for indice in range(1, total_de_fotos + 1) %}
+    <li>
+      {% if indice == foto %}
+      {# A que já está em exibição não é link: clicar nela não levaria a
+         lugar nenhum, e um link que não leva a lugar nenhum confunde quem
+         navega por teclado. `aria-current` diz ao leitor de tela qual
+         é. #}
+      <span class="miniatura miniatura--atual amostra--{{ cor_da_foto(chale.id, indice) }}"
+            aria-current="true">
+        <span class="rotulo-miniatura">{{ indice }}</span>
+      </span>
+      {% else %}
+      <a class="miniatura amostra--{{ cor_da_foto(chale.id, indice) }}"
+         href="{{ url_for('publico.chale', apelido=apelido, foto=indice) }}">
+        <span class="rotulo-miniatura">{{ indice }}</span>
+        <span class="apenas-leitor">
+          Ver a foto {{ indice }} do chalé {{ chale.nome }}
+        </span>
+      </a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+
+  <p class="nota-campo">
+    As fotografias definitivas da hospedaria ainda não foram recebidas.
+    Os blocos acima ocupam o lugar delas.
+  </p>
+</section>
+
+<section class="dados-do-chale">
+  <h2>Sobre o chalé</h2>
+
+  {% if chale.descricao %}
+  <p>{{ chale.descricao }}</p>
+  {% endif %}
+
+  <dl>
+    <dt>Capacidade</dt>
+    <dd>até {{ chale.capacidade }} pessoas</dd>
+
+    <dt>Camas</dt>
+    <dd>{{ chale.configuracao_camas }}</dd>
+
+    {% if chale.comodidades %}
+    <dt>Comodidades</dt>
+    <dd>{{ chale.comodidades }}</dd>
+    {% endif %}
+  </dl>
+
+  {# Nenhum valor. A decisão é da Etapa 5 e vale em toda a face pública:
+     publicar a tabela faria a hospedaria perder a margem de negociar caso
+     a caso. O valor aparece depois do cadastro confirmado. #}
+</section>
+
+<section class="acoes-do-chale">
+  <p class="acao-chale">
+    <a class="botao"
+       href="{{ url_for('publico.disponibilidade', chale=chale.id) }}">
+      Solicitar reserva
+    </a>
+  </p>
+  <p class="nota-campo">
+    Consulte as datas sem compromisso. Os valores aparecem depois do
+    cadastro.
+  </p>
+</section>
+
+<p class="voltar">
+  <a href="{{ url_for('publico.inicio') }}">Ver todos os chalés</a>
+</p>
+{% endblock %}

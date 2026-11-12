@@ -12,6 +12,24 @@
 <p>Olá, {{ usuario.nome }}. Abaixo estão as reservas registradas no seu
    nome. Para alterar ou cancelar, procure a recepção.</p>
 
+{# Uma tela vazia que não diz o que fazer é um beco.
+
+   Enquanto a reserva pelo próprio hóspede não existir — ela é o Bloco 7
+   da Etapa 5 —, o caminho é consultar as datas e falar com a recepção. A
+   tela diz isso em vez de deixar a pessoa procurando um botão que ainda
+   não há. #}
+<p class="acao-chale">
+  <a class="botao" href="{{ url_for('publico.disponibilidade') }}">
+    Consultar disponibilidade
+  </a>
+</p>
+<p class="nota-campo">
+  A reserva pelo site ainda está em construção. Por enquanto, consulte as
+  datas e
+  <a href="{{ url_for('publico.contato') }}">fale com a recepção</a> para
+  fechar.
+</p>
+
 {% if not vinculada %}
 <p>Nada a mostrar enquanto a conta não estiver vinculada.</p>
 

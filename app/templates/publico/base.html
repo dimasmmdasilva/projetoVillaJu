@@ -28,29 +28,48 @@
 </head>
 <body class="publico">
 
+{# O cabeçalho é uma faixa de largura inteira com o conteúdo dentro da
+   coluna central — a mesma dos 70% do corpo. Sem isso, os links
+   encostavam na borda da janela enquanto o texto ficava centralizado, e
+   as duas coisas pareciam de páginas diferentes. #}
 <header class="cabecalho-publico">
-  <a class="marca" href="{{ url_for('publico.inicio') }}">{{ hospedaria.nome }}</a>
-  {# Sem link para "Chalés": eles são a página, e âncora para o que já
-     está à vista é ruído. "Localização" fica, porque está abaixo dos
-     cinco cartões e não se alcança sem rolar. #}
-  <nav>
-    <a href="#localizacao">Localização</a>
-    {# As duas portas da face pública ficam na navegação, porque nenhuma
-       delas está na vitrine o tempo todo: o pedido de contato só aparece
-       no botão de cada chalé, e o cadastro em lugar nenhum. #}
-    <a href="{{ url_for('publico.contato') }}">Solicitar reserva</a>
-    <a href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
-  </nav>
-  {# Link discreto, e não botão em destaque: quem precisa dele são três
-     pessoas da equipe. Para quem já tem sessão aberta, leva direto ao
-     painel, poupando um login desnecessário. #}
-  <a class="area-equipe"
-     href="{{ url_for('painel.inicio') if sessao_usuario else url_for('auth.login') }}">
-    {{ 'Painel' if sessao_usuario else 'Área da equipe' }}
-  </a>
+  <div class="coluna-central">
+    <a class="marca" href="{{ url_for('publico.inicio') }}">{{ hospedaria.nome }}</a>
+
+    {# Sem link para "Chalés": eles são a página, e âncora para o que já
+       está à vista é ruído.
+
+       Sem "Consultar disponibilidade" desde o Bloco 13: a chamada já
+       está em botão no corpo da página inicial, e repetir a mesma ação
+       duas vezes na mesma tela divide a atenção sem oferecer nada.
+
+       "Localização" é o ÚLTIMO, e isso também mudou no Bloco 13. Ela é
+       âncora para o rodapé desta mesma página, não destino — vinha antes
+       de links que levam a outras telas, o que invertia a importância. #}
+    <nav>
+      <a href="{{ url_for('publico.contato') }}">Falar com a recepção</a>
+      <a href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
+      <a href="#localizacao">Localização</a>
+    </nav>
+
+    {# "Entrar", e não mais "Área da equipe".
+
+       O nome descreve a AÇÃO em vez do destino, e serve aos dois públicos:
+       a recepção e o hóspede que acabou de criar conta — que antes não
+       tinha por onde entrar sem adivinhar que o link da equipe era para
+       ele também.
+
+       Em botão, e não link discreto: desde o autocadastro existir, entrar
+       deixou de ser serviço interno. Para quem já tem sessão aberta, leva
+       direto ao painel. #}
+    <a class="entrar"
+       href="{{ url_for('painel.inicio') if sessao_usuario else url_for('auth.login') }}">
+      {{ 'Painel' if sessao_usuario else 'Entrar' }}
+    </a>
+  </div>
 </header>
 
-<main>
+<main class="coluna-central">
   {% block conteudo %}{% endblock %}
 </main>
 

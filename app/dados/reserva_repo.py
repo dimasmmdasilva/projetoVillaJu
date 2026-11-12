@@ -28,6 +28,7 @@ entrada de outro no mesmo dia.
 
 import datetime as dt
 
+from app.dados import periodo
 from app.dados.conexao import obter_conexao, obter_cursor
 from app.dados.erros import ErroDeDados, executar
 
@@ -39,7 +40,10 @@ SITUACOES_ATIVAS = ("pendente", "confirmada")
 
 # Teto de dias de uma estadia. Não vem do banco: vem de evitar que um erro
 # de digitação na data crie uma reserva de dez anos que bloqueie o chalé.
-MAXIMO_DE_DIARIAS = 90
+#
+# Reexportado de `periodo` desde o Bloco 5 da Etapa 5, para que o valor
+# exista num lugar só — a face pública aplica o mesmo teto.
+MAXIMO_DE_DIARIAS = periodo.MAXIMO_DE_DIARIAS
 
 
 class ErroDeReserva(ErroDeDados):
@@ -102,19 +106,35 @@ _SQL_CONFLITOS = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Período
+#
+# A regra mudou de casa no Bloco 5 da Etapa 5, e estas duas funções
+# passaram a repassar a chamada para `app/dados/periodo.py`.
+#
+# **Por que a mudança.** A consulta pública de disponibilidade precisa da
+# mesma validação: mesmo formato de data, mesma exigência de saída
+# posterior à entrada, mesmo teto de diárias. Mas a face pública não pode
+# importar este módulo — importá-lo lhe daria também `listar`,
+# `buscar_por_id`, `listar_por_hospede` e `chales_ocupados`, que devolve
+# identificador de reserva, datas e situação.
+#
+# Duplicar a validação em `vitrine.py` seria a alternativa fácil e a
+# errada: duas cópias da mesma regra, livres para divergir. Já aconteceu
+# neste projeto, e a lição foi que uma regra em dois lugares é uma regra
+# que vai discordar de si mesma.
+#
+# **Nada mudou para quem chama.** A exceção continua sendo
+# `ErroDeReserva`, com a mesma mensagem: `periodo` levanta a sua própria
+# e estas funções a traduzem. Quem já escrevia `except ErroDeReserva`
+# continua certo.
+# ---------------------------------------------------------------------------
+
 def converter_data(valor, rotulo: str) -> dt.date:
-    if isinstance(valor, dt.datetime):
-        return valor.date()
-    if isinstance(valor, dt.date):
-        return valor
-    if not valor:
-        raise ErroDeReserva(f"A {rotulo} é obrigatória.")
     try:
-        return dt.date.fromisoformat(str(valor).strip())
-    except ValueError:
-        raise ErroDeReserva(
-            f"A {rotulo} precisa estar no formato AAAA-MM-DD."
-        ) from None
+        return periodo.converter_data(valor, rotulo)
+    except periodo.ErroDePeriodo as erro:
+        raise ErroDeReserva(str(erro)) from erro
 
 
 def validar_periodo(entrada, saida) -> tuple:
@@ -123,22 +143,10 @@ def validar_periodo(entrada, saida) -> tuple:
     Espelha a primeira regra da trigger: a saída precisa ser estritamente
     posterior à entrada. Uma reserva de zero noites não existe.
     """
-    entrada = converter_data(entrada, "data de entrada")
-    saida = converter_data(saida, "data de saída")
-
-    if saida <= entrada:
-        raise ErroDeReserva(
-            "A data de saída precisa ser posterior à data de entrada."
-        )
-
-    diarias = (saida - entrada).days
-    if diarias > MAXIMO_DE_DIARIAS:
-        raise ErroDeReserva(
-            f"A estadia tem {diarias} diárias; o máximo é "
-            f"{MAXIMO_DE_DIARIAS}. Verifique as datas."
-        )
-
-    return entrada, saida
+    try:
+        return periodo.validar_periodo(entrada, saida)
+    except periodo.ErroDePeriodo as erro:
+        raise ErroDeReserva(str(erro)) from erro
 
 
 def chales_disponiveis(entrada, saida, usuario_id=None) -> list:

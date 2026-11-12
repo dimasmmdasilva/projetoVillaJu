@@ -19,9 +19,16 @@ body {
 }
 
 main {
-  max-width: 44rem;
   margin: 0 auto;
   padding: 1.5rem 1rem 3rem;
+}
+
+/* A `main` da área autenticada também é a coluna, desde 13/11. O
+ * `max-width: 44rem` saiu: ele competia com a largura da coluna, que é o
+ * mesmo erro que desalinhou a face pública. */
+main.coluna-central {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
@@ -29,15 +36,25 @@ h2 { font-size: 1.1rem; margin-top: 2rem; }
 
 .subtitulo { color: #555; margin-top: 0; }
 
-/* Barra superior da área autenticada */
+/* Barra superior da área autenticada.
+ *
+ * Desde 13/11 ela é uma faixa de largura inteira com o conteúdo dentro
+ * da mesma coluna do corpo — exatamente como o cabeçalho da face
+ * pública. Antes, a marca encostava na borda esquerda da janela e a
+ * identificação na direita, enquanto o conteúdo ficava centralizado no
+ * meio: três alinhamentos diferentes na mesma tela. */
 .barra {
+  display: block;
+  padding: 0.75rem 0;
+  background: #2f3e34;
+  color: #fff;
+}
+
+.barra .coluna-central {
   display: flex;
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
-  padding: 0.75rem 1rem;
-  background: #2f3e34;
-  color: #fff;
 }
 
 /* O `gap` da `.barra` separa os filhos diretos dela — marca, nav,
@@ -53,8 +70,44 @@ h2 { font-size: 1.1rem; margin-top: 2rem; }
 }
 
 .barra a { color: #fff; }
+
+/* A marca da barra interna virou link para a vitrine, e precisa continuar
+ * parecendo marca: sem sublinhado e em negrito, como era quando ainda era
+ * um `<strong>`. */
+.barra .marca {
+  font-weight: 700;
+  font-size: 1.05rem;
+  text-decoration: none;
+}
 .barra .identificacao { margin-left: auto; font-size: 0.9rem; }
 .barra form { margin: 0; }
+
+/* O botão de sair, irmão do "Entrar" da face pública.
+ *
+ * Era um botão comum, e herdava `margin-top: 1rem` da regra genérica de
+ * `button` — a que existe para afastar o botão de envio do último campo
+ * de um formulário. Numa barra de navegação isso o empurrava para baixo
+ * da linha, desalinhado de tudo o mais.
+ *
+ * Mesma aparência do "Entrar" porque são a mesma coisa vista dos dois
+ * lados: a ação de atravessar a porta. Quem reconhece um reconhece o
+ * outro. */
+.barra .sair {
+  margin: 0;
+  padding: 0.4rem 1rem;
+  background: #e8ece9;
+  color: #2f3e34;
+  border: 1px solid #e8ece9;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+/* A identificação deixa de empurrar sozinha: o par identificação + sair
+ * é que vai para a direita, junto. */
+.barra .identificacao { margin-left: auto; }
+.barra .identificacao + form { margin-left: 0.75rem; }
 
 /* Formulários */
 .formulario {
@@ -118,9 +171,11 @@ th { background: #f0f0f0; }
  * cartões lado a lado e não formulários.
  * ------------------------------------------------------------------- */
 
-body.publico main {
-  max-width: 56rem;
-}
+/* A largura da face pública vive em `.coluna-central`, e só lá.
+ *
+ * Aqui havia `max-width: 56rem`, da Etapa 4 — uma SEGUNDA regra
+ * disputando a mesma medida, e foi um teste escrito no Bloco 13 que a
+ * encontrou ainda de pé depois de a coluna existir. */
 
 .cabecalho-publico {
   display: flex;
@@ -177,9 +232,24 @@ body.publico main {
 
 /* Bloco de cor no lugar da fotografia, enquanto o material da parceira
    não chega. Declarado como provisório no template. */
+/* A imagem ocupa quase metade do cartão.
+ *
+ * Era `13rem` de largura fixa — cerca de 18% do cartão na coluna de 60%,
+ * o que fazia a fotografia parecer uma miniatura ao lado de um bloco de
+ * texto. Numa página cujo propósito é divulgar os chalés, a imagem é o
+ * conteúdo e o texto é o apoio.
+ *
+ * Em porcentagem e não em rem, para que a proporção se mantenha quando a
+ * coluna mudar de largura — e ela já mudou duas vezes neste bloco.
+ *
+ * `aspect-ratio` no lugar de altura fixa: a altura passa a acompanhar a
+ * largura, e a fotografia definitiva entra sem ficar achatada nem
+ * esticada. Quando as imagens chegarem, `object-fit: cover` recorta o
+ * excedente em vez de deformar. */
 .foto-provisoria {
-  flex: 0 0 13rem;
-  height: 9rem;
+  flex: 0 0 45%;
+  aspect-ratio: 4 / 3;
+  height: auto;
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -187,6 +257,11 @@ body.publico main {
   color: #fff;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/* Em tela estreita o cartão empilha, e a imagem ocupa a largura toda. */
+@media (max-width: 48rem) {
+  .foto-provisoria { flex: 1 1 100%; }
 }
 
 .dados-chale { flex: 1 1 18rem; }
@@ -274,7 +349,10 @@ body.entrada main {
   font-size: 0.95rem;
 }
 
-.acao-chale { margin: 1rem 0 0; }
+/* Respiro antes e depois do botão de chamada. O `margin-bottom` é o que
+ * separa o botão da nota que o explica — ver o comentário da
+ * `.nota-campo`. */
+.acao-chale { margin: 1.5rem 0 0.25rem; }
 
 .formulario textarea {
   font: inherit;
@@ -331,8 +409,314 @@ body.entrada main {
  * `margin-top` negativo para encostar na caixa a que se refere, que o
  * `gap` do formulário afastaria. */
 .nota-campo {
-  margin: -0.1rem 0 0;
+  margin: 0.6rem 0 0;
   font-size: 0.82rem;
   color: #555;
   line-height: 1.35;
 }
+
+/* A margem negativa fica SÓ depois de um campo de formulário.
+ *
+ * Ela nasceu para encostar a explicação na caixa a que se refere, que o
+ * `gap` do formulário afastaria. Mas a regra valia para toda `.nota-campo`
+ * da folha — e, aplicada depois de um BOTÃO, grudava o texto nele.
+ *
+ * Foi o que apareceu em dois lugares: embaixo de "Consultar
+ * disponibilidade", na página inicial, e de "Solicitar reserva", na
+ * página do chalé. O mesmo defeito, com duas aparências.
+ *
+ * O seletor de irmão adjacente devolve o comportamento a quem ele foi
+ * escrito para servir, e deixa o resto com espaçamento normal. */
+input + .nota-campo,
+select + .nota-campo,
+textarea + .nota-campo {
+  margin-top: -0.1rem;
+}
+
+/* Lista dos chalés livres, na consulta de disponibilidade.
+ *
+ * Sem marcador e com espaçamento maior: são no máximo quatro itens, cada
+ * um um link para repetir a consulta já com aquele chalé escolhido. Como
+ * marcador de lista, pareceriam texto corrido; como blocos, parecem o
+ * que são — alternativas para clicar. */
+.lista-livres {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0;
+}
+
+.lista-livres li {
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.4rem;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+/* =======================================================================
+ * A COLUNA CENTRAL — Bloco 13
+ *
+ * Setenta por cento da largura, com quinze de folga de cada lado. Vale
+ * para o conteúdo E para o cabeçalho: sem ela, os links do menu
+ * encostavam na borda da janela enquanto o texto ficava centralizado, e
+ * as duas coisas pareciam de páginas diferentes.
+ *
+ * O fundo do cabeçalho continua ocupando a largura inteira — é uma faixa
+ * que atravessa a tela. O que se alinha é o conteúdo dentro dela.
+ *
+ * `max-width` em rem além da porcentagem: numa tela de 27 polegadas, 70%
+ * dá uma linha de texto larga demais para ler sem perder a posição. A
+ * tipografia tem um limite útil que a porcentagem sozinha ignora.
+ *
+ * Em tela estreita a porcentagem é abandonada: 70% de um telefone deixa
+ * 15% de margem de cada lado para uma coluna que já é estreita. Abaixo de
+ * 60rem a coluna passa a ocupar a largura menos uma calha fixa.
+ * ===================================================================== */
+.coluna-central {
+  width: 60%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 60rem) {
+  .coluna-central {
+    width: auto;
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+}
+
+/* A `main` da face pública passa a ser a coluna.
+ *
+ * **O `max-width` saiu daqui E da coluna**, e o motivo é um defeito que
+ * só apareceu na tela: `body.publico main` é um seletor mais específico
+ * que `.coluna-central`, então o `max-width: none` daqui vencia o
+ * `max-width: 64rem` de lá. O resultado era a `main` com 70% da janela e
+ * o cabeçalho travado em 64rem — **as duas colunas desalinhadas**, com o
+ * menu começando 155 pixels à direita do conteúdo.
+ *
+ * Duas regras disputando a mesma medida é o erro; a correção é haver uma
+ * só. A largura agora vive inteiramente em `.coluna-central`, e aqui
+ * ficou apenas o que é desta face: zerar o preenchimento lateral, que a
+ * coluna já resolve pela margem.
+ *
+ * Sem teto em rem, por decisão de 13/11: a medida pedida é 60% com 20%
+ * de folga de cada lado, e um teto a quebraria em tela larga — que é
+ * justamente onde ele serviria para limitar a linha de texto. A escolha
+ * foi a proporção exata. */
+body.publico main {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* O cabeçalho vira uma faixa de largura inteira com a coluna dentro. */
+.cabecalho-publico {
+  display: block;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.cabecalho-publico .coluna-central {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* Botão "Entrar" no cabeçalho.
+ *
+ * Era um link discreto chamado "Área da equipe". Duas mudanças no Bloco
+ * 13, e as duas têm razão.
+ *
+ * O nome: "área da equipe" descreve o DESTINO para quem já trabalha lá;
+ * "Entrar" descreve a AÇÃO, e serve tanto para a recepção quanto para o
+ * hóspede que acabou de criar conta — que antes não tinha por onde
+ * entrar sem adivinhar que o link era para ele.
+ *
+ * A forma: botão e não link, porque desde o autocadastro existir, entrar
+ * deixou de ser serviço interno e passou a ser uma das ações principais
+ * da face pública. */
+.cabecalho-publico .entrar {
+  margin-left: auto;
+  display: inline-block;
+  padding: 0.4rem 1rem;
+  background: #e8ece9;
+  color: #2f3e34;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+/* =======================================================================
+ * A GALERIA DO CHALÉ — Bloco 10
+ * ===================================================================== */
+.migalha {
+  font-size: 0.88rem;
+  color: #666;
+  margin: 0 0 0.5rem;
+}
+
+/* A imagem grande da galeria.
+ *
+ * Era `22rem` de altura fixa. Com a coluna em 60% de uma tela larga, a
+ * caixa ficava com mais de três vezes mais largura do que altura — uma
+ * fatia, não uma fotografia. Qualquer imagem real entraria achatada.
+ *
+ * `aspect-ratio: 3 / 2` é a proporção da maioria das câmeras, inclusive
+ * a de telefone na orientação deitada, e é o que faz a caixa ter a forma
+ * da imagem que vai ocupá-la.
+ *
+ * `max-height: 60vh` para que ela caiba na tela: uma imagem de galeria
+ * que obrigue a rolar para ser vista inteira perde o propósito, e as
+ * miniaturas abaixo dela ficariam fora de vista.
+ *
+ * `min-height` para o caso oposto, de janela baixa, em que 60vh seria
+ * pequeno demais para distinguir o que está na foto. */
+.galeria-grande {
+  aspect-ratio: 3 / 2;
+  max-height: 60vh;
+  min-height: 18rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.75rem;
+}
+
+.galeria-miniaturas {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+  gap: 0.6rem;
+}
+
+/* As miniaturas usam a MESMA proporção da imagem grande, para que o
+ * recorte que a pessoa vê na miniatura seja o que ela encontra ao
+ * ampliar. Proporções diferentes entre as duas mostram enquadramentos
+ * diferentes da mesma foto. */
+.miniatura {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 3 / 2;
+  border-radius: 4px;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  border: 3px solid transparent;
+}
+
+/* A que está em exibição é marcada por borda, e não só por cor: a cor
+ * sozinha não é distinguível por quem não diferencia cores. */
+.miniatura--atual {
+  border-color: #1a1a1a;
+  cursor: default;
+}
+
+.rotulo-miniatura { font-size: 1.1rem; }
+
+/* Texto que só o leitor de tela anuncia. Fora da tela, e não
+ * `display: none` — o segundo é ignorado por leitor de tela, que é
+ * justamente quem precisa deste texto. */
+.apenas-leitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.dados-do-chale dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0.75rem 0 0;
+}
+
+.dados-do-chale dt { font-weight: 600; color: #444; }
+.dados-do-chale dd { margin: 0; }
+
+.acoes-do-chale { margin-top: 2.5rem; }
+
+/* As amostras provisórias.
+ *
+ * Doze cores, e não cinco: cada chalé tem cinco lugares de foto, e a
+ * escolha é por `(chale, posição)`. Com cinco cores, a foto 1 de todos os
+ * chalés teria a mesma, e clicar numa miniatura pareceria não mudar
+ * nada — o que atrapalha justamente quem está conferindo se o link
+ * funciona.
+ *
+ * Como classe, nunca como atributo `style=`: a política de conteúdo
+ * declara `style-src 'self'` sem `unsafe-inline`. */
+.amostra--1  { background: #2f3e34; }
+.amostra--2  { background: #3d5245; }
+.amostra--3  { background: #4a6456; }
+.amostra--4  { background: #577667; }
+.amostra--5  { background: #648878; }
+.amostra--6  { background: #7a6a4f; }
+.amostra--7  { background: #8c6f55; }
+.amostra--8  { background: #6b5d7b; }
+.amostra--9  { background: #4f6d7a; }
+.amostra--10 { background: #3f5d6b; }
+.amostra--11 { background: #7d5a5a; }
+.amostra--12 { background: #5a6b4a; }
+
+/* A fotografia do cartão da vitrine virou link para a página do chalé.
+ * Precisa parecer clicável sem deixar de ser um bloco de cor. */
+a.foto-provisoria {
+  text-decoration: none;
+  border: 3px solid transparent;
+}
+
+a.foto-provisoria:hover,
+a.foto-provisoria:focus {
+  border-color: #1a1a1a;
+}
+
+/* =======================================================================
+ * AVISO QUE SOME SOZINHO — Bloco 13
+ *
+ * Três segundos, por animação de CSS e sem JavaScript. A animação roda
+ * uma vez, com atraso, e `forwards` mantém o estado final.
+ *
+ * `visibility` junto da opacidade, e não só a opacidade: um elemento
+ * apenas transparente continua ocupando espaço e continua sendo lido por
+ * leitor de tela, o que seria o pior dos dois mundos — invisível para
+ * quem vê e presente para quem não vê.
+ *
+ * **Só o aviso de sucesso some.** O de erro fica, e a diferença é
+ * deliberada: quem acabou de errar a senha está digitando de novo
+ * enquanto lê, e uma mensagem que desaparece em três segundos some
+ * justamente durante a releitura. O critério 2.2.1 das WCAG trata disso
+ * — limite de tempo precisa ser ajustável —, e uma mensagem de erro
+ * temporizada é o exemplo clássico.
+ *
+ * Quem prefere movimento reduzido não vê animação nenhuma: a mensagem
+ * simplesmente fica. É o que `prefers-reduced-motion` pede, e some com
+ * a animação em vez de acelerá-la.
+ * ===================================================================== */
+@keyframes sumir-devagar {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.aviso-temporario {
+  animation: sumir-devagar 0.4s ease-in 3s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aviso-temporario { animation: none; }
+}
+
+/* A faixa de avisos da tela de entrada, abaixo do formulário. */
+.cartao-entrada .avisos { margin-top: 1rem; }

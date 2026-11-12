@@ -1,0 +1,124 @@
+{% extends "publico/base.html" %}
+{% block titulo %}Consultar disponibilidade — {{ hospedaria.nome }}{% endblock %}
+
+{% block conteudo %}
+<h1>Consultar disponibilidade</h1>
+<p class="subtitulo">
+  Escolha o chalé e as datas. A resposta é imediata e não exige cadastro.
+</p>
+
+{# A porta principal da face pública.
+
+   É o que o visitante quer saber antes de qualquer outra coisa, e é o que
+   dá motivo para criar conta: quem descobre que a data está livre tem
+   razão para se cadastrar.
+
+   **Nenhum valor aparece aqui.** A decisão é da Etapa 5 e tem razão de
+   negócio: publicar a tabela de preços faria a hospedaria perder a
+   margem de negociar caso a caso e entregaria ao concorrente o que ela
+   cobra. O valor aparece depois do cadastro confirmado, na tela de
+   reserva, onde a pessoa já está identificada. #}
+
+{% if erro %}
+<p class="aviso aviso-erro">{{ erro }}</p>
+{% endif %}
+
+<form method="get" action="{{ url_for('publico.disponibilidade') }}"
+      class="formulario">
+  {# Sem token CSRF, e isso é correto: é um GET que não altera nada. O
+     token protege contra alteração de estado por requisição vinda de
+     fora, e aqui não há estado a alterar. Exigi-lo também impediria
+     compartilhar o endereço da consulta, que é metade da utilidade. #}
+
+  <label for="chale">Chalé</label>
+  <select id="chale" name="chale" required>
+    <option value="">escolha um chalé</option>
+    {% for chale in chales %}
+    <option value="{{ chale.id }}"
+            {{ 'selected' if escolhido == chale.id }}>{{ chale.nome }}</option>
+    {% endfor %}
+  </select>
+
+  {# `min` com a data de hoje: consultar período que já passou é sempre
+     engano, e o navegador avisa antes do envio. Não substitui a
+     validação do servidor — `min` não existe para quem monta a
+     requisição por fora do navegador. #}
+  <label for="entrada">Entrada</label>
+  <input type="date" id="entrada" name="entrada" required
+         min="{{ hoje }}" value="{{ entrada or '' }}">
+
+  <label for="saida">Saída</label>
+  <input type="date" id="saida" name="saida" required
+         min="{{ hoje }}" value="{{ saida or '' }}">
+
+  <button type="submit">Consultar</button>
+</form>
+
+{% if resposta is not none %}
+<h2>Resultado</h2>
+
+{% if resposta %}
+<p class="aviso aviso-sucesso">
+  <strong>Disponível para esta data.</strong>
+</p>
+<p>
+  O chalé <strong>{{ nome_do_chale }}</strong> está livre de
+  {{ entrada_legivel }} a {{ saida_legivel }}
+  — {{ diarias }} noite{{ 's' if diarias != 1 }}.
+</p>
+<p>
+  Complete o cadastro para ver os valores e fazer a sua reserva.
+</p>
+<p class="acao-chale">
+  <a class="botao" href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
+</p>
+<p class="voltar">
+  Já tem conta? <a href="{{ url_for('auth.login') }}">Entrar</a>
+</p>
+
+{% else %}
+<p class="aviso aviso-erro">
+  <strong>Ocupado nesta data.</strong>
+</p>
+<p>
+  O chalé <strong>{{ nome_do_chale }}</strong> já está reservado em
+  parte ou em todo o período de {{ entrada_legivel }} a
+  {{ saida_legivel }}.
+</p>
+
+{# A saída que a tela oferece. Sem ela o visitante testaria os cinco
+   chalés um por um, ou desistiria — que é o resultado provável.
+
+   O que se mostra é só o NOME dos que estão livres. Nunca quem está
+   hospedado, nunca em que datas a reserva alheia começa ou termina,
+   nunca quantas reservas existem. #}
+{% if livres %}
+<h3>Livres neste mesmo período</h3>
+<ul class="lista-livres">
+  {% for chale in livres %}
+  <li>
+    <a href="{{ url_for('publico.disponibilidade', chale=chale.id,
+                        entrada=entrada, saida=saida) }}">{{ chale.nome }}</a>
+  </li>
+  {% endfor %}
+</ul>
+<p>
+  Complete o cadastro para ver os valores e reservar um deles.
+</p>
+<p class="acao-chale">
+  <a class="botao" href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
+</p>
+{% else %}
+<p>
+  Nenhum dos chalés está livre no período inteiro. Tente outras datas, ou
+  <a href="{{ url_for('publico.contato') }}">fale com a recepção</a> — às
+  vezes dá para ajustar.
+</p>
+{% endif %}
+{% endif %}
+{% endif %}
+
+<p class="voltar">
+  <a href="{{ url_for('publico.inicio') }}">Voltar ao início</a>
+</p>
+{% endblock %}

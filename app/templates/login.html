@@ -2,6 +2,11 @@
 {% block titulo %}Entrar — VillaJu{% endblock %}
 {% block classe_corpo %}entrada{% endblock %}
 
+{# A tela de entrada põe as mensagens dentro do cartão, abaixo do
+   formulário — e não no lugar padrão, que é o topo da `main`. Por isso o
+   bloco é esvaziado aqui. #}
+{% block avisos %}{% endblock %}
+
 {% block conteudo %}
 {# Cartão centralizado.
 
@@ -29,6 +34,27 @@
 
     <button type="submit">Entrar</button>
   </form>
+
+  {# Abaixo do formulário, dentro do cartão.
+
+     **O aviso de sucesso some sozinho em três segundos; o de erro
+     fica.** A diferença é deliberada. "Sessão encerrada" confirma algo
+     que já aconteceu e não precisa continuar na tela. Já quem errou a
+     senha está digitando de novo enquanto lê — uma mensagem que some em
+     três segundos desaparece justamente durante a releitura, e o
+     critério 2.2.1 das WCAG trata disso: limite de tempo precisa ser
+     ajustável.
+
+     O desaparecimento é por animação de CSS, sem JavaScript. #}
+  <div class="avisos">
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% for categoria, texto in mensagens %}
+      <p class="aviso aviso-{{ categoria }}{{ ' aviso-temporario' if categoria == 'sucesso' }}">
+        {{ texto }}
+      </p>
+      {% endfor %}
+    {% endwith %}
+  </div>
 
   {# Caminho de volta. Quem clica em "Área da equipe" na vitrine e descobre
      que errou de porta ficava preso numa página sem saída. #}

@@ -6,16 +6,23 @@ Esta é a única parte do sistema que um desconhecido alcança. Por isso ela
     a face pública não compartilha sessão com a área autenticada e não
     acessa nenhuma tabela além de `chale` (leitura) e `contato` (escrita).
 
-**A regra foi estreitada na Etapa 5, não abandonada.** O autocadastro do
-hóspede precisa escrever em `hospede` e em `usuario`, e por isso esta
-face alcança agora um terceiro módulo: `app.servicos.cadastro`, que tem
-duas entradas e **nenhuma função que devolva dado** — uma devolve `None`,
-a outra um booleano.
+**A regra foi estreitada na Etapa 5, não abandonada.** Esta face alcança
+exatamente **dois módulos de porta**, e cada um tem uma direção só:
 
-A propriedade essencial se mantém, e o teste que a verifica mudou de
-"não importa repositório proibido" para "entre os módulos que escrevem
-em tabela de pessoa, importa apenas `cadastro`": **a face pública pode
-criar um cadastro, e não tem como ler nenhum.**
+    app/servicos/cadastro.py    escreve, não lê   (Bloco 3)
+    app/dados/vitrine.py        lê, não escreve   (Bloco 5)
+
+`cadastro` cria hóspede e conta, e nenhuma das suas funções devolve
+registro — uma devolve `None`, as outras um booleano e um inteiro de
+contagem. `vitrine` responde se um chalé está livre num período, e o
+máximo que devolve é um booleano e uma lista de nomes de chalé, que já
+estão impressos nesta mesma vitrine.
+
+A propriedade essencial se mantém, e os testes que a verificam mudaram de
+"não importa repositório proibido" para "não alcança repositório por fora
+das duas portas": **a face pública pode criar um cadastro e perguntar se
+uma data está livre, e não tem como exibir dado de hóspede nem de
+reserva.**
 
 **Por que a regra importa mais do que parece.** Um sítio de divulgação é
 o alvo mais exposto que o projeto tem: não exige senha, é indexado por
@@ -41,6 +48,7 @@ import logging
 
 from flask import (
     Blueprint,
+    abort,
     current_app,
     flash,
     redirect,
@@ -49,7 +57,7 @@ from flask import (
     url_for,
 )
 
-from app.dados import chale_repo, contato_repo
+from app.dados import chale_repo, contato_repo, vitrine
 from app.extensoes import limiter
 from app.servicos import cadastro
 
@@ -97,6 +105,55 @@ HOSPEDARIA = {
 # a defesa contra XSS no sistema inteiro, e por um motivo cosmético.
 TOTAL_DE_CORES = 5
 
+# Quantos lugares de fotografia cada chalé tem na própria página.
+#
+# Cinco é o número de blocos provisórios enquanto o material da parceira
+# não chega. Quando as fotos chegarem, este valor passa a ser a contagem
+# de arquivos encontrados na pasta do chalé.
+FOTOS_POR_CHALE = 5
+
+# Quantas amostras de cor existem na folha de estilo.
+#
+# Doze, e não cinco: a escolha é por `(chalé, posição)`, e com cinco a
+# foto 1 de todos os chalés teria a mesma cor — clicar numa miniatura
+# pareceria não mudar nada, o que atrapalha justamente quem está
+# conferindo se o link funciona.
+TOTAL_DE_AMOSTRAS = 12
+
+
+def apelido_do_chale(nome: str) -> str:
+    """O nome do chalé como pedaço de endereço: `Boracéia` vira `boraceia`.
+
+    **Sem acento, e em minúsculas.** Um endereço com acento é
+    percentualmente codificado pelo navegador — `/chale/borac%C3%A9ia` —,
+    o que destrói justamente o que o endereço legível deveria entregar:
+    alguém colar o link no WhatsApp e a outra pessoa ver de que chalé se
+    trata antes de abrir.
+
+    A decomposição é NFKD seguida de descarte do que não for ASCII, que é
+    a mesma técnica de `correio._nome_de_arquivo`. `cripto.normalizar` não
+    serve aqui: ele usa NFKC, que **mantém** o acento, porque existe para
+    comparar valores e não para formar endereços.
+    """
+    import re as expressao
+    import unicodedata
+
+    cru = unicodedata.normalize("NFKD", nome or "")
+    cru = cru.encode("ascii", "ignore").decode("ascii")
+    return expressao.sub(r"[^a-z0-9]+", "-", cru.lower()).strip("-")
+
+
+def cor_da_foto(chale_id, posicao) -> int:
+    """A amostra de cor de uma posição de foto. Provisório, declarado.
+
+    Multiplica o identificador do chalé antes de somar a posição, para
+    que dois chalés vizinhos não comecem na mesma cor — o que faria as
+    páginas parecerem iguais ao olhar rápido de quem está conferindo os
+    links.
+    """
+    return ((int(chale_id) * FOTOS_POR_CHALE + int(posicao) - 1)
+            % TOTAL_DE_AMOSTRAS) + 1
+
 
 @publico.route("/")
 def inicio():
@@ -133,6 +190,12 @@ def inicio():
 
     for posicao, chale in enumerate(chales):
         chale["cor_provisoria"] = posicao % TOTAL_DE_CORES + 1
+
+        # O apelido vai calculado para o template, e não calculado lá.
+        # Jinja2 não tem como remover acento, e passar a função ao molde
+        # faria a vitrine depender de uma regra de endereço que não é
+        # dela.
+        chale["apelido"] = apelido_do_chale(chale["nome"])
 
     return render_template(
         "publico/inicio.html",
@@ -286,6 +349,187 @@ def contato_enviado():
     com um POST no histórico do navegador.
     """
     return render_template("publico/contato_enviado.html", hospedaria=HOSPEDARIA)
+
+
+# ---------------------------------------------------------------------------
+# A página de cada chalé
+# ---------------------------------------------------------------------------
+
+@publico.route("/chale/<apelido>")
+def chale(apelido):
+    """A página de divulgação de um chalé, com galeria.
+
+    **Endereço pelo nome, e não pelo número.** `/chale/dunas` é
+    compartilhável no WhatsApp, salvável nos favoritos e indexável por
+    buscador — e o RF10 é sobre divulgação. `/chale/5` não diz nada a
+    ninguém.
+
+    **A galeria funciona por navegação**, sem JavaScript. Cada miniatura
+    é um link para esta mesma rota com `?foto=N`, e o servidor desenha
+    aquela como a principal. Cada foto ganha endereço próprio, pelo mesmo
+    argumento que deu endereço ao chalé.
+
+    **Chalé desativado não tem página**, e responde como inexistente. A
+    desativação é como a hospedaria tira um chalé de operação; informar
+    que ele existe mas está desligado é dado de operação interna, e
+    permitiria contar quantos chalés a hospedaria tem somando os que
+    respondem de um jeito e de outro.
+    """
+    try:
+        chales = chale_repo.listar(apenas_ativos=True)
+    except Exception:  # noqa: BLE001
+        _registrador.exception("falha ao carregar a página do chalé")
+        abort(503)
+
+    procurado = (apelido or "").strip().lower()
+    achado = next(
+        (c for c in chales if apelido_do_chale(c["nome"]) == procurado), None
+    )
+
+    if achado is None:
+        abort(404)
+
+    # A foto pedida, presa à faixa que existe. Fora dela, volta à
+    # primeira em vez de dar erro: um `?foto=99` vindo de um link velho
+    # ou de alguém mexendo no endereço não é motivo para uma página de
+    # erro — é motivo para mostrar o chalé.
+    foto = request.args.get("foto", type=int) or 1
+    if foto < 1 or foto > FOTOS_POR_CHALE:
+        foto = 1
+
+    return render_template(
+        "publico/chale.html",
+        hospedaria=HOSPEDARIA,
+        chale=achado,
+        apelido=procurado,
+        foto=foto,
+        total_de_fotos=FOTOS_POR_CHALE,
+        cor_da_foto=cor_da_foto,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Consulta de disponibilidade
+# ---------------------------------------------------------------------------
+
+@publico.route("/disponibilidade")
+@limiter.limit(_limite_publico)
+def disponibilidade():
+    """Diz se um chalé está livre num período. Sem cadastro, e sem valor.
+
+    **É a porta principal desta face**, e não um apêndice: é o que o
+    visitante quer saber antes de qualquer outra coisa, e é o que dá
+    motivo para criar conta. Quem descobre que a data está livre tem
+    razão para se cadastrar; quem descobre que está ocupada tem razão
+    para olhar outro chalé.
+
+    **Por GET, e de propósito.** A consulta não altera nada, e o endereço
+    com as datas é compartilhável — metade da utilidade está em poder
+    mandar o link no WhatsApp. Um POST exigiria token CSRF e tornaria a
+    consulta irrepetível pelo histórico do navegador, sem ganhar
+    segurança nenhuma: não há estado a proteger.
+
+    **Nenhum valor.** A decisão é da Etapa 5 e tem razão de negócio.
+    Publicar a tabela faria a hospedaria perder a margem de negociar caso
+    a caso e entregaria ao concorrente o que ela cobra. O valor aparece
+    depois do cadastro confirmado, na tela de reserva.
+
+    **Nada sobre a reserva alheia.** A resposta é livre ou ocupado. Nunca
+    quem está hospedado, nunca em que datas a reserva existente começa ou
+    termina, nunca quantas reservas há. A garantia não está nesta rota:
+    está em `vitrine`, que não tem como devolver essas coisas.
+    """
+    chales = _chales_para_selecao()
+    escolhido = request.args.get("chale", type=int)
+    entrada = (request.args.get("entrada") or "").strip()
+    saida = (request.args.get("saida") or "").strip()
+
+    contexto = {
+        "hospedaria": HOSPEDARIA,
+        "chales": chales,
+        "escolhido": escolhido,
+        "entrada": entrada,
+        "saida": saida,
+        "hoje": dt.date.today().isoformat(),
+        "resposta": None,
+        "nome_do_chale": None,
+        "entrada_legivel": None,
+        "saida_legivel": None,
+        "diarias": None,
+        "livres": None,
+        "erro": None,
+    }
+
+    # Sem nada informado, a tela abre com o formulário vazio em vez de
+    # assumir uma data. Adivinhar o que o visitante quer consultar
+    # produziria uma resposta que parece informação e não é.
+    if not escolhido and not entrada and not saida:
+        return render_template("publico/disponibilidade.html", **contexto)
+
+    if not escolhido:
+        contexto["erro"] = "Escolha um chalé."
+        return render_template("publico/disponibilidade.html", **contexto), 400
+
+    try:
+        # O período é validado uma vez, e as datas convertidas seguem para
+        # a consulta e para a tela. Validar de novo mais abaixo faria o
+        # mesmo trabalho duas vezes e abriria a chance de as duas
+        # chamadas discordarem numa alteração futura.
+        inicio, fim = vitrine.validar_periodo(entrada, saida)
+        contexto["resposta"] = vitrine.esta_livre(escolhido, inicio, fim)
+    except vitrine.ErroDePeriodo as erro:
+        # Mensagem escrita pelo módulo de período, falando de campo e de
+        # formato. Pode ir à tela.
+        contexto["erro"] = str(erro)
+        return render_template("publico/disponibilidade.html", **contexto), 400
+    except vitrine.ChaleIndisponivel:
+        # Chalé inexistente e chalé desativado dão a mesma resposta. Um
+        # chalé desativado é um que a hospedaria tirou de operação, e
+        # dizer que ele existe mas está desligado é informação interna —
+        # e permitiria contar quantos chalés a hospedaria tem.
+        contexto["erro"] = "Chalé não encontrado."
+        return render_template("publico/disponibilidade.html", **contexto), 404
+    except Exception:  # noqa: BLE001
+        _registrador.exception("falha na consulta pública de disponibilidade")
+        contexto["erro"] = (
+            "Não foi possível consultar agora. Tente novamente em alguns "
+            "minutos."
+        )
+        return render_template("publico/disponibilidade.html", **contexto), 503
+
+    contexto["entrada_legivel"] = inicio.strftime("%d/%m/%Y")
+    contexto["saida_legivel"] = fim.strftime("%d/%m/%Y")
+    contexto["diarias"] = (fim - inicio).days
+    contexto["nome_do_chale"] = next(
+        (c["nome"] for c in chales if c["id"] == escolhido), "selecionado"
+    )
+
+    # Ocupado: a tela oferece os que estão livres no mesmo período. Sem
+    # isso, o visitante testaria os cinco um por um — ou desistiria, que é
+    # o resultado provável.
+    #
+    # **Sem filtrar o chalé consultado, e de propósito.** A primeira
+    # versão o removia da lista por precaução, e a sabotagem que tirou
+    # esse filtro não quebrou teste nenhum — porque não havia o que
+    # quebrar: este caminho só é alcançado quando `esta_livre` respondeu
+    # NÃO, e `nomes_livres` devolve apenas os que estão livres. Um chalé
+    # ocupado não pode aparecer numa lista de chalés livres, pela mesma
+    # condição de sobreposição nas duas consultas.
+    #
+    # O filtro era código morto que sugeria uma possibilidade inexistente,
+    # e código assim convida a próxima pessoa a procurar o caso que ele
+    # trataria. A propriedade continua verificada por teste; o que mudou é
+    # que ela passou a ser verificada onde de fato mora.
+    if not contexto["resposta"]:
+        try:
+            contexto["livres"] = vitrine.nomes_livres(inicio, fim)
+        except Exception:  # noqa: BLE001
+            _registrador.warning(
+                "disponibilidade servida sem a lista de chalés livres"
+            )
+            contexto["livres"] = []
+
+    return render_template("publico/disponibilidade.html", **contexto)
 
 
 # ---------------------------------------------------------------------------

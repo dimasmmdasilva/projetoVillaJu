@@ -424,9 +424,15 @@ def test_todo_link_do_painel_responde_ao_proprio_perfil(aplicacao, credenciais):
     import re
 
     cliente = _entrar(aplicacao, credenciais)
-    corpo = re.search(
-        r"<main>(.*?)</main>", cliente.get("/painel").data.decode(), re.S
-    ).group(1)
+    # `<main[^>]*>` e não `<main>`: a `main` ganhou a classe da coluna
+    # central no Bloco 13, e o padrão literal deixou de casar — o
+    # `re.search` devolvia None e o teste quebrava com AttributeError,
+    # sem dizer nada sobre o que ele verifica.
+    achado = re.search(
+        r"<main[^>]*>(.*?)</main>", cliente.get("/painel").data.decode(), re.S
+    )
+    assert achado, "a `main` do painel mudou de forma"
+    corpo = achado.group(1)
 
     links = re.findall(r'<a href="(/[^"]*)"', corpo)
     assert links, "o painel precisa oferecer algum caminho"

@@ -23,8 +23,19 @@
 <body class="{% block classe_corpo %}{% endblock %}">
 
 {% if sessao_usuario %}
+{# A barra é uma faixa de largura inteira com o conteúdo dentro da mesma
+   coluna do corpo, desde o Bloco 13. Antes, a marca encostava na borda
+   esquerda da janela e a identificação na direita enquanto o conteúdo
+   ficava centralizado: três alinhamentos diferentes na mesma tela. #}
 <header class="barra">
-  <strong>VillaJu</strong>
+  <div class="coluna-central">
+  {# A marca leva à vitrine pública, e não é mais só um rótulo.
+
+     Quem entra no sistema ficava sem caminho de volta para os chalés: a
+     face pública continuava lá, mas sem link para ela a partir de
+     dentro. Para o hóspede isso era um cercado — ele entrava e via duas
+     telas. #}
+  <a class="marca" href="{{ url_for('publico.inicio') }}">VillaJu</a>
   <nav>
     <a href="{{ url_for('painel.inicio') }}">Painel</a>
     {% if tem_perfil('administrador', 'recepcionista') %}
@@ -38,6 +49,14 @@
     {% endif %}
     {% if tem_perfil('hospede') %}
     <a href="{{ url_for('reservas.minhas') }}">Minhas reservas</a>
+    {# As duas telas públicas que interessam a quem já tem conta.
+
+       Elas não exigem sessão e sempre estiveram abertas — o que faltava
+       era caminho até elas a partir de dentro. A alternativa seria criar
+       telas internas equivalentes, que mostrariam a mesma coisa com
+       outro molde e teriam de ser mantidas em dobro. #}
+    <a href="{{ url_for('publico.inicio') }}#chales">Chalés</a>
+    <a href="{{ url_for('publico.disponibilidade') }}">Consultar disponibilidade</a>
     {% endif %}
     {# Esconder o link é conveniência de interface, NÃO controle de acesso:
        a rota continua decorada com @requer_perfil e responde 403 a quem
@@ -59,21 +78,39 @@
      visitasse a página. #}
   <form method="post" action="{{ url_for('auth.logout') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit">Sair</button>
+    <button class="sair" type="submit">Sair</button>
   </form>
+  </div>
 </header>
 {% endif %}
 
-<main>
-  {% with mensagens = get_flashed_messages(with_categories=true) %}
-    {% if mensagens %}
-      {% for categoria, texto in mensagens %}
-        <p class="aviso aviso-{{ categoria }}">{{ texto }}</p>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
+{# Um invólucro só dentro da `main`, e isso conserta um defeito.
 
-  {% block conteudo %}{% endblock %}
+   As mensagens e o conteúdo eram IRMÃOS aqui. Na tela de entrada, em que
+   `body.entrada main` é flex centralizado, os dois viravam itens lado a
+   lado — e a mensagem "Sessão encerrada" aparecia à ESQUERDA do cartão,
+   empurrando-o para fora do centro. Não era descentralização: era a
+   mensagem ocupando uma coluna própria.
+
+   Com um filho só, a `main` centraliza o que deve centralizar.
+
+   O bloco `avisos` existe para que uma tela decida onde põe as
+   mensagens. A de entrada as põe dentro do cartão, abaixo do
+   formulário. #}
+<main class="coluna-central">
+  <div class="conteudo-principal">
+    {% block avisos %}
+      {% with mensagens = get_flashed_messages(with_categories=true) %}
+        {% if mensagens %}
+          {% for categoria, texto in mensagens %}
+          <p class="aviso aviso-{{ categoria }}">{{ texto }}</p>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+    {% endblock %}
+
+    {% block conteudo %}{% endblock %}
+  </div>
 </main>
 
 </body>

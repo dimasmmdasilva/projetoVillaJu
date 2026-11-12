@@ -18,6 +18,23 @@
 
 <section class="apresentacao">
   <p>{{ hospedaria.apresentacao }}</p>
+
+  {# A chamada principal da face pública.
+
+     Consultar disponibilidade vem antes de criar conta, e não depois: é
+     o que o visitante quer saber primeiro, e é o que dá motivo para se
+     cadastrar. Quem descobre que a data está livre tem razão para criar
+     conta; quem é convidado a criar conta antes de saber se há vaga não
+     tem razão nenhuma. #}
+  <p class="acao-chale">
+    <a class="botao" href="{{ url_for('publico.disponibilidade') }}">
+      Consultar disponibilidade
+    </a>
+  </p>
+  <p class="nota-campo">
+    Sem cadastro e sem compromisso. Os valores aparecem depois do
+    cadastro, na tela de reserva.
+  </p>
 </section>
 
 {# ---------------------------------------------------------------------
@@ -38,12 +55,20 @@
 
   {% for chale in chales %}
   <article class="cartao-chale">
-    {# A faixa de cor substitui a fotografia enquanto ela não chega. #}
-    {# A cor vem por classe, não por atributo `style=`: a política de
+    {# A imagem É o link para a página do chalé, desde o Bloco 13.
+
+       É o que a pessoa olha primeiro num cartão; obrigá-la a procurar um
+       botão ao lado para chegar ao mesmo lugar era ruído. O botão
+       "Solicitar reserva" saiu daqui e passou a ser da página do chalé,
+       onde há o que ver antes de pedir.
+
+       A faixa de cor substitui a fotografia enquanto ela não chega, e a
+       cor vem por classe e não por atributo `style=`: a política de
        conteúdo bloqueia estilo embutido. #}
-    <div class="foto-provisoria foto-provisoria--{{ chale.cor_provisoria }}">
+    <a class="foto-provisoria foto-provisoria--{{ chale.cor_provisoria }}"
+       href="{{ url_for('publico.chale', apelido=chale.apelido) }}">
       <span>{{ chale.nome }}</span>
-    </div>
+    </a>
 
     <div class="dados-chale">
       <h3>{{ chale.nome }}</h3>
@@ -64,10 +89,13 @@
          visitante escolhe clicando no que está vendo, em vez de procurar
          o nome outra vez numa lista. Não cria reserva — grava um pedido
          que a recepção confirma. #}
+      {# O botão "Solicitar reserva" saiu no Bloco 13 e passou a ser da
+         página do chalé. Fica o link de texto, porque a imagem acima já
+         leva ao mesmo lugar e dois botões iguais no mesmo cartão são um
+         a mais. #}
       <p class="acao-chale">
-        <a class="botao"
-           href="{{ url_for('publico.contato', chale=chale.id) }}">
-          Solicitar reserva
+        <a href="{{ url_for('publico.chale', apelido=chale.apelido) }}">
+          Ver fotos e detalhes do {{ chale.nome }}
         </a>
       </p>
     </div>

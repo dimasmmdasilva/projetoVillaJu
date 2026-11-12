@@ -175,6 +175,34 @@ class Configuracao:
         # enviar falharia em toda instalação nova, e a falha apareceria no
         # meio de um cadastro — não na partida, onde seria fácil de ver.
         self.EMAIL_MODO = _opcional("VILLAJU_EMAIL_MODO", "arquivo")
+
+        # Conferido aqui, e não na hora de enviar.
+        #
+        # Um modo escrito errado — `smpt` em vez de `smtp`, que é o erro de
+        # digitação natural — passava por toda a partida sem reclamação. O
+        # sistema subia, as telas abriam, e a falha só aparecia **no meio de
+        # um cadastro**, quando alguém já havia preenchido o formulário.
+        #
+        # Isso contraria o que o cabeçalho deste módulo promete: falhar
+        # ruidosamente diante de configuração inválida. A promessa estava
+        # cumprida para variável AUSENTE e descumprida para variável com
+        # valor errado, que é o caso mais comum dos dois.
+        #
+        # A lista de modos vive em `app.servicos.correio`, mas é repetida
+        # aqui em vez de importada: `config` é carregado antes de tudo, e
+        # importar um módulo de serviço a partir dele criaria uma
+        # dependência de ida e volta. São dois valores que não mudam, e há
+        # teste conferindo que as duas listas são iguais.
+        MODOS_DE_CORREIO = ("arquivo", "smtp")
+
+        if self.EMAIL_MODO not in MODOS_DE_CORREIO:
+            raise ConfiguracaoAusente(
+                f"VILLAJU_EMAIL_MODO tem o valor {self.EMAIL_MODO!r}, que "
+                f"não é um modo de correio.\n"
+                f"  Os modos válidos são: {', '.join(MODOS_DE_CORREIO)}\n"
+                f"  `arquivo` grava a mensagem em disco; `smtp` envia de "
+                f"verdade."
+            )
         self.EMAIL_REMETENTE = _opcional(
             "VILLAJU_EMAIL_REMETENTE", "VillaJu <nao-responda@villaju.local>"
         )
@@ -236,6 +264,35 @@ class Configuracao:
         self.SMTP_PORTA = _inteiro("VILLAJU_SMTP_PORTA", 587)
         self.SMTP_USUARIO = _opcional("VILLAJU_SMTP_USUARIO", "")
         self.SMTP_SENHA = _opcional("VILLAJU_SMTP_SENHA", "")
+
+        # No modo `smtp`, as três precisam estar lá.
+        #
+        # Mesma razão do modo: meio configurado é pior do que não
+        # configurado. Sem este bloco, um `.env` em que a senha de app
+        # ficou de fora sobe normalmente e falha no primeiro cadastro —
+        # com a pessoa achando que o sistema está quebrado, e não que
+        # falta uma linha de configuração.
+        #
+        # A senha nunca é citada na mensagem, apenas o nome da variável.
+        if self.EMAIL_MODO == "smtp":
+            faltando = [
+                nome
+                for nome, valor in (
+                    ("VILLAJU_SMTP_HOST", self.SMTP_HOST),
+                    ("VILLAJU_SMTP_USUARIO", self.SMTP_USUARIO),
+                    ("VILLAJU_SMTP_SENHA", self.SMTP_SENHA),
+                )
+                if not valor
+            ]
+            if faltando:
+                raise ConfiguracaoAusente(
+                    "VILLAJU_EMAIL_MODO está em `smtp`, mas falta "
+                    "configuração do servidor:\n"
+                    + "".join(f"  - {nome}\n" for nome in faltando)
+                    + "  Veja a seção Correio do .env.example.\n"
+                    + "  Para não depender de SMTP agora, use "
+                    "VILLAJU_EMAIL_MODO=arquivo."
+                )
 
     def como_dicionario(self) -> dict:
         """Apenas os atributos em maiúsculas, que o Flask consome."""

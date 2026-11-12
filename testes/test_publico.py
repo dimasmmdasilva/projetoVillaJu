@@ -92,10 +92,25 @@ def test_a_raiz_nao_redireciona(visitante):
     assert visitante.get("/").status_code == 200
 
 
-def test_a_vitrine_oferece_o_caminho_da_equipe(visitante):
+def test_a_vitrine_oferece_o_caminho_de_entrada(visitante):
+    """O botão de entrar, que era "Área da equipe".
+
+    **Mudou no Bloco 13**, e por duas razões que vale separar.
+
+    O nome: "área da equipe" descreve o DESTINO para quem já trabalha
+    lá. "Entrar" descreve a AÇÃO, e serve também ao hóspede que acabou de
+    criar conta — que antes não tinha por onde entrar sem adivinhar que o
+    link da equipe era para ele.
+
+    A forma: botão e não link discreto. Desde o autocadastro existir,
+    entrar deixou de ser serviço interno de três pessoas.
+    """
     html = visitante.get("/").data.decode()
+
     assert "/login" in html
-    assert "Área da equipe" in html
+    assert "Entrar" in html
+    assert 'class="entrar"' in html, "o acesso precisa estar em botão"
+    assert "Área da equipe" not in html
 
 
 def test_quem_tem_sessao_recebe_o_atalho_para_o_painel(aplicacao):
@@ -103,7 +118,7 @@ def test_quem_tem_sessao_recebe_o_atalho_para_o_painel(aplicacao):
     html = _entrar(aplicacao).get("/").data.decode()
 
     assert "/painel" in html
-    assert "Área da equipe" not in html
+    assert ">\n      Entrar\n" not in html
 
 
 def test_a_vitrine_e_a_mesma_para_todos(aplicacao, visitante):

@@ -269,11 +269,22 @@ def test_o_formulario_abre(visitante):
     assert "Solicitar reserva" in resposta.data.decode()
 
 
-def test_o_botao_da_vitrine_pre_seleciona_o_chale(visitante):
-    """O visitante escolhe clicando no chalé que está vendo."""
-    html = visitante.get("/").data.decode()
-    assert f"/contato?chale={DUNAS}" in html
+def test_o_formulario_aceita_o_chale_pelo_endereco(visitante):
+    """Quem chega com o chalé no endereço encontra-o já escolhido.
 
+    **Mudou de alvo no Bloco 13.** A verificação começava na vitrine,
+    conferindo que o botão de cada chalé levava a `/contato?chale=N`. Esse
+    botão não existe mais: a imagem do cartão passou a levar à página do
+    chalé, e de lá se consulta a disponibilidade.
+
+    O que o teste guardava continua valendo e continua importando — a
+    rota lê o parâmetro e marca a opção —, e é por isso que ele mudou de
+    alvo em vez de ser removido. Qualquer link que venha a apontar para
+    cá com `?chale=N` depende disto, e o defeito que ele prende é real:
+    `request.args.get("chale")` devolve texto, o template compara com o
+    identificador inteiro, e em Jinja2 `"1" == 1` é falso. Sem o
+    `type=int` na rota, a escolha se perderia em silêncio.
+    """
     formulario = visitante.get(f"/contato?chale={DUNAS}").data.decode()
     achado = re.search(
         rf'<option value="{DUNAS}"\s*\n?\s*selected', formulario

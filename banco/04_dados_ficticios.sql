@@ -247,7 +247,7 @@ VALUES
 -- demais perfis.
 
 INSERT INTO usuario (login, nome, senha_hash, perfil, hospede_id) VALUES
-('admin', 'Vania Silva',
+('admin', 'Administrador',
  '$argon2id$v=19$m=65536,t=3,p=4$t9bPO3S10PZ9eDMQtdyEZA$fZPq/FZjWm9Ze0hJzQefojB9uLE6QpYxCQiYOQ9jvHE',
  'administrador', NULL),
 

@@ -125,10 +125,25 @@ def test_credencial_correta_entra(cliente, credenciais):
 
 
 def test_painel_mostra_o_usuario_conectado(cliente):
+    """A barra identifica quem está conectado, pelo nome e pelo perfil.
+
+    **O nome esperado mudou no Bloco 13.** A conta de administrador da
+    massa trazia o nome da anfitriã da hospedaria — uma pessoa real — num
+    arquivo versionado, e ele aparecia nesta barra a cada tela. Passou a
+    ser "Administrador".
+
+    O teste continua valendo o mesmo: a barra precisa dizer QUEM está
+    conectado, porque numa recepção com mais de uma pessoa a sessão
+    aberta pode não ser a de quem está na frente da tela.
+    """
     _entrar(cliente, ADMIN)
     corpo = cliente.get("/painel").data.decode()
-    assert "Vania Silva" in corpo
+
+    assert "Administrador" in corpo
     assert "administrador" in corpo
+    assert "Vania" not in corpo, (
+        "o nome da anfitriã voltou à massa; ver test_pagina_do_chale"
+    )
 
 
 def test_painel_mostra_resumo_sem_dado_pessoal(cliente):
