@@ -174,12 +174,20 @@ def hospede(aplicacao, conta):
 
 
 def _escolha(chale, entrada=10, noites=2, pessoas=2, aceite=True):
+    """A escolha, com os N - 1 acompanhantes que o Bloco 15 exige.
+
+    Acompanhantes adultos, com documentos distintos entre si e do
+    titular: o caso comum, que todo teste do Bloco 7 passa a exercitar.
+    """
     dados = {
         "chale": str(chale["id"]),
         "entrada": _dia(entrada),
         "saida": _dia(entrada + noites),
         "pessoas": str(pessoas),
     }
+    for numero in range(1, pessoas):
+        dados[f"acompanhante_{numero}_nome"] = f"Acompanhante Teste {numero}"
+        dados[f"acompanhante_{numero}_documento"] = f"RG{numero:07d}"
     if aceite:
         dados["aceite"] = "sim"
     return dados
@@ -939,9 +947,16 @@ def test_o_visitante_e_mandado_entrar(aplicacao):
     assert "/login" in resposta.headers["Location"]
 
 
+def _revisar(hospede, escolha):
+    """O passo 4 (Bloco 15): o resumo vem do POST de revisão."""
+    dados = dict(escolha)
+    dados["csrf_token"] = _token(hospede, "/reservas/pedir")
+    return hospede.post("/reservas/pedir/revisar", data=dados).data.decode()
+
+
 def test_o_resumo_mostra_valor_prazos_e_regulamento(aplicacao, hospede, chale):
     escolha = _escolha(chale, entrada=10, noites=2, aceite=False)
-    html = hospede.get("/reservas/pedir", query_string=escolha).data.decode()
+    html = _revisar(hospede, escolha)
 
     assert "R$ 600,00" in html
     assert "R$ 300,00" in html  # o sinal
@@ -951,9 +966,10 @@ def test_o_resumo_mostra_valor_prazos_e_regulamento(aplicacao, hospede, chale):
 
 
 def test_o_formulario_nao_leva_valor(aplicacao, hospede, chale):
-    """O POST leva chalé, datas e pessoas — e nada que diga quanto custa."""
+    """O POST leva chalé, datas, pessoas e quem vai — e nada que diga
+    quanto custa."""
     escolha = _escolha(chale, entrada=10, aceite=False)
-    html = hospede.get("/reservas/pedir", query_string=escolha).data.decode()
+    html = _revisar(hospede, escolha)
 
     # Pelo destino, e não pelo primeiro `method="post"` da página: esse é
     # o botão "Sair" da barra superior, que também é um formulário POST.
@@ -961,12 +977,15 @@ def test_o_formulario_nao_leva_valor(aplicacao, hospede, chale):
     formulario = formulario[:formulario.index("</form>")]
     ocultos = re.findall(r'type="hidden" name="([^"]+)"', formulario)
 
-    assert set(ocultos) == {"csrf_token", "chale", "entrada", "saida", "pessoas"}
+    assert set(ocultos) == {
+        "csrf_token", "chale", "entrada", "saida", "pessoas",
+        "acompanhante_1_nome", "acompanhante_1_documento",
+    }
 
 
 def test_o_resumo_avisa_quando_nao_ha_devolucao(aplicacao, hospede, chale):
     escolha = _escolha(chale, entrada=3, aceite=False)
-    html = hospede.get("/reservas/pedir", query_string=escolha).data.decode()
+    html = _revisar(hospede, escolha)
 
     assert "Sem devolução" in html
 

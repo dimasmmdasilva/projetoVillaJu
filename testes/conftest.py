@@ -51,6 +51,8 @@ TABELAS = [
     "token_acesso",
     # Etapa 5, Bloco 7: o livro dos Pix conferidos pela equipe.
     "pagamento",
+    # Etapa 5, Bloco 15: quem vai se hospedar junto com o titular.
+    "acompanhante",
 ]
 
 

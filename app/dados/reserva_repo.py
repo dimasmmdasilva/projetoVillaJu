@@ -28,7 +28,7 @@ entrada de outro no mesmo dia.
 
 import datetime as dt
 
-from app.dados import periodo
+from app.dados import acompanhante_repo, periodo
 from app.dados.conexao import obter_conexao, obter_cursor
 from app.dados.erros import ErroDeDados, executar
 
@@ -708,7 +708,8 @@ def cancelar_pedidos_vencidos(usuario_id=None) -> int:
 
 
 def criar_pedido(dados: dict, modalidade: str, minutos_para_o_pix: int,
-                 prazo_restante, limite_em_aberto: int, usuario_id) -> int:
+                 prazo_restante, limite_em_aberto: int, usuario_id,
+                 acompanhantes=()) -> int:
     """Grava o pedido do hóspede. Devolve o identificador da reserva.
 
     `dados` traz chalé, hóspede, datas, pessoas e o valor total já
@@ -721,7 +722,11 @@ def criar_pedido(dados: dict, modalidade: str, minutos_para_o_pix: int,
     2. trava a linha do hóspede;
     3. confere o limite de pedidos em aberto;
     4. confere as regras da reserva (chalé, capacidade, sobreposição);
-    5. grava.
+    5. grava a reserva;
+    6. grava os acompanhantes (Bloco 15), no mesmo cursor.
+
+    O passo 6 na mesma transação é o que garante "tudo ou nada": se um
+    acompanhante for recusado pelo banco, a reserva também não fica.
     """
     limpo = _limpar(dados)
     if limpo["valor_total"] is None:
@@ -762,7 +767,9 @@ def criar_pedido(dados: dict, modalidade: str, minutos_para_o_pix: int,
                     prazo_restante,
                 ),
             )
-            return cursor.lastrowid
+            identificador = cursor.lastrowid
+            acompanhante_repo.gravar(cursor, identificador, acompanhantes)
+            return identificador
         finally:
             cursor.close()
 

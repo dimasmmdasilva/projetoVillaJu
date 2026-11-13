@@ -2,7 +2,7 @@
 -- VillaJu - modelo de dados
 --
 -- As tabelas do sistema: as 7 da seção 5.1 do plano do projeto, mais
--- `token_acesso` e `pagamento`, acrescentadas na Etapa 5.
+-- `token_acesso`, `pagamento` e `acompanhante`, acrescentadas na Etapa 5.
 --
 -- Este script NÃO contém CREATE DATABASE nem USE, de propósito: quem decide
 -- em qual banco os objetos nascem é a conexão que o executa. É isso que
@@ -20,6 +20,7 @@
 --     hospede  ->  usuario
 --     chale + hospede + usuario  ->  reserva
 --     usuario  ->  log_auditoria
+--     reserva  ->  pagamento, acompanhante
 --
 -- Sobre criado_em e alterado_em: são NOT NULL e não têm valor padrão. Quem
 -- os preenche são as triggers de carimbo de tempo, em 02_triggers.sql. O
@@ -618,4 +619,89 @@ CREATE TABLE pagamento (
     CONSTRAINT ck_pagamento_sinal_do_valor
         CHECK ((tipo = 'devolucao' AND valor < 0)
             OR (tipo <> 'devolucao' AND valor > 0))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ===========================================================================
+-- ACOMPANHANTE — quem vai se hospedar junto com o titular (Etapa 5, Bloco 15)
+-- ===========================================================================
+-- O titular da reserva é o hóspede que a pediu e conta como uma das
+-- pessoas. Uma reserva de 4 pessoas tem, portanto, 3 acompanhantes.
+--
+-- Meios de hospedagem registram TODOS os hóspedes na FNRH, e não só quem
+-- reservou; é essa a base para guardar o dado de quem não tem conta.
+--
+-- --------------------------------------------------------------------------
+-- Cifrado, como `hospede` e `contato`
+--
+-- É dado pessoal de quem nem se cadastrou, e por isso nasce cifrado com
+-- AES-256-GCM, sem exceção por categoria (decisão de 06/11).
+--
+-- A diferença está no dado adicional autenticado. `hospede` e `contato`
+-- usam o identificador da linha, que só existe depois do INSERT — e por
+-- isso gravam em duas fases, INSERT e depois UPDATE. Aqui a aplicação
+-- tem só SELECT e INSERT, e a etiqueta é `acompanhante:<reserva>:<ordem>`,
+-- conhecida ANTES do INSERT. A unicidade de (reserva_id, ordem) garante
+-- que a etiqueta não se repete, e mover um bloco cifrado para outra
+-- linha faz a verificação de integridade falhar.
+--
+-- --------------------------------------------------------------------------
+-- Só acréscimo
+--
+-- Não há edição pelo site depois do pedido. A conta da aplicação recebe
+-- SELECT e INSERT; a correção de um nome digitado errado é feita pela
+-- recepção no registro de chegada.
+-- --------------------------------------------------------------------------
+
+CREATE TABLE acompanhante (
+    id                  INT UNSIGNED NOT NULL AUTO_INCREMENT,
+
+    reserva_id          INT UNSIGNED NOT NULL,
+
+    -- Posição na lista, de 1 a num_pessoas - 1. Entra na etiqueta da
+    -- cifra; o gatilho confere o limite.
+    ordem               TINYINT UNSIGNED NOT NULL,
+
+    -- O nome tem até 120 caracteres na aplicação: 480 bytes no pior caso
+    -- de UTF-8, dentro dos 512.
+    nome_cif            VARBINARY(512) NOT NULL,
+    nome_nonce          VARBINARY(12) NOT NULL,
+    nome_tag            VARBINARY(16) NOT NULL,
+
+    -- Anulável: menor de idade pode não ter documento. Os três juntos.
+    documento_cif       VARBINARY(64) NULL,
+    documento_nonce     VARBINARY(12) NULL,
+    documento_tag       VARBINARY(16) NULL,
+
+    menor_de_idade      BOOLEAN NOT NULL DEFAULT FALSE,
+
+    cripto_versao       TINYINT UNSIGNED NOT NULL DEFAULT 1,
+
+    -- Preenchido pelo gatilho.
+    criado_em           DATETIME NOT NULL,
+
+    PRIMARY KEY (id),
+
+    -- A etiqueta da cifra não se repete, e a lista tem uma ordem estável.
+    UNIQUE KEY uq_acompanhante_reserva_ordem (reserva_id, ordem),
+
+    -- RESTRICT nos dois sentidos, como `pagamento`: quem se hospedou é
+    -- parte do histórico da reserva, e uma ação em cascata alteraria a
+    -- linha sem disparar gatilho.
+    CONSTRAINT fk_acompanhante_reserva
+        FOREIGN KEY (reserva_id) REFERENCES reserva (id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+
+    CONSTRAINT ck_acompanhante_ordem
+        CHECK (ordem >= 1),
+
+    -- Adulto tem documento; menor pode não ter.
+    CONSTRAINT ck_acompanhante_documento_ou_menor
+        CHECK (documento_cif IS NOT NULL OR menor_de_idade = TRUE),
+
+    -- As três colunas do documento andam juntas: metade preenchida é um
+    -- bloco que nunca se decifra.
+    CONSTRAINT ck_acompanhante_documento_inteiro
+        CHECK ((documento_cif IS NULL) = (documento_nonce IS NULL)
+           AND (documento_cif IS NULL) = (documento_tag IS NULL))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

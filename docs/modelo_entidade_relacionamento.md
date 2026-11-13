@@ -1,7 +1,7 @@
 # Modelo Entidade-Relacionamento — VillaJu
 
 Documentação do modelo de dados implementado em `banco/01_schema.sql`.
-Atualizado em 13/11/2026, com a Etapa 5 até o Bloco 7.
+Atualizado em 13/11/2026, com a Etapa 5 até o Bloco 15.
 
 O diagrama abaixo é escrito em Mermaid, que o GitHub renderiza
 automaticamente. Por ser texto, ele vai ao controle de versão como código:
@@ -33,6 +33,7 @@ erDiagram
 
     RESERVA ||--o{ PAGAMENTO : "tem lançamentos"
     USUARIO ||--o{ PAGAMENTO : "conferiu no extrato"
+    RESERVA ||--o{ ACOMPANHANTE : "leva, além do titular"
 
     CHALE {
         int id PK
@@ -160,6 +161,21 @@ erDiagram
         int registrado_por FK "quem conferiu o Pix"
         datetime registrado_em "preenchido pelo gatilho"
     }
+
+    ACOMPANHANTE {
+        int id PK
+        int reserva_id FK
+        tinyint ordem "1 a num_pessoas - 1; único na reserva"
+        varbinary nome_cif "AES-256-GCM"
+        varbinary nome_nonce "12 bytes"
+        varbinary nome_tag "16 bytes"
+        varbinary documento_cif "anulável: menor pode não ter"
+        varbinary documento_nonce
+        varbinary documento_tag
+        boolean menor_de_idade
+        tinyint cripto_versao
+        datetime criado_em "preenchido pelo gatilho"
+    }
 ```
 
 ---
@@ -179,6 +195,7 @@ erDiagram
 | `token_acesso` | `usuario` | N:1 | **CASCADE** | Token é autorização pendente, não histórico: sem a conta, não autoriza nada |
 | `pagamento` | `reserva` | N:1 | **RESTRICT** | Não se apaga reserva com lançamento |
 | `pagamento` | `usuario` | N:1 | **RESTRICT** | O autor é a parte do lançamento que lhe dá valor; conta de equipe se desativa |
+| `acompanhante` | `reserva` | N:1 | **RESTRICT** | Quem se hospedou é histórico da reserva; cascata alteraria a linha sem disparar gatilho |
 
 A escolha em `log_auditoria` é a mais importante de todas. Com `CASCADE`,
 bastaria apagar uma conta para fazer sumir o rastro de tudo o que ela fez —
@@ -202,6 +219,7 @@ exatamente o que alguém faria para encobrir uma ação indevida. Com
 | `token_acesso` | `idx_token_usuario` | `usuario_id`, `tipo`, `consumido_em` | Invalidar os pendentes quando um link novo é emitido |
 | `pagamento` | `uq_pagamento_reserva_tipo` | `reserva_id`, `tipo` | **Único**: um clique duplo não conta o sinal duas vezes |
 | `pagamento` | `idx_pagamento_data` | `registrado_em` | A soma do mês no painel do administrador |
+| `acompanhante` | `uq_acompanhante_reserva_ordem` | `reserva_id`, `ordem` | **Único**: a etiqueta da cifra usa a posição, e ela não pode se repetir |
 
 A ordem das colunas em `idx_reserva_disponibilidade` não é arbitrária. Um
 índice composto só é aproveitado da esquerda para a direita: filtra-se
@@ -276,6 +294,35 @@ O gatilho de não-sobreposição **não mudou**: ele trata todo `pendente`
 como ocupação, inclusive um pedido vencido que ainda não foi cancelado.
 Por isso toda escrita de reserva cancela os pedidos vencidos **antes** de
 gravar, na mesma transação — e há teste que prende esse fato do banco.
+
+### Por que o acompanhante é cifrado com outra etiqueta
+
+Quem vai com o titular nem tem conta no sistema, e o dado nasce cifrado
+como o de `hospede` e `contato` (decisão de 06/11: tudo o que a pousada
+obtém de uma pessoa, sem exceção por categoria). A base para coletá-lo é
+a FNRH, que registra **todos** os hóspedes, e não só quem reservou.
+
+`hospede` e `contato` amarram a cifra ao `id` da linha, que só existe
+depois do `INSERT` — e por isso gravam em duas fases, com um `UPDATE`.
+O acompanhante não pode: a aplicação tem só `SELECT` e `INSERT` nesta
+tabela. A etiqueta é `acompanhante:<reserva>:<ordem>:<campo>`, conhecida
+antes, e a unicidade de `(reserva_id, ordem)` garante que não se repete.
+O nome do campo entra também: trocar o bloco do documento pelo do nome,
+na mesma linha, faz a verificação falhar.
+
+### Por que a quantidade de acompanhantes mora no banco
+
+O titular conta como uma das pessoas, e uma reserva de N pessoas tem no
+máximo N − 1 acompanhantes. Três camadas, como na sobreposição:
+
+- **`trg_acompanhante_antes_inserir`** conta os já gravados e recusa o
+  excedente. Antes de contar, trava a linha da reserva com `FOR UPDATE`:
+  dois envios simultâneos contam um depois do outro, e não os dois sobre
+  a mesma contagem velha. Há teste com duas conexões que prova a trava.
+- **`trg_reserva_antes_alterar`** recusa baixar `num_pessoas` abaixo do
+  titular mais os acompanhantes gravados — a recepção edita esse número.
+- **`CHECK`**: adulto tem documento (`documento_cif IS NOT NULL OR
+  menor_de_idade`), e as três colunas do documento andam juntas.
 
 ### Por que o intervalo de reserva é semiaberto
 

@@ -18,7 +18,13 @@ from flask import (
     url_for,
 )
 
-from app.dados import auditoria_repo, chale_repo, reserva_repo, usuario_repo
+from app.dados import (
+    acompanhante_repo,
+    auditoria_repo,
+    chale_repo,
+    reserva_repo,
+    usuario_repo,
+)
 from app.dados.erros import ErroDeDados
 from app.dados.reserva_repo import ConflitoDePeriodo
 from app.seguranca import senhas
@@ -384,6 +390,22 @@ def minhas():
     # falta pagar, o prazo e os botões que o banco aceitaria agora.
     cartoes = {reserva["id"]: pedido.cartao(reserva) for reserva in em_andamento}
 
+    # Etapa 5, Bloco 15: quem vai em cada reserva. O documento sai daqui
+    # já mascarado — o texto inteiro nem chega ao template.
+    acompanhantes = {
+        reserva_id: [
+            {
+                "nome": pessoa["nome"],
+                "documento": pedido.mascarar_documento(pessoa["documento"]),
+                "menor_de_idade": pessoa["menor_de_idade"],
+            }
+            for pessoa in lista_de_pessoas
+        ]
+        for reserva_id, lista_de_pessoas in acompanhante_repo.listar_por_hospede(
+            usuario["hospede_id"], usuario_id=usuario["id"]
+        ).items()
+    }
+
     return render_template(
         "painel/minhas_reservas.html",
         usuario=usuario,
@@ -392,6 +414,7 @@ def minhas():
         reservas=lista,
         contas=contas,
         cartoes=cartoes,
+        acompanhantes=acompanhantes,
         chave_pix=getattr(current_app.villaju, "PIX_CHAVE", ""),
         atualizar=any(c["atualizar"] for c in cartoes.values()),
         vinculada=True,
@@ -657,37 +680,97 @@ def _hospede_conectado():
     return usuario
 
 
+# A revisão (passo 4) não grava nada, mas confere o documento do titular
+# no banco a cada envio. Um limite próprio, folgado o bastante para quem
+# corrige um nome três ou quatro vezes.
+_LIMITE_DE_REVISOES = "60 per hour"
+
+
+def _escolha_da_url():
+    return {
+        campo: (request.args.get(campo) or "").strip()
+        for campo in ("chale", "entrada", "saida", "pessoas")
+    }
+
+
+def _escolha_do_formulario():
+    return {
+        campo: (request.form.get(campo) or "").strip()
+        for campo in ("chale", "entrada", "saida", "pessoas")
+    }
+
+
+def _tela_do_pedido(passo, escolha, resumo=None, erro=None, digitados=None):
+    return render_template(
+        "painel/pedir_reserva.html",
+        passo=passo,
+        chales=chale_repo.listar(apenas_ativos=True),
+        escolha=escolha,
+        resumo=resumo,
+        erro=erro,
+        digitados=digitados or [],
+        regras=regulamento.regras(),
+        minutos_para_o_pix=regulamento.MINUTOS_PARA_O_PIX,
+        hoje=dt.date.today().isoformat(),
+    )
+
+
+def _mensagem_de_indisponivel(resumo):
+    return (
+        f"O chalé {resumo['chale_nome']} já está reservado em parte desse "
+        f"período. Escolha outras datas."
+    )
+
+
+def _tela_do_passo_3_com_erro(escolha, erro):
+    """Volta ao passo 3 com o que foi digitado, sem redirecionar.
+
+    Redirecionar levaria nomes e documentos para o endereço. Se o erro é
+    do chalé ou das datas, o passo 3 não serve, e a tela volta ao 1.
+    """
+    try:
+        resumo = pedido.simular(escolha)
+    except pedido.ErroDePedido:
+        return _tela_do_pedido(1, escolha, erro=erro)
+
+    if not resumo["disponivel"]:
+        return _tela_do_pedido(1, escolha, erro=erro)
+
+    return _tela_do_pedido(
+        3,
+        escolha,
+        resumo=resumo,
+        erro=erro,
+        digitados=pedido.digitados(request.form, resumo["pessoas"]),
+    )
+
+
 @reservas.route("/pedir", methods=["GET", "POST"])
 @requer_perfil(HOSPEDE)
 @limiter.limit(_LIMITE_DE_PEDIDOS, methods=["POST"])
 def pedir():
-    """Pedido de reserva em duas etapas, sem JavaScript.
+    """Pedido de reserva em quatro passos, sem JavaScript.
 
-    **GET sem a escolha completa:** o formulário — chalé, datas, pessoas.
-    Ele envia por GET para esta mesma rota, porque escolher não altera
-    nada.
+    1. **Chalé e datas** — GET para esta mesma rota.
+    2. **Pessoas** — botões de 1 até a capacidade do chalé escolhido; GET.
+    3. **Acompanhantes** — nome e documento de cada um, N - 1 campos. Vai
+       por **POST** para `revisar_pedido`: nome e documento numa URL iriam
+       para o histórico do navegador e para o log do servidor.
+    4. **Resumo** — valor, prazos, a lista de quem vai, regulamento e
+       aceite. É a resposta de `revisar_pedido`.
 
-    **GET com a escolha completa:** o resumo — valor, modalidade, prazos,
-    se há devolução — com o regulamento e a caixa de aceite. Nada é
-    gravado.
-
-    **POST:** grava. O valor é recalculado aqui de novo, a partir de
-    chalé, datas e pessoas; nenhum valor vem do formulário.
+    **POST aqui** grava. Tudo é conferido de novo: o valor é recalculado,
+    a capacidade e os acompanhantes revalidados. Nenhum valor vem do
+    formulário, e o número de pessoas que vem dele é só uma escolha.
     """
     usuario = _hospede_conectado()
 
     if request.method == "POST":
+        escolha = _escolha_do_formulario()
         try:
             identificador = pedido.pedir(usuario, request.form)
         except pedido.ErroDePedido as erro:
-            flash(str(erro), "erro")
-            return redirect(url_for(
-                "reservas.pedir",
-                chale=request.form.get("chale", ""),
-                entrada=request.form.get("entrada", ""),
-                saida=request.form.get("saida", ""),
-                pessoas=request.form.get("pessoas", ""),
-            ))
+            return _tela_do_passo_3_com_erro(escolha, str(erro))
 
         flash(
             "Pedido registrado. Faça o Pix e informe pelo botão do card "
@@ -698,36 +781,59 @@ def pedir():
             url_for("reservas.minhas") + f"#reserva-{identificador}"
         )
 
-    escolha = {
-        campo: (request.args.get(campo) or "").strip()
-        for campo in ("chale", "entrada", "saida", "pessoas")
-    }
+    escolha = _escolha_da_url()
 
-    resumo = None
-    erro = None
-    if all(escolha.values()):
-        try:
-            resumo = pedido.simular(escolha)
-        except pedido.ErroDePedido as falha:
-            erro = str(falha)
-        else:
-            if not resumo["disponivel"]:
-                erro = (
-                    f"O chalé {resumo['chale_nome']} já está reservado em "
-                    f"parte desse período. Escolha outras datas."
-                )
-                resumo = None
+    if not (escolha["chale"] and escolha["entrada"] and escolha["saida"]):
+        return _tela_do_pedido(1, escolha)
 
-    return render_template(
-        "painel/pedir_reserva.html",
-        chales=chale_repo.listar(apenas_ativos=True),
-        escolha=escolha,
-        resumo=resumo,
-        erro=erro,
-        regras=regulamento.regras(),
-        minutos_para_o_pix=regulamento.MINUTOS_PARA_O_PIX,
-        hoje=dt.date.today().isoformat(),
+    # Chalé e datas conferidos com uma pessoa; o número de verdade é
+    # conferido logo abaixo, quando houver.
+    try:
+        resumo = pedido.simular({**escolha, "pessoas": "1"})
+    except pedido.ErroDePedido as falha:
+        return _tela_do_pedido(1, escolha, erro=str(falha))
+    if not resumo["disponivel"]:
+        return _tela_do_pedido(
+            1, escolha, erro=_mensagem_de_indisponivel(resumo)
+        )
+
+    if not escolha["pessoas"]:
+        return _tela_do_pedido(2, escolha, resumo=resumo)
+
+    try:
+        completo = pedido.simular(escolha)
+    except pedido.ErroDePedido as falha:
+        # Envio montado à mão, com mais pessoas que o chalé recebe: volta
+        # aos botões, que só oferecem o que cabe.
+        return _tela_do_pedido(
+            2, {**escolha, "pessoas": ""}, resumo=resumo, erro=str(falha)
+        )
+
+    return _tela_do_pedido(
+        3, escolha, resumo=completo,
+        digitados=pedido.digitados({}, completo["pessoas"]),
     )
+
+
+@reservas.route("/pedir/revisar", methods=["POST"])
+@requer_perfil(HOSPEDE)
+@limiter.limit(_LIMITE_DE_REVISOES)
+def revisar_pedido():
+    """Passo 4: o resumo com a lista de quem vai. Nada é gravado."""
+    usuario = _hospede_conectado()
+    escolha = _escolha_do_formulario()
+
+    try:
+        resumo = pedido.revisar(usuario, request.form)
+    except pedido.ErroDePedido as erro:
+        return _tela_do_passo_3_com_erro(escolha, str(erro))
+
+    if not resumo["disponivel"]:
+        return _tela_do_pedido(
+            1, escolha, erro=_mensagem_de_indisponivel(resumo)
+        )
+
+    return _tela_do_pedido(4, escolha, resumo=resumo)
 
 
 @reservas.route("/<int:identificador>/pix", methods=["POST"])

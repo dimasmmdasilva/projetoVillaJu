@@ -819,3 +819,90 @@ button.secundario {
 }
 .aceite input { margin-top: 0.3rem; }
 
+
+/* --- Etapa 5, Bloco 15: o pedido em quatro passos ----------------------
+ *
+ * Os botões de pessoas são `radio` de verdade, com o círculo escondido e
+ * o rótulo desenhado como botão. Sem JavaScript: o navegador marca, o
+ * teclado navega com as setas, e o leitor de tela anuncia "1 de 4". */
+
+.passos-do-pedido {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: #5b6a60;
+  counter-reset: passo;
+}
+.passos-do-pedido li { counter-increment: passo; }
+.passos-do-pedido li::before { content: counter(passo) ". "; }
+.passos-do-pedido li[aria-current="step"] {
+  color: #2f3e34;
+  font-weight: 700;
+}
+.passos-do-pedido li.feito { text-decoration: line-through; }
+
+.escolha-feita { font-weight: 600; }
+
+.botoes-de-pessoas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  border: 0;
+  padding: 0;
+  margin: 0.75rem 0 0;
+}
+.botoes-de-pessoas legend {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  padding: 0;
+}
+.botoes-de-pessoas input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.botoes-de-pessoas label {
+  margin: 0;
+  min-width: 2.75rem;
+  padding: 0.6rem 0.9rem;
+  text-align: center;
+  border: 1px solid #2f3e34;
+  border-radius: 0.4rem;
+  background: #fff;
+  color: #2f3e34;
+  cursor: pointer;
+}
+.botoes-de-pessoas input[type="radio"]:checked + label {
+  background: #2f3e34;
+  color: #fff;
+}
+.botoes-de-pessoas input[type="radio"]:focus-visible + label {
+  outline: 3px solid #c58b2b;
+  outline-offset: 2px;
+}
+
+fieldset.acompanhante {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 1px solid #d6dcd4;
+  border-radius: 0.4rem;
+  padding: 0.5rem 1rem 1rem;
+  margin: 0.75rem 0 0;
+}
+fieldset.acompanhante legend { font-weight: 700; padding: 0 0.25rem; }
+.caixa {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-weight: 400;
+}
+
+.lista-de-hospedes { margin: 0.25rem 0 0; padding-left: 1.25rem; }
+.cartao-reserva__hospedes { margin: 0.5rem 0; }
+.cartao-reserva__hospedes ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }

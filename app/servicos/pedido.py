@@ -30,9 +30,17 @@ quisesse pagar menos, e está na lista de testes de abuso do Relatório 2.
 
 import datetime as dt
 import math
+import re
+import unicodedata
 from decimal import ROUND_HALF_UP, Decimal
 
-from app.dados import auditoria_repo, chale_repo, reserva_repo
+from app.dados import (
+    acompanhante_repo,
+    auditoria_repo,
+    chale_repo,
+    hospede_repo,
+    reserva_repo,
+)
 from app.dados.calculo import TarifaAusente
 from app.dados.calculo import valor_total as calcular_valor_total
 from app.dados.erros import ErroDeDados
@@ -181,6 +189,8 @@ def simular(dados: dict, hoje: dt.date = None) -> dict:
     return {
         "chale_id": chale_id,
         "chale_nome": chale["nome"],
+        # Os botões do passo 2 vão de 1 até aqui (Bloco 15).
+        "capacidade": chale["capacidade"],
         "entrada": entrada,
         "saida": saida,
         "noites": (saida - entrada).days,
@@ -199,6 +209,188 @@ def simular(dados: dict, hoje: dt.date = None) -> dict:
         "tem_devolucao": regulamento.tem_devolucao(entrada, hoje),
         "disponivel": reserva_repo.chale_disponivel(chale_id, entrada, saida),
     }
+
+
+# ---------------------------------------------------------------------------
+# Quem vai se hospedar — Etapa 5, Bloco 15
+# ---------------------------------------------------------------------------
+#
+# O titular conta como uma das pessoas: N pessoas, N - 1 acompanhantes.
+# Nome obrigatório para todos; documento obrigatório para adulto e
+# opcional para menor de idade. O banco confere de novo a quantidade (pelo
+# gatilho) e o documento do adulto (pelo CHECK).
+#
+# Os campos do formulário são `acompanhante_<n>_nome`,
+# `acompanhante_<n>_documento` e `acompanhante_<n>_menor`, de 1 a N - 1.
+
+_CAMPO_DE_ACOMPANHANTE = re.compile(
+    r"^acompanhante_(\d+)_(nome|documento|menor)$"
+)
+
+# Depois de tirar espaço, ponto, hífen e barra: só letras e números sem
+# acento. Cobre CPF, RG com dígito X, passaporte e certidão.
+_DOCUMENTO = re.compile(r"^[A-Z0-9]+$")
+_SEPARADORES_DE_DOCUMENTO = str.maketrans("", "", " .-/")
+
+
+def _campo(dados, numero: int, nome: str) -> str:
+    return (dados.get(f"acompanhante_{numero}_{nome}") or "").strip()
+
+
+def digitados(dados, pessoas) -> list:
+    """O que a pessoa digitou, sem validar — para refazer o formulário.
+
+    Quando a revisão recusa, a tela do passo 3 volta preenchida, e não
+    por um redirecionamento: os nomes e documentos iriam parar no
+    endereço, e com ele no histórico do navegador e no log do servidor.
+    """
+    try:
+        quantidade = max(0, int(pessoas) - 1)
+    except (TypeError, ValueError):
+        quantidade = 0
+
+    return [
+        {
+            "numero": numero,
+            "nome": _campo(dados, numero, "nome"),
+            "documento": _campo(dados, numero, "documento"),
+            "menor": bool(_campo(dados, numero, "menor")),
+        }
+        for numero in range(1, quantidade + 1)
+    ]
+
+
+def _nome_limpo(texto: str, numero: int) -> str:
+    nome = " ".join(unicodedata.normalize("NFKC", texto).split())
+
+    if not nome or not any(c.isalpha() for c in nome):
+        raise ErroDePedido(f"Acompanhante {numero}: informe o nome.")
+    if any(unicodedata.category(c).startswith("C") for c in nome):
+        raise ErroDePedido(
+            f"Acompanhante {numero}: o nome tem caracteres que não são letras."
+        )
+    if len(nome) < acompanhante_repo.NOME_MINIMO:
+        raise ErroDePedido(f"Acompanhante {numero}: o nome está curto demais.")
+    if len(nome) > acompanhante_repo.NOME_MAXIMO:
+        raise ErroDePedido(
+            f"Acompanhante {numero}: o nome passa de "
+            f"{acompanhante_repo.NOME_MAXIMO} caracteres."
+        )
+    return nome
+
+
+def _documento_limpo(texto: str, numero: int):
+    """O documento só com letras maiúsculas e números, ou None se vazio."""
+    documento = texto.translate(_SEPARADORES_DE_DOCUMENTO).upper()
+    if not documento:
+        return None
+
+    tamanho_certo = (
+        acompanhante_repo.DOCUMENTO_MINIMO
+        <= len(documento)
+        <= acompanhante_repo.DOCUMENTO_MAXIMO
+    )
+    if not _DOCUMENTO.match(documento) or not tamanho_certo:
+        raise ErroDePedido(
+            f"Acompanhante {numero}: o documento deve ter de "
+            f"{acompanhante_repo.DOCUMENTO_MINIMO} a "
+            f"{acompanhante_repo.DOCUMENTO_MAXIMO} letras ou números "
+            f"(CPF, RG, passaporte ou certidão de nascimento)."
+        )
+    return documento
+
+
+def ler_acompanhantes(dados, pessoas: int, hospede_id=None) -> list:
+    """Valida os acompanhantes. Devolve a lista pronta para gravar.
+
+    Recusa, com a posição na mensagem e sem repetir o que foi digitado:
+
+    - campos de acompanhante além de `pessoas - 1` — um envio montado à
+      mão, já que a tela só mostra os campos certos;
+    - nome vazio, curto, longo ou com caracteres de controle;
+    - adulto sem documento;
+    - documento fora do formato;
+    - documento repetido na lista, ou igual ao do titular.
+    """
+    quantidade = pessoas - 1
+
+    for chave in dados.keys():
+        achado = _CAMPO_DE_ACOMPANHANTE.match(chave)
+        if not achado:
+            continue
+        numero = int(achado.group(1))
+        if not 1 <= numero <= quantidade and (dados.get(chave) or "").strip():
+            raise ErroDePedido(
+                "Há mais acompanhantes do que o número de pessoas permite. "
+                "Lembre que você conta como uma das pessoas."
+            )
+
+    lista = []
+    vistos = set()
+    for numero in range(1, quantidade + 1):
+        nome = _nome_limpo(_campo(dados, numero, "nome"), numero)
+        documento = _documento_limpo(_campo(dados, numero, "documento"), numero)
+        menor = bool(_campo(dados, numero, "menor"))
+
+        if documento is None and not menor:
+            raise ErroDePedido(
+                f"Acompanhante {numero}: informe o documento. Só menor de "
+                f"idade pode ficar sem."
+            )
+
+        if documento is not None:
+            if documento in vistos:
+                raise ErroDePedido(
+                    f"Acompanhante {numero}: o documento se repete na lista."
+                )
+            vistos.add(documento)
+
+            if hospede_id and hospede_repo.documento_e_do_hospede(
+                hospede_id, documento
+            ):
+                raise ErroDePedido(
+                    f"Acompanhante {numero}: este é o seu documento. Você já "
+                    f"conta como uma das pessoas."
+                )
+
+        lista.append(
+            {"nome": nome, "documento": documento, "menor_de_idade": menor}
+        )
+
+    return lista
+
+
+def descrever_acompanhantes(quantidade: int) -> str:
+    """O que o log diz sobre os acompanhantes: a quantidade, nada mais."""
+    if quantidade == 0:
+        return "sem acompanhantes"
+    if quantidade == 1:
+        return "com 1 acompanhante"
+    return f"com {quantidade} acompanhantes"
+
+
+def mascarar_documento(documento) -> str:
+    """Só os três últimos caracteres.
+
+    O prefixo tem tamanho fixo, para não contar quantos caracteres o
+    documento tem — e com isso de que tipo ele é.
+    """
+    if not documento:
+        return ""
+    return "•••" + documento[-3:]
+
+
+def revisar(usuario: dict, dados: dict, hoje: dt.date = None) -> dict:
+    """O passo 4: confere tudo e devolve o resumo com a lista de quem vai.
+
+    Nada é gravado. `pedir` faz as mesmas conferências de novo no envio
+    final — o que foi revisado pode ter sido alterado à mão no caminho.
+    """
+    resumo = simular(dados, hoje=hoje)
+    resumo["acompanhantes"] = ler_acompanhantes(
+        dados, resumo["pessoas"], usuario.get("hospede_id")
+    )
+    return resumo
 
 
 def pedir(usuario: dict, dados: dict, hoje: dt.date = None) -> int:
@@ -221,6 +413,7 @@ def pedir(usuario: dict, dados: dict, hoje: dt.date = None) -> int:
         )
 
     resumo = simular(dados, hoje=hoje)
+    acompanhantes = ler_acompanhantes(dados, resumo["pessoas"], hospede_id)
 
     # **A disponibilidade NÃO é decidida aqui, pelo `resumo`.** A primeira
     # versão recusava o pedido quando `resumo["disponivel"]` era falso — e
@@ -248,6 +441,7 @@ def pedir(usuario: dict, dados: dict, hoje: dt.date = None) -> int:
             prazo_restante=resumo["prazo_restante"],
             limite_em_aberto=regulamento.LIMITE_DE_PEDIDOS_EM_ABERTO,
             usuario_id=usuario["id"],
+            acompanhantes=acompanhantes,
         )
     except reserva_repo.ConflitoDePeriodo as erro:
         # **A mensagem do repositório NÃO vai para a tela do hóspede.**
@@ -270,8 +464,10 @@ def pedir(usuario: dict, dados: dict, hoje: dt.date = None) -> int:
         usuario_id=usuario["id"],
         tabela="reserva",
         registro_id=identificador,
+        # A quantidade, e nunca quem: nome e documento não vão para o log.
         detalhe=(
-            f"Pedido pelo site, pagamento {resumo['modalidade']}; "
+            f"Pedido pelo site, pagamento {resumo['modalidade']}, "
+            f"{descrever_acompanhantes(len(acompanhantes))}; "
             f"regulamento aceito"
         ),
     )
@@ -480,11 +676,16 @@ __all__ = [
     "PRIMEIRO",
     "RESTANTE",
     "cartao",
+    "descrever_acompanhantes",
     "desistir",
+    "digitados",
     "dividir",
     "em_reais",
     "informar_pix",
+    "ler_acompanhantes",
+    "mascarar_documento",
     "pedir",
+    "revisar",
     "prazo_por_extenso",
     "simular",
     "tempo_restante",

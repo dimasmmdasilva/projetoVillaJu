@@ -134,6 +134,12 @@ PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
 SET @sql = CONCAT('GRANT SELECT, INSERT ON `', @banco, '`.pagamento TO ', @conta);
 PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
 
+-- Acompanhante: leitura e acréscimo. Não há edição pelo site depois do
+-- pedido, e a lista de quem se hospedou é histórico da reserva.
+-- (Etapa 5, Bloco 15.)
+SET @sql = CONCAT('GRANT SELECT, INSERT ON `', @banco, '`.acompanhante TO ', @conta);
+PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
+
 FLUSH PRIVILEGES;
 
 -- --- Conferência -----------------------------------------------------------

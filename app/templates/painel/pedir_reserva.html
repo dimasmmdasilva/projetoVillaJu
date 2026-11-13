@@ -4,23 +4,47 @@
 {% block conteudo %}
 <h1>Fazer uma reserva</h1>
 
-{# Etapa 5, Bloco 7. Duas etapas, sem JavaScript.
+{# Etapa 5, Blocos 7 e 15. Quatro passos, sem JavaScript.
 
-   1. A escolha — chalé, datas, pessoas — vai por GET para esta mesma
-      rota, porque escolher não altera nada.
-   2. Com a escolha completa, a tela mostra o resumo: valor, modalidade,
-      prazos, devolução, regulamento e a caixa de aceite. Só o botão
-      "Confirmar pedido" grava, por POST.
+   1. Chalé e datas — GET para esta mesma rota.
+   2. Pessoas — botões de 1 até a capacidade do chalé escolhido. São
+      `radio` estilizados: sem JavaScript, um campo numérico não mudaria
+      o máximo conforme o chalé, e deixaria digitar 10 num chalé de 4.
+   3. Acompanhantes — vai por POST para a revisão. Nome e documento numa
+      URL iriam para o histórico do navegador e para o log do servidor.
+   4. Resumo, regulamento e aceite. Só "Confirmar pedido" grava.
 
-   **Nenhum valor viaja no formulário.** O POST leva chalé, datas e
-   pessoas; o servidor recalcula o valor noite a noite. Um campo oculto
-   com o preço seria o primeiro alvo de quem quisesse pagar menos. #}
+   **Nenhum valor viaja no formulário.** O servidor recalcula o valor e
+   revalida pessoas e acompanhantes no envio final. #}
+
+<ol class="passos-do-pedido" aria-label="Passos do pedido">
+  {% for rotulo in ["Chalé e datas", "Pessoas", "Quem vai", "Confirmar"] %}
+  <li{{ ' aria-current="step"'|safe if loop.index == passo }}
+      class="{{ 'feito' if loop.index < passo }}">{{ rotulo }}</li>
+  {% endfor %}
+</ol>
 
 {% if erro %}
 <p class="aviso aviso-erro">{{ erro }}</p>
 {% endif %}
 
-{% if not resumo %}
+{# Os campos ocultos da escolha, repetidos nos passos 3 e 4. #}
+{% macro escolha_oculta(chale, entrada, saida, pessoas) %}
+  <input type="hidden" name="chale" value="{{ chale }}">
+  <input type="hidden" name="entrada" value="{{ entrada }}">
+  <input type="hidden" name="saida" value="{{ saida }}">
+  <input type="hidden" name="pessoas" value="{{ pessoas }}">
+{% endmacro %}
+
+{% macro periodo(resumo) %}
+  {{ resumo.chale_nome }} ·
+  {{ resumo.entrada.strftime('%d/%m/%Y') }} a
+  {{ resumo.saida.strftime('%d/%m/%Y') }}
+  — {{ resumo.noites }} noite{{ 's' if resumo.noites != 1 }}
+{% endmacro %}
+
+{% if passo == 1 %}
+{# ------------------------------------------------------------------ 1 #}
 <form method="get" action="{{ url_for('reservas.pedir') }}" class="formulario">
   <label for="chale">Chalé</label>
   <select id="chale" name="chale" required>
@@ -41,14 +65,98 @@
   <input type="date" id="saida" name="saida" required
          min="{{ hoje }}" value="{{ escolha.saida }}">
 
-  <label for="pessoas">Pessoas</label>
-  <input type="number" id="pessoas" name="pessoas" required
-         min="1" max="12" value="{{ escolha.pessoas or 2 }}">
+  <button type="submit">Continuar</button>
+</form>
+
+{% elif passo == 2 %}
+{# ------------------------------------------------------------------ 2 #}
+<p class="escolha-feita">{{ periodo(resumo) }}</p>
+
+<form method="get" action="{{ url_for('reservas.pedir') }}" class="formulario">
+  <input type="hidden" name="chale" value="{{ resumo.chale_id }}">
+  <input type="hidden" name="entrada" value="{{ resumo.entrada|iso }}">
+  <input type="hidden" name="saida" value="{{ resumo.saida|iso }}">
+
+  <fieldset class="botoes-de-pessoas">
+    <legend>Quantas pessoas vão se hospedar, contando com você?</legend>
+    {% for n in range(1, resumo.capacidade + 1) %}
+    <input type="radio" id="pessoas-{{ n }}" name="pessoas" value="{{ n }}"
+           required {{ 'checked' if escolha.pessoas == n|string }}>
+    <label for="pessoas-{{ n }}">{{ n }}</label>
+    {% endfor %}
+  </fieldset>
+  <p class="nota-campo">
+    O chalé {{ resumo.chale_nome }} recebe até {{ resumo.capacidade }}
+    pessoa{{ 's' if resumo.capacidade != 1 }}.
+  </p>
+
+  <button type="submit">Continuar</button>
+</form>
+
+<p class="voltar">
+  <a href="{{ url_for('reservas.pedir') }}">Mudar chalé ou datas</a>
+</p>
+
+{% elif passo == 3 %}
+{# ------------------------------------------------------------------ 3 #}
+<p class="escolha-feita">
+  {{ periodo(resumo) }} · {{ resumo.pessoas }}
+  pessoa{{ 's' if resumo.pessoas != 1 }}
+</p>
+
+<form method="post" action="{{ url_for('reservas.revisar_pedido') }}"
+      class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {{ escolha_oculta(resumo.chale_id, resumo.entrada|iso, resumo.saida|iso,
+                    resumo.pessoas) }}
+
+  {% if digitados %}
+  <p>
+    Você já conta como uma das pessoas. Informe quem vai com você — a
+    pousada registra todos os hóspedes na chegada.
+  </p>
+  {% for pessoa in digitados %}
+  <fieldset class="acompanhante">
+    <legend>Acompanhante {{ pessoa.numero }}</legend>
+
+    <label for="acompanhante_{{ pessoa.numero }}_nome">Nome completo</label>
+    <input type="text" id="acompanhante_{{ pessoa.numero }}_nome"
+           name="acompanhante_{{ pessoa.numero }}_nome"
+           required minlength="2" maxlength="120"
+           autocomplete="off" value="{{ pessoa.nome }}">
+
+    <label for="acompanhante_{{ pessoa.numero }}_documento">
+      Documento (CPF, RG, passaporte ou certidão)
+    </label>
+    <input type="text" id="acompanhante_{{ pessoa.numero }}_documento"
+           name="acompanhante_{{ pessoa.numero }}_documento"
+           maxlength="30" autocomplete="off" value="{{ pessoa.documento }}">
+
+    <label class="caixa">
+      <input type="checkbox" name="acompanhante_{{ pessoa.numero }}_menor"
+             value="sim" {{ 'checked' if pessoa.menor }}>
+      Menor de idade (o documento é opcional)
+    </label>
+  </fieldset>
+  {% endfor %}
+  {% else %}
+  <p>A reserva é só para você: não há acompanhantes a informar.</p>
+  {% endif %}
 
   <button type="submit">Ver valor e prazos</button>
 </form>
+<p class="nota-campo">
+  Depois do pedido, a lista não se altera pelo site. Para corrigir um
+  nome, fale com a recepção.
+</p>
+
+<p class="voltar">
+  <a href="{{ url_for('reservas.pedir', chale=resumo.chale_id,
+                      entrada=resumo.entrada|iso, saida=resumo.saida|iso) }}">Mudar o número de pessoas</a>
+</p>
 
 {% else %}
+{# ------------------------------------------------------------------ 4 #}
 <section class="resumo-do-pedido">
   <h2>{{ resumo.chale_nome }}</h2>
   <dl>
@@ -61,6 +169,20 @@
 
     <dt>Pessoas</dt>
     <dd>{{ resumo.pessoas }}</dd>
+
+    <dt>Quem vai</dt>
+    <dd>
+      <ul class="lista-de-hospedes">
+        <li>Você, titular da reserva</li>
+        {% for pessoa in resumo.acompanhantes %}
+        <li>
+          {{ pessoa.nome }}
+          {% if pessoa.documento %}— documento {{ pessoa.documento }}{% endif %}
+          {% if pessoa.menor_de_idade %}— menor de idade{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </dd>
 
     <dt>Valor total</dt>
     <dd><strong>{{ resumo.total|reais }}</strong></dd>
@@ -104,10 +226,17 @@
 
 <form method="post" action="{{ url_for('reservas.pedir') }}" class="formulario">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <input type="hidden" name="chale" value="{{ resumo.chale_id }}">
-  <input type="hidden" name="entrada" value="{{ resumo.entrada|iso }}">
-  <input type="hidden" name="saida" value="{{ resumo.saida|iso }}">
-  <input type="hidden" name="pessoas" value="{{ resumo.pessoas }}">
+  {{ escolha_oculta(resumo.chale_id, resumo.entrada|iso, resumo.saida|iso,
+                    resumo.pessoas) }}
+  {% for pessoa in resumo.acompanhantes %}
+  <input type="hidden" name="acompanhante_{{ loop.index }}_nome"
+         value="{{ pessoa.nome }}">
+  <input type="hidden" name="acompanhante_{{ loop.index }}_documento"
+         value="{{ pessoa.documento or '' }}">
+  {% if pessoa.menor_de_idade %}
+  <input type="hidden" name="acompanhante_{{ loop.index }}_menor" value="sim">
+  {% endif %}
+  {% endfor %}
 
   <label class="aceite">
     <input type="checkbox" name="aceite" value="sim" required>

@@ -165,6 +165,24 @@ def aad_contato(identificador) -> bytes:
     return f"contato:{identificador}".encode("utf-8")
 
 
+def aad_acompanhante(reserva_id, ordem, campo: str) -> bytes:
+    """A etiqueta de um campo de acompanhante — Etapa 5, Bloco 15.
+
+    Ao contrário de `hospede` e `contato`, a etiqueta não usa o
+    identificador da linha: ele só existe depois do INSERT, e a aplicação
+    não tem UPDATE nesta tabela para gravar em duas fases. Usa a reserva
+    e a posição na lista, conhecidas antes, e únicas pela restrição
+    `uq_acompanhante_reserva_ordem`.
+
+    O nome do campo entra também. Sem ele, o bloco do nome e o do
+    documento de uma mesma linha poderiam ser trocados entre si sem que a
+    verificação reclamasse.
+    """
+    return f"acompanhante:{int(reserva_id)}:{int(ordem)}:{campo}".encode(
+        "utf-8"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Cifragem
 # ---------------------------------------------------------------------------

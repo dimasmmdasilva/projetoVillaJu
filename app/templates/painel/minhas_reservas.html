@@ -55,6 +55,23 @@
     </p>
   </header>
 
+  {# Bloco 15: quem vai. O documento chega aqui já mascarado pela rota. #}
+  {% set pessoas = acompanhantes.get(reserva.id, []) if acompanhantes else [] %}
+  {% if pessoas %}
+  <div class="cartao-reserva__hospedes">
+    Acompanhantes:
+    <ul>
+      {% for pessoa in pessoas %}
+      <li>
+        {{ pessoa.nome }}
+        {% if pessoa.documento %}— documento {{ pessoa.documento }}{% endif %}
+        {% if pessoa.menor_de_idade %}— menor de idade{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
   {% if estado.total %}
   <p class="cartao-reserva__total">
     Valor total: <strong>{{ estado.total|reais }}</strong>

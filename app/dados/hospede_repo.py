@@ -113,6 +113,12 @@ _SQL_POR_DOCUMENTO_BUSCA = (
     "FROM hospede WHERE documento_busca = %s LIMIT 1"
 )
 
+# Etapa 5, Bloco 15: o documento de um acompanhante não pode ser o do
+# próprio titular. A comparação é pelo índice, sem decifrar nada.
+_SQL_DOCUMENTO_DO_HOSPEDE = (
+    "SELECT COUNT(*) FROM hospede WHERE id = %s AND documento_busca = %s"
+)
+
 _SQL_LISTAR = (
     "SELECT id, nome_cif, nome_nonce, nome_tag, "
     "       documento_cif, documento_nonce, documento_tag, "
@@ -394,6 +400,24 @@ def buscar_por_documento(documento: str, usuario_id=None):
         linha = cursor.fetchone()
 
     return _decifrar(linha) if linha else None
+
+
+def documento_e_do_hospede(hospede_id, documento: str,
+                           usuario_id=None) -> bool:
+    """O documento informado é o deste hóspede? Compara pelo índice HMAC.
+
+    A normalização do índice ignora pontuação: "529.982.247-25" e
+    "52998224725" são o mesmo documento.
+    """
+    if not documento or not documento.strip():
+        return False
+
+    with obter_cursor(usuario_id=usuario_id) as cursor:
+        cursor.execute(
+            _SQL_DOCUMENTO_DO_HOSPEDE,
+            (hospede_id, cripto.indice_documento(documento)),
+        )
+        return cursor.fetchone()[0] > 0
 
 
 def listar(limite: int = 200, usuario_id=None) -> list:

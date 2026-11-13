@@ -170,6 +170,7 @@ FOR EACH ROW
 BEGIN
     DECLARE v_capacidade TINYINT UNSIGNED DEFAULT NULL;
     DECLARE v_conflito INT DEFAULT 0;
+    DECLARE v_acompanhantes INT DEFAULT 0;
 
     IF NEW.data_saida <= NEW.data_entrada THEN
         SIGNAL SQLSTATE '45000'
@@ -193,6 +194,18 @@ BEGIN
     IF NEW.num_pessoas > v_capacidade THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'Número de pessoas acima da capacidade do chalé.';
+    END IF;
+
+    -- Etapa 5, Bloco 15. A recepção edita o número de pessoas; sem esta
+    -- recusa, uma reserva com 3 acompanhantes gravados poderia passar a
+    -- dizer 2 pessoas. O titular conta como uma delas.
+    SELECT COUNT(*) INTO v_acompanhantes
+    FROM acompanhante
+    WHERE reserva_id = NEW.id;
+
+    IF NEW.num_pessoas < v_acompanhantes + 1 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'O número de pessoas não pode ficar abaixo do titular mais os acompanhantes registrados.';
     END IF;
 
     IF NEW.situacao IN ('pendente', 'confirmada') THEN
@@ -589,6 +602,48 @@ FOR EACH ROW
 BEGIN
     SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Pagamento registrado não se apaga.';
+END$$
+
+
+-- ===========================================================================
+-- GRUPO 7 - Acompanhantes (Etapa 5, Bloco 15)
+-- ===========================================================================
+-- A regra de quantidade mora no banco, como a de sobreposição: uma reserva
+-- de N pessoas tem no máximo N - 1 acompanhantes, porque o titular conta
+-- como uma. A tela oferece só os campos certos e o serviço confere de
+-- novo, mas quem decide é este gatilho.
+--
+-- O FOR UPDATE trava a linha da reserva: dois INSERT concorrentes para a
+-- mesma reserva contam um depois do outro, e não ambos sobre a mesma
+-- contagem antiga. É a mesma trava que impede a recepção de baixar o
+-- número de pessoas enquanto a lista está sendo gravada.
+
+DROP TRIGGER IF EXISTS trg_acompanhante_antes_inserir$$
+CREATE TRIGGER trg_acompanhante_antes_inserir
+BEFORE INSERT ON acompanhante
+FOR EACH ROW
+BEGIN
+    DECLARE v_pessoas TINYINT UNSIGNED DEFAULT NULL;
+    DECLARE v_existentes INT DEFAULT 0;
+
+    SELECT num_pessoas INTO v_pessoas
+    FROM reserva
+    WHERE id = NEW.reserva_id
+    FOR UPDATE;
+
+    -- Reserva inexistente: a chave estrangeira recusa, com a mensagem dela.
+    IF v_pessoas IS NOT NULL THEN
+        SELECT COUNT(*) INTO v_existentes
+        FROM acompanhante
+        WHERE reserva_id = NEW.reserva_id;
+
+        IF v_existentes >= v_pessoas - 1 THEN
+            SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'A reserva já tem todos os acompanhantes que o número de pessoas permite.';
+        END IF;
+    END IF;
+
+    SET NEW.criado_em = NOW();
 END$$
 
 DELIMITER ;

@@ -115,6 +115,22 @@ COLUNAS = {
         "registrado_por": ("int", False),
         "registrado_em": ("datetime", False),
     },
+    # Etapa 5, Bloco 15. Cifrada como `hospede`; o documento é anulável
+    # porque menor de idade pode não ter.
+    "acompanhante": {
+        "id": ("int", False),
+        "reserva_id": ("int", False),
+        "ordem": ("tinyint", False),
+        "nome_cif": ("varbinary", False),
+        "nome_nonce": ("varbinary", False),
+        "nome_tag": ("varbinary", False),
+        "documento_cif": ("varbinary", True),
+        "documento_nonce": ("varbinary", True),
+        "documento_tag": ("varbinary", True),
+        "menor_de_idade": ("tinyint", False),
+        "cripto_versao": ("tinyint", False),
+        "criado_em": ("datetime", False),
+    },
     "log_auditoria": {
         "id": ("bigint", False),
         "usuario_id": ("int", True),
@@ -167,6 +183,8 @@ CHAVES_ESTRANGEIRAS = {
     # RESTRICT nos dois: o lançamento não perde a reserva nem o autor.
     ("pagamento", "reserva_id"): ("reserva", "RESTRICT"),
     ("pagamento", "registrado_por"): ("usuario", "RESTRICT"),
+    # RESTRICT: quem se hospedou é histórico da reserva.
+    ("acompanhante", "reserva_id"): ("reserva", "RESTRICT"),
 }
 
 UNICIDADE = [

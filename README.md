@@ -425,9 +425,9 @@ afrouxar a política.
 | 12 | Mensagem em HTML | opcional |
 | 13 | Ajustes de interface | concluído |
 | 14 | Recuperação de senha pelo link de e-mail | concluído |
-| 15 | Quem vai se hospedar: número de pessoas e acompanhantes | a fazer |
+| 15 | Quem vai se hospedar: número de pessoas e acompanhantes | concluído |
 
-Ordem dos que faltam: **15 → 8 → 9**, e o 12 por último.
+Ordem dos que faltam: **8 → 9**, e o 12 por último.
 
 > **O Bloco 11 — contas da equipe — saiu do escopo em 13/11.** Contas de
 > administrador e recepcionista são provisionadas uma vez, na instalação,

@@ -277,6 +277,41 @@ def test_aplicacao_nao_esvazia_o_livro_de_pagamentos(app):
     _recusado(app, "TRUNCATE TABLE pagamento")
 
 
+# Acompanhantes: leitura e acréscimo — Etapa 5, Bloco 15
+# ---------------------------------------------------------------------------
+# Não há edição pelo site depois do pedido. A lista de quem se hospedou é
+# histórico da reserva; a aplicação comprometida não a reescreve.
+
+def test_aplicacao_le_acompanhantes(app):
+    app.execute("SELECT COUNT(*) FROM acompanhante")
+    assert app.fetchone() is not None
+
+
+def test_aplicacao_grava_acompanhante(app):
+    """O INSERT é permitido — provado pelo erro que NÃO vem (1452, a
+    reserva não existe, em vez de 1142)."""
+    with pytest.raises(mysql.connector.Error) as erro:
+        app.execute(
+            "INSERT INTO acompanhante (reserva_id, ordem, nome_cif, "
+            "nome_nonce, nome_tag, menor_de_idade) "
+            "VALUES (999999, 1, 'x', 'nnnnnnnnnnnn', 'tttttttttttttttt', TRUE)"
+        )
+
+    assert erro.value.errno != ERRO_SEM_PRIVILEGIO, (
+        "a aplicação não tem INSERT em acompanhante; rode, como root: "
+        "GRANT SELECT, INSERT ON <banco>.acompanhante TO 'villaju_app'@'localhost'"
+    )
+    assert erro.value.errno == 1452
+
+
+def test_aplicacao_nao_altera_acompanhante(app):
+    _recusado(app, "UPDATE acompanhante SET menor_de_idade = TRUE WHERE id > 0")
+
+
+def test_aplicacao_nao_apaga_acompanhante(app):
+    _recusado(app, "DELETE FROM acompanhante WHERE id > 0")
+
+
 # ---------------------------------------------------------------------------
 # A aplicação não altera a estrutura do banco
 # ---------------------------------------------------------------------------
