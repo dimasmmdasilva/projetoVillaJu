@@ -125,7 +125,7 @@ def _corpo(link: str) -> str:
         "ninguém entra na sua conta sabendo apenas o seu endereço de\n"
         "e-mail.\n"
         "\n"
-        "VillaJu — Hospedaria em São Sebastião\n"
+        "VillaJu — Pousada em São Sebastião\n"
         "Esta mensagem é automática. Não responda a este endereço.\n"
     )
 

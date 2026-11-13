@@ -227,7 +227,7 @@ def _corpo_da_confirmacao(nome: str, link: str, prazo: str) -> str:
         "Se não foi você que se cadastrou, não faça nada: a conta não é\n"
         "ativada sem que este link seja aberto.\n"
         "\n"
-        "VillaJu — Hospedaria em São Sebastião\n"
+        "VillaJu — Pousada em São Sebastião\n"
         "Esta mensagem é automática. Não responda a este endereço.\n"
     )
 
@@ -258,7 +258,7 @@ def _corpo_do_aviso(link_de_entrada: str) -> str:
         "Se não foi você, pode ignorar esta mensagem. Ninguém consegue\n"
         "entrar na sua conta sabendo apenas o seu endereço de e-mail.\n"
         "\n"
-        "VillaJu — Hospedaria em São Sebastião\n"
+        "VillaJu — Pousada em São Sebastião\n"
         "Esta mensagem é automática. Não responda a este endereço.\n"
     )
 

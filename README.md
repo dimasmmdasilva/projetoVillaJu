@@ -1,6 +1,6 @@
 # VillaJu — Sistema de Reservas e Divulgação
 
-Sistema web de reservas para a **VillaJu**, hospedaria com cinco chalés na Praia
+Sistema web de reservas para a **VillaJu**, pousada com cinco chalés na Praia
 da Juréia, em São Sebastião (SP). Desenvolvido como atividade de extensão do
 Projeto Integrador do Módulo 4.
 
@@ -14,7 +14,7 @@ Professor orientador: Prof. Dr. Felix Carvalho Rodrigues
 
 ## O problema
 
-A hospedaria não possui sistema próprio. O controle de reservas é manual e
+A pousada não possui sistema próprio. O controle de reservas é manual e
 disperso entre conversas de aplicativo e anotações, o que produz três problemas
 concretos:
 
@@ -44,7 +44,7 @@ segurança, não de organização.
 
 **Nenhuma delas mostra preço.** O valor aparece depois do cadastro
 confirmado, na tela de reserva, onde a pessoa já está identificada.
-Publicar a tabela faria a hospedaria perder a margem de negociar caso a
+Publicar a tabela faria a pousada perder a margem de negociar caso a
 caso.
 
 ### Face interna — exige login, com três perfis
@@ -428,7 +428,7 @@ afrouxar a política.
 
 > **O Bloco 11 — contas da equipe — saiu do escopo em 13/11.** Contas de
 > administrador e recepcionista são provisionadas uma vez, na instalação,
-> por `banco/04_dados_ficticios.sql` — são três pessoas numa hospedaria
+> por `banco/04_dados_ficticios.sql` — são três pessoas numa pousada
 > de cinco chalés. O RF07 e o RF08 continuam atendidos: eles exigem
 > autenticação e os três perfis operando, e os três operam.
 >
@@ -445,7 +445,7 @@ afrouxar a política.
 > estão no escopo e não vão estar.
 >
 > **O sistema não transaciona.** O Pix acontece inteiramente fora dele, entre o
-> aplicativo do banco do hóspede e o da hospedaria; o que o sistema faz é
+> aplicativo do banco do hóspede e o da pousada; o que o sistema faz é
 > registrar que alguém da equipe conferiu a entrada, contar o tempo e
 > calcular a elegibilidade da devolução. Não há intermediário de
 > pagamento, geração de cobrança, conciliação automática nem estorno
