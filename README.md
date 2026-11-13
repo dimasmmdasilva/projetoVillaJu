@@ -420,11 +420,14 @@ afrouxar a política.
 | 6 | Portal do hóspede — perfil, troca de senha, reservas separadas | concluído |
 | 7 | Reserva pelo hóspede, com o prazo do Pix | concluído |
 | 8 | Controle de pagamentos no painel do administrador | a fazer |
-| 9 | Cancelamento com cálculo da devolução | a fazer |
+| 9 | Cancelamento pelo hóspede, com a regra dos 7 dias | a fazer |
 | 10 | Página de cada chalé, com galeria | concluído |
 | 12 | Mensagem em HTML | opcional |
 | 13 | Ajustes de interface | concluído |
 | 14 | Recuperação de senha pelo link de e-mail | concluído |
+| 15 | Quem vai se hospedar: número de pessoas e acompanhantes | a fazer |
+
+Ordem dos que faltam: **15 → 8 → 9**, e o 12 por último.
 
 > **O Bloco 11 — contas da equipe — saiu do escopo em 13/11.** Contas de
 > administrador e recepcionista são provisionadas uma vez, na instalação,
