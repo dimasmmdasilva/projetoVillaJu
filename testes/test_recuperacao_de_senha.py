@@ -20,6 +20,7 @@ O que estes testes guardam:
 5. **Não entra logado depois de redefinir.**
 """
 
+import hashlib
 import pathlib
 import re
 import tempfile
@@ -130,6 +131,20 @@ def _link(pasta):
         if achado:
             return achado.group(1)
     return None
+
+
+def _envelhecer(token, horas=1):
+    """Move a expiração para trás, simulando a passagem do tempo.
+
+    O mesmo recurso de `test_token.py`. Aqui faltava, e por isso nenhum
+    teste deste arquivo via um link de recuperação vencido.
+    """
+    with conexao.obter_cursor() as cursor:
+        cursor.execute(
+            "UPDATE token_acesso SET expira_em = NOW() - INTERVAL %s HOUR "
+            "WHERE token_hash = %s",
+            (horas, hashlib.sha256(token.encode("utf-8")).digest()),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -281,6 +296,43 @@ def test_o_token_e_do_tipo_recuperacao(aplicacao, conta, visitante):
     assert linha["horas"] == 48
 
 
+def test_o_prazo_escrito_no_email_e_o_do_token(
+    aplicacao, conta, visitante, pasta_de_emails, monkeypatch
+):
+    """O e-mail promete o prazo que o token de fato tem.
+
+    A primeira versão tinha "48 horas" escrito à mão no corpo. A
+    sabotagem que encurtou o token para 15 minutos quebrou o teste do
+    prazo no banco, mas **não o do e-mail**: a mensagem continuaria
+    prometendo 48 horas, e quem confiasse nela chegaria com o link
+    vencido.
+
+    Verificado mudando a constante e conferindo os dois lados — o texto e
+    a coluna —, porque é a concordância entre eles que se quer guardar.
+    """
+    monkeypatch.setitem(
+        token_repo.VALIDADE_POR_TIPO, token_repo.RECUPERACAO, 90
+    )
+
+    _pedir(visitante, EMAIL)
+    corpo = _enviadas(pasta_de_emails)[0]["corpo"]
+
+    assert "1 h 30 min" in corpo
+    assert "48 horas" not in corpo
+
+    with aplicacao.app_context():
+        with conexao.obter_cursor(dicionario=True) as cursor:
+            cursor.execute(
+                "SELECT TIMESTAMPDIFF(MINUTE, criado_em, expira_em) AS minutos "
+                "FROM token_acesso ORDER BY id DESC LIMIT 1"
+            )
+            linha = cursor.fetchone()
+
+    # `criado_em` vem do relógio do banco e `expira_em` do Python: a
+    # diferença pode perder um minuto no arredondamento.
+    assert linha["minutos"] in (89, 90)
+
+
 # ---------------------------------------------------------------------------
 # Abrir o link não o consome
 # ---------------------------------------------------------------------------
@@ -335,6 +387,58 @@ def test_conferir_responde_None_uniforme(aplicacao, conta):
         assert token_repo.conferir(
             de_outro_tipo, token_repo.RECUPERACAO
         ) is None
+
+
+def test_conferir_recusa_token_vencido(aplicacao, conta):
+    """O quarto caso de falha, que faltava.
+
+    O teste acima cobria inexistente, vazio e de outro tipo, e o de uso
+    único cobre o consumido. **Vencido não estava em lugar nenhum**: a
+    sabotagem que tirou a verificação de prazo de `conferir` passou pelos
+    72 testes deste arquivo e do `test_token.py` sem quebrar um.
+
+    O `consumir` tem a própria verificação de prazo e o seu próprio teste
+    no Bloco 2, e é por isso que o furo não virava troca de senha com
+    link vencido. Mas `conferir` é quem decide se o formulário aparece, e
+    o contrato dela é responder `None` uniforme para os quatro casos.
+    """
+    with aplicacao.app_context():
+        token = token_repo.gerar(
+            conta["usuario_id"], token_repo.RECUPERACAO
+        )
+        assert token_repo.conferir(token, token_repo.RECUPERACAO) == \
+            conta["usuario_id"], "o token precisa valer antes de envelhecer"
+
+        _envelhecer(token, horas=1)
+
+        assert token_repo.conferir(token, token_repo.RECUPERACAO) is None
+
+
+def test_o_link_vencido_nao_abre_o_formulario(
+    visitante, conta, pasta_de_emails
+):
+    """O mesmo, pelo lado de quem clica.
+
+    Sem a verificação, o link vencido abriria o formulário, a pessoa
+    escolheria a senha nova, e só no envio descobriria que nada mudou —
+    porque o `consumir` recusa. A tela precisa dizer isso antes, e dizer
+    do mesmo jeito que diz para um link que nunca existiu.
+    """
+    _pedir(visitante, EMAIL)
+    token = _link(pasta_de_emails)
+
+    with visitante.application.app_context():
+        _envelhecer(token, horas=1)
+
+    vencido = visitante.get(f"/redefinir/{token}")
+    inexistente = visitante.get(f"/redefinir/{'z' * 43}")
+
+    assert vencido.status_code == 400
+    assert 'name="senha"' not in vencido.data.decode()
+    assert vencido.data == inexistente.data, (
+        "a tela do link vencido difere da do inexistente: quem sonda "
+        "aprenderia que aquele token existiu"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -644,12 +748,45 @@ def test_o_pedido_e_a_troca_ficam_no_log(
             if linha["acao"] == auditoria_repo.SENHA_ALTERADA
         ]
 
-    detalhes = " ".join(str(linha["detalhe"]) for linha in linhas)
+    detalhes = [str(linha["detalhe"]) for linha in linhas]
 
-    assert "enviado" in detalhes, "o pedido do link não foi registrado"
-    assert "redefinida" in detalhes, "a troca não foi registrada"
-    assert NOVA not in detalhes, "a senha foi parar no log"
-    assert SENHA not in detalhes
+    # Linha por linha, e com o texto inteiro. A primeira versão procurava
+    # "enviado" no texto SOMADO das linhas — e a linha da troca diz
+    # "Senha redefinida pelo link enviado por e-mail". A sabotagem que
+    # removeu o registro do pedido passou: a palavra vinha da outra linha.
+    assert "Link de redefinição de senha enviado" in detalhes, (
+        "o pedido do link não foi registrado"
+    )
+    assert "Senha redefinida pelo link enviado por e-mail" in detalhes, (
+        "a troca não foi registrada"
+    )
+    assert len(detalhes) == 2, detalhes
+
+    juntos = " ".join(detalhes)
+    assert NOVA not in juntos, "a senha foi parar no log"
+    assert SENHA not in juntos
+
+
+def test_o_pedido_sozinho_fica_no_log(aplicacao, conta, visitante):
+    """O pedido sem troca depois — que é o caso que interessa.
+
+    Quem pede o link e não o usa pode ser a própria pessoa, que lembrou a
+    senha, ou alguém sondando a conta. Nos dois casos o pedido precisa
+    estar no log, e aqui não há linha de troca que possa responder no
+    lugar dele.
+    """
+    _pedir(visitante, EMAIL)
+
+    with aplicacao.app_context():
+        linhas = [
+            linha for linha in auditoria_repo.listar(limite=80)
+            if linha["acao"] == auditoria_repo.SENHA_ALTERADA
+        ]
+
+    assert [linha["detalhe"] for linha in linhas] == [
+        "Link de redefinição de senha enviado"
+    ]
+    assert linhas[0]["usuario_id"] == conta["usuario_id"]
 
 
 # ---------------------------------------------------------------------------

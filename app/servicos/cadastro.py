@@ -187,17 +187,10 @@ def _janela(configuracao) -> int:
 def _texto_do_prazo(minutos: int) -> str:
     """O prazo em português, para o corpo do e-mail.
 
-    Escrito à mão e não com uma biblioteca de formatação: são três casos,
-    e o texto precisa dizer também que o link é de uso único — informação
+    O texto precisa dizer também que o link é de uso único — informação
     que nenhuma formatação de duração traria.
     """
-    if minutos < 60:
-        quanto = f"{minutos} minutos"
-    elif minutos % 60 == 0:
-        horas = minutos // 60
-        quanto = "1 hora" if horas == 1 else f"{horas} horas"
-    else:
-        quanto = f"{minutos // 60} h {minutos % 60} min"
+    quanto = correio.duracao_por_extenso(minutos)
 
     return (
         f"O link vale por {quanto} e só pode ser usado uma vez. "

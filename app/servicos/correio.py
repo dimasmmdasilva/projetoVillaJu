@@ -132,6 +132,36 @@ def montar(destinatario: str, assunto: str, corpo: str, remetente: str):
     return mensagem
 
 
+def duracao_por_extenso(minutos: int) -> str:
+    """Uma duração em minutos, em português: "15 minutos", "48 horas".
+
+    Escrita à mão e não com uma biblioteca de formatação: são quatro
+    casos.
+
+    **Mora aqui porque é texto de mensagem, e dois serviços o escrevem.**
+    A recuperação de senha tinha "48 horas" escrito à mão no corpo, e a
+    sabotagem que encurtou o token para 15 minutos não quebrou o teste do
+    e-mail: a mensagem continuaria prometendo 48 horas. Uma formatação
+    só, alimentada pela mesma constante que o token usa, é a que não
+    diverge.
+
+    **E não em `cadastro`**, onde nasceu: `cadastro` é a única porta da
+    face pública até `hospede` e `usuario`, e as funções públicas dele só
+    devolvem `None`, `bool` ou `int` — regra que
+    `test_o_servico_de_cadastro_nao_devolve_dado_de_pessoa` guarda. Uma
+    `str` ali, ainda que inofensiva, abriria o precedente de a próxima
+    ser um nome.
+    """
+    if minutos == 1:
+        return "1 minuto"
+    if minutos < 60:
+        return f"{minutos} minutos"
+    if minutos % 60 == 0:
+        horas = minutos // 60
+        return "1 hora" if horas == 1 else f"{horas} horas"
+    return f"{minutos // 60} h {minutos % 60} min"
+
+
 def enviar(destinatario: str, assunto: str, corpo: str, configuracao) -> str:
     """Entrega a mensagem pelo modo configurado.
 

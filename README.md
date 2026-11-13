@@ -269,15 +269,17 @@ Todo teste de proteção foi validado por **sabotagem deliberada**: o alvo é
 quebrado de propósito e se confirma que o teste falha. Teste que nunca
 falha não protege nada.
 
-O método encontrou, até aqui, quatro famílias de teste que não testavam
-nada — e cada uma delas rendeu um teste novo:
+O método encontrou, até aqui, cinco famílias de teste que não testavam
+nada — quatro renderam um teste novo, e a quinta rendeu a remoção de
+código que não protegia nada:
 
 | Família | Exemplo encontrado |
 |---|---|
 | Verifica a presença do certo, não a ausência do errado | um `flash` que não aparecia na tela mas ficava na sessão |
-| Verifica no lugar errado | o argumento de `execute()` e não a constante; a tela e não a sessão; o primeiro nível e não a cadeia de importações |
+| Verifica no lugar errado | o argumento de `execute()` e não a constante; a tela e não a sessão; o primeiro nível e não a cadeia de importações; o texto somado do log e não cada linha |
 | Verifica só o resultado, com proteção redundante | duas condições fazendo o mesmo trabalho: remover qualquer uma não mudava o resultado |
 | Verifica presença quando o problema é **ordem** | a varredura rodava, mas depois das consultas — e quem pagava era quem errava uma letra no e-mail |
+| Verifica uma proteção **que não existe** | a "renovação" de sessão na troca de senha: a sessão do Flask vive no cookie, e o cookie antigo continuava valendo. O código saiu, e um teste passou a demonstrar a limitação |
 
 Quando uma sabotagem é indetectável porque **o banco já garante a
 condição**, o teste honesto prende a invariante da trigger em vez de

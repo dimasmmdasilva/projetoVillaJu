@@ -104,6 +104,13 @@ class ErroDeRecuperacao(ErroDeCadastro):
 
 
 def _corpo(link: str) -> str:
+    # O prazo vem da mesma constante que `token_repo.gerar` usa. Escrito à
+    # mão, a mensagem continuaria prometendo 48 horas depois de o prazo
+    # mudar — e quem confia no e-mail chegaria com o link já vencido.
+    prazo = correio.duracao_por_extenso(
+        token_repo.VALIDADE_POR_TIPO[token_repo.RECUPERACAO]
+    )
+
     return (
         "Olá.\n"
         "\n"
@@ -112,7 +119,7 @@ def _corpo(link: str) -> str:
         "\n"
         f"{link}\n"
         "\n"
-        "O link vale por 48 horas e só pode ser usado uma vez.\n"
+        f"O link vale por {prazo} e só pode ser usado uma vez.\n"
         "\n"
         "Se não foi você, pode ignorar esta mensagem: nada foi alterado, e\n"
         "ninguém entra na sua conta sabendo apenas o seu endereço de\n"
