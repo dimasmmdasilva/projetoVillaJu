@@ -1,6 +1,7 @@
 # Modelo Entidade-Relacionamento — VillaJu
 
 Documentação do modelo de dados implementado em `banco/01_schema.sql`.
+Atualizado em 13/11/2026, com a Etapa 5 até o Bloco 7.
 
 O diagrama abaixo é escrito em Mermaid, que o GitHub renderiza
 automaticamente. Por ser texto, ele vai ao controle de versão como código:
@@ -24,8 +25,14 @@ erDiagram
     HOSPEDE ||--o{ RESERVA : "faz"
     HOSPEDE ||--o| USUARIO : "pode ter conta de acesso"
 
+    HOSPEDE ||--o{ CONTATO : "pode ter originado"
+
     USUARIO ||--o{ RESERVA : "registra"
     USUARIO ||--o{ LOG_AUDITORIA : "é autor de"
+    USUARIO ||--o{ TOKEN_ACESSO : "recebe link"
+
+    RESERVA ||--o{ PAGAMENTO : "tem lançamentos"
+    USUARIO ||--o{ PAGAMENTO : "conferiu no extrato"
 
     CHALE {
         int id PK
@@ -92,7 +99,15 @@ erDiagram
         date data_saida "exclusive"
         tinyint num_pessoas "limitado pela capacidade"
         enum situacao "pendente, confirmada, cancelada, concluida"
-        decimal valor_total
+        decimal valor_total "congelado na criação"
+        enum modalidade "sinal, integral; nula se registrada pela equipe"
+        datetime prazo_pagamento "NOW() + 90 min, calculado pelo banco"
+        datetime prazo_restante "23h59 de 2 dias antes da entrada"
+        datetime pix_informado_em "declaração do hóspede"
+        datetime restante_informado_em
+        datetime regulamento_aceito_em
+        datetime cancelado_em
+        enum motivo_cancelamento "prazo_do_pix, falta_de_pagamento, pedido_do_hospede, equipe"
         text observacoes "não cifrado: sem dado sensível"
         int criado_por FK
         datetime criado_em
@@ -111,17 +126,39 @@ erDiagram
 
     CONTATO {
         int id PK
-        varchar nome "não cifrado"
-        varchar email "não cifrado"
-        varchar telefone
-        text mensagem
+        varbinary nome_cif "cifrado AES-256-GCM, com nonce e tag"
+        varbinary email_cif "cifrado, com nonce e tag"
+        varbinary telefone_cif "cifrado, opcional"
+        varbinary mensagem_cif "cifrado, opcional"
+        varbinary email_busca "HMAC-SHA256"
+        tinyint cripto_versao
         int chale_interesse_id FK
+        int hospede_id FK "quando o contato virou cadastro"
         date data_entrada_desejada
         date data_saida_desejada
         varchar origem "site, instagram"
         varbinary ip_origem "para limitação de taxa"
-        enum situacao "novo, em_atendimento, respondido, descartado"
+        enum situacao "novo, em_atendimento, respondido, convertido, descartado"
         datetime criado_em
+    }
+
+    TOKEN_ACESSO {
+        int id PK
+        int usuario_id FK
+        varbinary token_hash UK "SHA-256; o token nunca é guardado"
+        enum tipo "confirmacao, recuperacao"
+        datetime expira_em
+        datetime consumido_em "uso único"
+        datetime criado_em
+    }
+
+    PAGAMENTO {
+        int id PK
+        int reserva_id FK
+        enum tipo "sinal, restante, integral, devolucao"
+        decimal valor "positivo na entrada, negativo na devolução"
+        int registrado_por FK "quem conferiu o Pix"
+        datetime registrado_em "preenchido pelo gatilho"
     }
 ```
 
@@ -138,8 +175,12 @@ erDiagram
 | `usuario` | `hospede` | 1:0..1 | **RESTRICT** | A conta precisa ser removida antes, deliberadamente |
 | `log_auditoria` | `usuario` | N:1 | **SET NULL** | **A auditoria sobrevive à exclusão do usuário** |
 | `contato` | `chale` | N:1 | **SET NULL** | O pedido continua válido sem o chalé de interesse |
+| `contato` | `hospede` | N:1 | **SET NULL** | O contato é o registro de que alguém pediu informação, e sobrevive ao cadastro |
+| `token_acesso` | `usuario` | N:1 | **CASCADE** | Token é autorização pendente, não histórico: sem a conta, não autoriza nada |
+| `pagamento` | `reserva` | N:1 | **RESTRICT** | Não se apaga reserva com lançamento |
+| `pagamento` | `usuario` | N:1 | **RESTRICT** | O autor é a parte do lançamento que lhe dá valor; conta de equipe se desativa |
 
-A escolha em `log_auditoria` é a mais importante das sete. Com `CASCADE`,
+A escolha em `log_auditoria` é a mais importante de todas. Com `CASCADE`,
 bastaria apagar uma conta para fazer sumir o rastro de tudo o que ela fez —
 exatamente o que alguém faria para encobrir uma ação indevida. Com
 `SET NULL`, o evento permanece registrado, apenas sem o vínculo.
@@ -156,6 +197,11 @@ exatamente o que alguém faria para encobrir uma ação indevida. Com
 | `log_auditoria` | `idx_log_usuario` | `usuario_id`, `data_hora` | "O que este usuário fez" |
 | `contato` | `idx_contato_situacao` | `situacao`, `criado_em` | Fila de atendimento |
 | `contato` | `idx_contato_ip` | `ip_origem`, `criado_em` | Limitação de taxa do formulário público |
+| `reserva` | `idx_reserva_prazo_pagamento` | `situacao`, `prazo_pagamento` | Varredura dos pedidos com o prazo do Pix vencido |
+| `token_acesso` | `uq_token_hash` | `token_hash` | Consumo do link; único, porque dois hashes iguais seriam o mesmo token |
+| `token_acesso` | `idx_token_usuario` | `usuario_id`, `tipo`, `consumido_em` | Invalidar os pendentes quando um link novo é emitido |
+| `pagamento` | `uq_pagamento_reserva_tipo` | `reserva_id`, `tipo` | **Único**: um clique duplo não conta o sinal duas vezes |
+| `pagamento` | `idx_pagamento_data` | `registrado_em` | A soma do mês no painel do administrador |
 
 A ordem das colunas em `idx_reserva_disponibilidade` não é arbitrária. Um
 índice composto só é aproveitado da esquerda para a direita: filtra-se
@@ -195,12 +241,41 @@ permite busca e restrição de unicidade, e não é reversível.
 Hash simples não serviria: sem chave, um CPF tem cerca de 10¹¹
 possibilidades e é quebrável por força bruta em segundos.
 
-### Por que `contato` não é cifrada
+### Por que `contato` passou a ser cifrada
 
-São dados fornecidos voluntariamente por quem pede orçamento e ainda não é
-hóspede. A decisão está registrada como **em aberto** no plano: se a
-responsável entender que devem ser protegidos, aplica-se o mesmo mecanismo
-de `hospede`.
+A primeira versão guardava o pedido de contato em texto simples, com o
+argumento de que é dado de menor sensibilidade que o cadastro de hóspede.
+**O argumento foi recusado em 06/11:** é a mesma pessoa, com o mesmo nome
+e o mesmo telefone. Desde a Etapa 4, `contato` usa o mesmo mecanismo de
+`hospede` — AES-256-GCM com nonce e tag por campo, e HMAC-SHA256 para a
+busca pelo e-mail.
+
+### Por que o livro de pagamentos só aceita acréscimo
+
+O sistema não transaciona: o Pix acontece entre o aplicativo do banco do
+hóspede e o da pousada. O que a tabela `pagamento` guarda é **quem da
+equipe afirmou ter visto o dinheiro no extrato, e quando** — e essa é a
+única prova que existe. Por isso duas camadas, como no `log_auditoria`:
+
+- **Privilégio:** a conta da aplicação tem só `SELECT` e `INSERT`. Nem a
+  aplicação comprometida reescreve um lançamento.
+- **Gatilho:** `UPDATE` e `DELETE` são recusados também para quem entra no
+  banco com outra conta, com o Workbench aberto, por exemplo.
+
+Correção é lançamento novo. A devolução entra com valor negativo, no mês
+em que acontece, para que a soma do mês seja a soma simples da coluna.
+
+### Por que o prazo do Pix é calculado pelo banco
+
+`prazo_pagamento` é gravado como `NOW() + 90 minutos` no próprio `INSERT`,
+e conferido com `prazo_pagamento > NOW()` no `UPDATE` que registra o "Fiz o
+Pix". Um relógio só para a mesma regra: no Bloco 4 da Etapa 5, dois
+relógios para um prazo foram defeito.
+
+O gatilho de não-sobreposição **não mudou**: ele trata todo `pendente`
+como ocupação, inclusive um pedido vencido que ainda não foi cancelado.
+Por isso toda escrita de reserva cancela os pedidos vencidos **antes** de
+gravar, na mesma transação — e há teste que prende esse fato do banco.
 
 ### Por que o intervalo de reserva é semiaberto
 

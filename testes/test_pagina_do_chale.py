@@ -842,23 +842,24 @@ def test_a_marca_da_barra_leva_a_vitrine(aplicacao):
 def test_a_tela_de_reservas_vazia_diz_o_que_fazer(aplicacao):
     """Uma tela vazia que nao diz o que fazer e um beco.
 
-    Enquanto a reserva pelo proprio hospede nao existir — ela e o Bloco 7
-    da Etapa 5 —, o caminho e consultar as datas e falar com a recepcao. A
-    tela diz isso em vez de deixar a pessoa procurando um botao que ainda
-    nao ha.
+    Ate o Bloco 7, o caminho era consultar as datas e falar com a
+    recepcao, e a tela dizia que a reserva pelo site estava "em
+    construcao". Com o Bloco 7, o caminho e o proprio pedido — e a nota
+    antiga, que passou a ser mentira, nao pode sobreviver.
     """
     html = _entrar_como(aplicacao, HOSPEDE).get(
         "/reservas/minhas"
     ).data.decode()
 
     # Verificado com ou sem reservas: a massa dá reservas ao `joao`, e o
-    # aviso precisa aparecer nos dois casos — quem já tem uma reserva
-    # continua sem poder criar a próxima.
-    assert "/disponibilidade" in html
-    assert "/contato" in html
-    assert "em construção" in html, (
-        "a tela precisa dizer que a reserva pelo site ainda não existe, "
-        "em vez de deixar a pessoa procurando o botão"
+    # caminho precisa aparecer nos dois casos — quem já tem uma reserva
+    # também faz a próxima.
+    assert 'href="/reservas/pedir"' in html, (
+        "a tela precisa oferecer o pedido de reserva"
+    )
+    assert "Fazer uma reserva" in html
+    assert "em construção" not in html, (
+        "a nota de que a reserva pelo site não existe ficou para trás"
     )
 
 

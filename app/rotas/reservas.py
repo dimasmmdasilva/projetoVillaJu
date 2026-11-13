@@ -10,6 +10,7 @@ import logging
 from flask import (
     Blueprint,
     abort,
+    current_app,
     flash,
     redirect,
     render_template,
@@ -17,7 +18,7 @@ from flask import (
     url_for,
 )
 
-from app.dados import auditoria_repo, reserva_repo, usuario_repo
+from app.dados import auditoria_repo, chale_repo, reserva_repo, usuario_repo
 from app.dados.erros import ErroDeDados
 from app.dados.reserva_repo import ConflitoDePeriodo
 from app.seguranca import senhas
@@ -28,7 +29,9 @@ from app.seguranca.autorizacao import (
     requer_perfil,
     usuario_atual,
 )
+from app.extensoes import limiter
 from app.seguranca.cripto import FalhaDeAutenticacao
+from app.servicos import pedido, regulamento
 
 # A exigência de tamanho da senha vive em `app/servicos/cadastro.py`, que
 # é onde a política foi escrita. Importada e não repetida: uma política
@@ -377,6 +380,10 @@ def minhas():
     # devolve None e a linha mostra um traço.
     contas = {reserva["id"]: _conta_da_reserva(reserva) for reserva in lista}
 
+    # Etapa 5, Bloco 7: cada reserva em andamento vira um card, com o que
+    # falta pagar, o prazo e os botões que o banco aceitaria agora.
+    cartoes = {reserva["id"]: pedido.cartao(reserva) for reserva in em_andamento}
+
     return render_template(
         "painel/minhas_reservas.html",
         usuario=usuario,
@@ -384,6 +391,9 @@ def minhas():
         historico=historico,
         reservas=lista,
         contas=contas,
+        cartoes=cartoes,
+        chave_pix=getattr(current_app.villaju, "PIX_CHAVE", ""),
+        atualizar=any(c["atualizar"] for c in cartoes.values()),
         vinculada=True,
     )
 
@@ -607,3 +617,149 @@ def trocar_senha():
 
     flash("Senha alterada.", "sucesso")
     return redirect(url_for("reservas.perfil"))
+
+
+# ---------------------------------------------------------------------------
+# Etapa 5, Bloco 7 — o pedido do hóspede e o Pix
+# ---------------------------------------------------------------------------
+#
+# Três rotas, todas do perfil hóspede:
+#
+# - `/reservas/pedir`: escolher, ver o valor e os prazos, aceitar o
+#   regulamento, pedir;
+# - `/reservas/<n>/pix`: declarar que fez o Pix;
+# - `/reservas/<n>/desistir`: desistir de um pedido ainda sem Pix.
+#
+# **As duas últimas levam o número da reserva no endereço**, e por isso o
+# dono da reserva vai na condição do UPDATE, no repositório. Uma reserva
+# de outra pessoa não é encontrada, e a resposta é **idêntica** à de uma
+# reserva que não existe ou que já saiu do prazo: o mesmo redirecionamento,
+# a mesma mensagem. Quem troca o número no endereço não aprende nada.
+
+# Um pedido por vez já limita o estrago de quem tentasse bloquear chalés;
+# o limite de taxa limita o ciclo de pedir e desistir.
+_LIMITE_DE_PEDIDOS = "10 per hour"
+
+_RECUSA_UNIFORME = (
+    "Esta reserva não aceita mais essa operação. Confira a situação abaixo."
+)
+
+
+def _hospede_conectado():
+    """A conta conectada, relida do banco, com o vínculo de hóspede.
+
+    O vínculo é exigido pela trigger de integridade de perfil. Sem ele, a
+    conta está malformada, e não se adivinha a quem ela pertence.
+    """
+    usuario = usuario_atual()
+    if not usuario.get("hospede_id"):
+        abort(403)
+    return usuario
+
+
+@reservas.route("/pedir", methods=["GET", "POST"])
+@requer_perfil(HOSPEDE)
+@limiter.limit(_LIMITE_DE_PEDIDOS, methods=["POST"])
+def pedir():
+    """Pedido de reserva em duas etapas, sem JavaScript.
+
+    **GET sem a escolha completa:** o formulário — chalé, datas, pessoas.
+    Ele envia por GET para esta mesma rota, porque escolher não altera
+    nada.
+
+    **GET com a escolha completa:** o resumo — valor, modalidade, prazos,
+    se há devolução — com o regulamento e a caixa de aceite. Nada é
+    gravado.
+
+    **POST:** grava. O valor é recalculado aqui de novo, a partir de
+    chalé, datas e pessoas; nenhum valor vem do formulário.
+    """
+    usuario = _hospede_conectado()
+
+    if request.method == "POST":
+        try:
+            identificador = pedido.pedir(usuario, request.form)
+        except pedido.ErroDePedido as erro:
+            flash(str(erro), "erro")
+            return redirect(url_for(
+                "reservas.pedir",
+                chale=request.form.get("chale", ""),
+                entrada=request.form.get("entrada", ""),
+                saida=request.form.get("saida", ""),
+                pessoas=request.form.get("pessoas", ""),
+            ))
+
+        flash(
+            "Pedido registrado. Faça o Pix e informe pelo botão do card "
+            "abaixo.",
+            "sucesso",
+        )
+        return redirect(
+            url_for("reservas.minhas") + f"#reserva-{identificador}"
+        )
+
+    escolha = {
+        campo: (request.args.get(campo) or "").strip()
+        for campo in ("chale", "entrada", "saida", "pessoas")
+    }
+
+    resumo = None
+    erro = None
+    if all(escolha.values()):
+        try:
+            resumo = pedido.simular(escolha)
+        except pedido.ErroDePedido as falha:
+            erro = str(falha)
+        else:
+            if not resumo["disponivel"]:
+                erro = (
+                    f"O chalé {resumo['chale_nome']} já está reservado em "
+                    f"parte desse período. Escolha outras datas."
+                )
+                resumo = None
+
+    return render_template(
+        "painel/pedir_reserva.html",
+        chales=chale_repo.listar(apenas_ativos=True),
+        escolha=escolha,
+        resumo=resumo,
+        erro=erro,
+        regras=regulamento.regras(),
+        minutos_para_o_pix=regulamento.MINUTOS_PARA_O_PIX,
+        hoje=dt.date.today().isoformat(),
+    )
+
+
+@reservas.route("/<int:identificador>/pix", methods=["POST"])
+@requer_perfil(HOSPEDE)
+def informar_pix(identificador):
+    """O hóspede declara que fez o Pix — do primeiro valor ou do restante."""
+    usuario = _hospede_conectado()
+
+    if pedido.informar_pix(
+        usuario, identificador, request.form.get("etapa", "")
+    ):
+        flash(
+            "Obrigado! A equipe da pousada vai conferir o Pix no extrato "
+            "e confirmar.",
+            "sucesso",
+        )
+    else:
+        flash(_RECUSA_UNIFORME, "erro")
+
+    return redirect(url_for("reservas.minhas"))
+
+
+@reservas.route("/<int:identificador>/desistir", methods=["POST"])
+@requer_perfil(HOSPEDE)
+def desistir(identificador):
+    """Desiste de um pedido sem Pix. O chalé volta a ficar livre na hora."""
+    usuario = _hospede_conectado()
+
+    if pedido.desistir(usuario, identificador):
+        flash("Pedido cancelado. O chalé voltou a ficar disponível.", "sucesso")
+    else:
+        flash(_RECUSA_UNIFORME, "erro")
+
+    return redirect(url_for("reservas.minhas"))
+

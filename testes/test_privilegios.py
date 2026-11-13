@@ -231,6 +231,53 @@ def test_aplicacao_nao_esvazia_o_log(app):
 
 
 # ---------------------------------------------------------------------------
+# O livro de pagamentos é append-only — Etapa 5, Bloco 7
+# ---------------------------------------------------------------------------
+# O mesmo desenho do log, e pela mesma razão, aqui mais forte: o dinheiro
+# não passa pelo sistema, e este livro é a única prova de quem afirmou ter
+# visto o Pix no extrato. Os gatilhos protegem contra quem entra no banco
+# com outra conta; estes testes provam a outra camada, a do privilégio.
+
+def test_aplicacao_le_o_livro_de_pagamentos(app):
+    app.execute("SELECT COUNT(*) FROM pagamento")
+    assert app.fetchone() is not None
+
+
+def test_aplicacao_lanca_pagamento(app):
+    """O INSERT é permitido — provado pelo erro que NÃO vem.
+
+    O banco desta bateria não tem reserva nem usuário, então o
+    lançamento falha pela chave estrangeira (1452). Se faltasse o
+    privilégio, a recusa viria antes, com 1142. Receber 1452 é a prova de
+    que o servidor deixou a aplicação chegar até a verificação do dado.
+    """
+    with pytest.raises(mysql.connector.Error) as erro:
+        app.execute(
+            "INSERT INTO pagamento (reserva_id, tipo, valor, registrado_por) "
+            "VALUES (999999, 'sinal', 650.00, 999999)"
+        )
+
+    assert erro.value.errno != ERRO_SEM_PRIVILEGIO, (
+        "a aplicação não tem INSERT em pagamento; rode, como root: "
+        "GRANT SELECT, INSERT ON <banco>.pagamento TO 'villaju_app'@'localhost'"
+    )
+    assert erro.value.errno == 1452
+
+
+def test_aplicacao_nao_altera_pagamento(app):
+    """Reescrever um lançamento falsificaria quem conferiu o quê."""
+    _recusado(app, "UPDATE pagamento SET valor = 0.01 WHERE id > 0")
+
+
+def test_aplicacao_nao_apaga_pagamento(app):
+    _recusado(app, "DELETE FROM pagamento WHERE id > 0")
+
+
+def test_aplicacao_nao_esvazia_o_livro_de_pagamentos(app):
+    _recusado(app, "TRUNCATE TABLE pagamento")
+
+
+# ---------------------------------------------------------------------------
 # A aplicação não altera a estrutura do banco
 # ---------------------------------------------------------------------------
 

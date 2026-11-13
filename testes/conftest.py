@@ -49,6 +49,8 @@ TABELAS = [
     "contato",
     # Acrescentada na Etapa 5, para o fluxo de confirmação por e-mail.
     "token_acesso",
+    # Etapa 5, Bloco 7: o livro dos Pix conferidos pela equipe.
+    "pagamento",
 ]
 
 

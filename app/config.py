@@ -260,6 +260,16 @@ class Configuracao:
         # e o documento. O custo é um incômodo, não um impasse.
         self.CADASTRO_MINUTOS = _inteiro("VILLAJU_CADASTRO_MINUTOS", 5)
 
+        # --- A chave Pix da pousada (Etapa 5, Bloco 7) ----------------------
+        # Exibida ao hóspede, como texto, no card da reserva. Sem QR Code:
+        # o sistema não gera cobrança, só informa para onde mandar.
+        #
+        # **Sem valor padrão, de propósito.** Uma chave fictícia escrita no
+        # código poderia chegar à produção, e o hóspede mandaria dinheiro
+        # para quem fosse dono daquele número. Sem a variável, o card diz
+        # para falar com a recepção.
+        self.PIX_CHAVE = _opcional("VILLAJU_PIX_CHAVE", "")
+
         self.SMTP_HOST = _opcional("VILLAJU_SMTP_HOST", "")
         self.SMTP_PORTA = _inteiro("VILLAJU_SMTP_PORTA", 587)
         self.SMTP_USUARIO = _opcional("VILLAJU_SMTP_USUARIO", "")

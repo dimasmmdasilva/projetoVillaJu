@@ -85,16 +85,26 @@ def _numeros_de_reserva(html: str) -> set:
     pessoas entravam no conjunto como se fossem identificadores — o que
     fazia o teste de vazamento acusar interseção por coincidência
     aritmética, não por reserva alheia exibida.
-    """
-    corpo = re.search(r"<tbody>(.*?)</tbody>", html, re.S)
-    if not corpo:
-        return set()
 
+    **Todas as tabelas, e também os cards.** A segunda versão lia só o
+    PRIMEIRO `<tbody>` da página, com `re.search`. Enquanto "Em andamento"
+    era tabela, ela era a primeira, e o Histórico nunca foi olhado: uma
+    reserva alheia que vazasse para lá passaria pelo teste de vazamento.
+    Quem expôs foi o Bloco 7, que transformou "Em andamento" em cards —
+    o teste passou a ler o Histórico por acaso, e o acaso não é
+    cobertura. Os cards são lidos pelo `id="reserva-N"` do `<article>`.
+    """
     numeros = set()
-    for linha in re.findall(r"<tr>(.*?)</tr>", corpo.group(1), re.S):
-        primeira = re.search(r"<td>\s*(\d+)\s*</td>", linha)
-        if primeira:
-            numeros.add(int(primeira.group(1)))
+
+    for corpo in re.findall(r"<tbody>(.*?)</tbody>", html, re.S):
+        for linha in re.findall(r"<tr>(.*?)</tr>", corpo, re.S):
+            primeira = re.search(r"<td>\s*(\d+)\s*</td>", linha)
+            if primeira:
+                numeros.add(int(primeira.group(1)))
+
+    for numero in re.findall(r'<article[^>]*\bid="reserva-(\d+)"', html):
+        numeros.add(int(numero))
+
     return numeros
 
 

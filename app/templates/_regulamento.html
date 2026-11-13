@@ -1,0 +1,15 @@
+{# O regulamento da pousada — Etapa 5, Bloco 7.
+
+   Um trecho só, incluído na página inicial e na tela de confirmação da
+   reserva. O texto vem de `app/servicos/regulamento.py`, montado das
+   mesmas constantes que o sistema aplica: o regulamento que o hóspede lê
+   e a regra que o banco cumpre não têm como divergir.
+
+   Nenhum valor em reais aparece aqui, e há teste que o verifica: a página
+   inicial não mostra preço. #}
+<dl class="regulamento">
+  {% for regra in regras %}
+  <dt>{{ regra.titulo }}</dt>
+  <dd>{{ regra.texto }}</dd>
+  {% endfor %}
+</dl>

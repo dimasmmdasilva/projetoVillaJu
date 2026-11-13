@@ -78,6 +78,16 @@ COLUNAS = {
         "num_pessoas": ("tinyint", False),
         "situacao": ("enum", False),
         "valor_total": ("decimal", True),
+        # Etapa 5, Bloco 7: prazos e declarações do Pix. Todas anuláveis,
+        # porque a reserva registrada pela equipe não tem nenhuma.
+        "modalidade": ("enum", True),
+        "prazo_pagamento": ("datetime", True),
+        "prazo_restante": ("datetime", True),
+        "pix_informado_em": ("datetime", True),
+        "restante_informado_em": ("datetime", True),
+        "regulamento_aceito_em": ("datetime", True),
+        "cancelado_em": ("datetime", True),
+        "motivo_cancelamento": ("enum", True),
         "observacoes": ("text", True),
         "criado_por": ("int", True),
         "criado_em": ("datetime", False),
@@ -94,6 +104,16 @@ COLUNAS = {
         "expira_em": ("datetime", False),
         "consumido_em": ("datetime", True),
         "criado_em": ("datetime", False),
+    },
+    # Etapa 5, Bloco 7. Só aceita acréscimo: os gatilhos recusam UPDATE e
+    # DELETE, e a aplicação tem apenas SELECT e INSERT.
+    "pagamento": {
+        "id": ("int", False),
+        "reserva_id": ("int", False),
+        "tipo": ("enum", False),
+        "valor": ("decimal", False),
+        "registrado_por": ("int", False),
+        "registrado_em": ("datetime", False),
     },
     "log_auditoria": {
         "id": ("bigint", False),
@@ -144,6 +164,9 @@ CHAVES_ESTRANGEIRAS = {
     # CASCADE, ao contrário das demais: um token é autorização pendente,
     # não histórico. Apagada a conta, ele não autoriza mais nada.
     ("token_acesso", "usuario_id"): ("usuario", "CASCADE"),
+    # RESTRICT nos dois: o lançamento não perde a reserva nem o autor.
+    ("pagamento", "reserva_id"): ("reserva", "RESTRICT"),
+    ("pagamento", "registrado_por"): ("usuario", "RESTRICT"),
 }
 
 UNICIDADE = [
@@ -157,6 +180,14 @@ ENUMS = {
     ("reserva", "situacao"): {"pendente", "confirmada", "cancelada", "concluida"},
     ("usuario", "perfil"): {"administrador", "recepcionista", "hospede"},
     ("token_acesso", "tipo"): {"confirmacao", "recuperacao"},
+    ("reserva", "modalidade"): {"sinal", "integral"},
+    ("reserva", "motivo_cancelamento"): {
+        "prazo_do_pix",
+        "falta_de_pagamento",
+        "pedido_do_hospede",
+        "equipe",
+    },
+    ("pagamento", "tipo"): {"sinal", "restante", "integral", "devolucao"},
     ("contato", "situacao"): {
         "novo",
         "em_atendimento",

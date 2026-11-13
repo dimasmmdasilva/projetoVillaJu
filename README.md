@@ -418,7 +418,7 @@ afrouxar a política.
 | 4 | Caminho único e descarte do não confirmado | concluído |
 | 5 | Consulta pública de disponibilidade | concluído |
 | 6 | Portal do hóspede — perfil, troca de senha, reservas separadas | concluído |
-| 7 | Reserva com sinal de 50% e prazo de 24 h | a fazer |
+| 7 | Reserva pelo hóspede, com o prazo do Pix | concluído |
 | 8 | Controle de pagamentos no painel do administrador | a fazer |
 | 9 | Cancelamento com cálculo da devolução | a fazer |
 | 10 | Página de cada chalé, com galeria | concluído |
@@ -437,8 +437,20 @@ afrouxar a política.
 
 **Entrega 2:** 11/11/2026 · **Entrega final:** 25/11/2026
 
-> **Sobre o controle de pagamento.** Os Blocos 7 a 9 registram o sinal de
-> 50% e contam o prazo de 24 horas, a pedido do professor. Ele aparece
+> **As regras de pagamento**, decididas em 13/11 e publicadas no
+> Regulamento da pousada, na página inicial:
+>
+> | Antecedência da entrada | Pagamento por Pix | Cancelamento |
+> |---|---|---|
+> | 7 dias ou mais | sinal de 50% em **90 minutos**; o restante até **48 h antes** | com 7 dias ou mais, devolve tudo |
+> | menos de 7 dias | **integral** em 90 minutos | sem devolução |
+>
+> Sem o "Fiz o Pix" do hóspede em 90 minutos, o pedido é cancelado
+> automaticamente e o chalé volta a ficar disponível. Quem confirma o
+> pagamento é a equipe, depois de conferir o extrato.
+>
+> **Sobre o controle de pagamento.** Os Blocos 7 a 9 registram o sinal e
+> contam os prazos, a pedido do professor. O controle aparece
 > como **uma seção do painel do administrador**, e não como módulo
 > financeiro: o sistema cuida do aluguel dos chalés, e o dinheiro é o
 > estado de uma reserva. Faturamento, contas a receber e fechamento não

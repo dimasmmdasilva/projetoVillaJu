@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block titulo %}Minhas reservas — VillaJu{% endblock %}
 
+{# Enquanto um prazo do Pix corre em minutos, a página se atualiza sozinha
+   a cada minuto — por instrução do próprio HTML, sem JavaScript, que a
+   política de conteúdo não exigiria mas o projeto decidiu não usar. O
+   horário-limite escrito por extenso no card vale mesmo que a pessoa
+   deixe a aba parada. #}
+{% block cabeca %}
+{% if atualizar %}<meta http-equiv="refresh" content="60">{% endif %}
+{% endblock %}
+
 {% block conteudo %}
 <h1>Minhas reservas</h1>
 
@@ -10,25 +19,91 @@
    para trocar. Quem digitar /reservas/ (a lista completa) recebe 403. #}
 
 <p>Olá, {{ usuario.nome }}. Abaixo estão as reservas registradas no seu
-   nome. Para alterar ou cancelar, procure a recepção.</p>
+   nome.</p>
 
-{# Uma tela vazia que não diz o que fazer é um beco.
-
-   Enquanto a reserva pelo próprio hóspede não existir — ela é o Bloco 7
-   da Etapa 5 —, o caminho é consultar as datas e falar com a recepção. A
-   tela diz isso em vez de deixar a pessoa procurando um botão que ainda
-   não há. #}
 <p class="acao-chale">
-  <a class="botao" href="{{ url_for('publico.disponibilidade') }}">
-    Consultar disponibilidade
-  </a>
+  <a class="botao" href="{{ url_for('reservas.pedir') }}">Fazer uma reserva</a>
 </p>
 <p class="nota-campo">
-  A reserva pelo site ainda está em construção. Por enquanto, consulte as
-  datas e
-  <a href="{{ url_for('publico.contato') }}">fale com a recepção</a> para
-  fechar.
+  Escolha o chalé e as datas, veja o valor e os prazos, e confirme. O
+  pagamento é por Pix.
 </p>
+
+{# O card de uma reserva em andamento — Etapa 5, Bloco 7.
+
+   O que ele mostra e quais botões oferece vem de `pedido.cartao`, que é
+   testado sem desenhar HTML. O template só desenha.
+
+   **O botão aparece quando o banco aceitaria o clique, mas quem decide é
+   o banco.** Se a página ficar aberta além do prazo, o botão continua
+   lá — e o clique é recusado, porque a condição inteira está no UPDATE.
+
+   Os formulários levam o número da reserva no endereço. O dono da
+   reserva é conferido na condição do UPDATE: trocar o número leva à
+   mesma recusa de uma reserva inexistente. #}
+{% macro card(reserva, estado) %}
+<article class="cartao-reserva cartao-reserva--{{ estado.etapa }}"
+         id="reserva-{{ reserva.id }}">
+  <header>
+    <h3>{{ reserva.chale_nome }}</h3>
+    <p class="cartao-reserva__periodo">
+      {{ reserva.data_entrada.strftime('%d/%m/%Y') }} a
+      {{ reserva.data_saida.strftime('%d/%m/%Y') }}
+      · {{ (reserva.data_saida - reserva.data_entrada).days }} noites
+      · {{ reserva.num_pessoas }} pessoa{{ 's' if reserva.num_pessoas != 1 }}
+      · Reserva nº {{ reserva.id }}
+    </p>
+  </header>
+
+  {% if estado.total %}
+  <p class="cartao-reserva__total">
+    Valor total: <strong>{{ estado.total|reais }}</strong>
+    {% if estado.modalidade == 'sinal' %}— sinal de 50% e restante
+    {% elif estado.modalidade == 'integral' %}— pagamento integral{% endif %}
+  </p>
+  {% endif %}
+
+  <p class="cartao-reserva__estado">{{ estado.texto }}</p>
+
+  {% if estado.a_pagar %}
+  <div class="cartao-reserva__pix">
+    {% if chave_pix %}
+    <p>Chave Pix da pousada: <strong class="chave-pix">{{ chave_pix }}</strong></p>
+    {% else %}
+    <p>Fale com a recepção para receber a chave Pix.</p>
+    {% endif %}
+    <p>Valor deste Pix: <strong>{{ estado.a_pagar|reais }}</strong></p>
+  </div>
+  {% endif %}
+
+  {% if estado.restam %}
+  <p class="cartao-reserva__prazo">
+    Restam <strong>{{ estado.restam }}</strong> — {{ estado.prazo }}.
+  </p>
+  {% endif %}
+
+  {% if estado.botao or estado.pode_desistir %}
+  <div class="cartao-reserva__acoes">
+    {% if estado.botao %}
+    <form method="post"
+          action="{{ url_for('reservas.informar_pix', identificador=reserva.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="etapa" value="{{ estado.botao.etapa }}">
+      <button type="submit">{{ estado.botao.rotulo }}</button>
+    </form>
+    {% endif %}
+
+    {% if estado.pode_desistir %}
+    <form method="post"
+          action="{{ url_for('reservas.desistir', identificador=reserva.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="secundario">Desistir do pedido</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</article>
+{% endmacro %}
 
 {% macro tabela_de_reservas(lista) %}
 <table>
@@ -96,7 +171,9 @@
 
 <h2>Em andamento</h2>
 {% if em_andamento %}
-{{ tabela_de_reservas(em_andamento) }}
+{% for reserva in em_andamento %}
+{{ card(reserva, cartoes[reserva.id]) }}
+{% endfor %}
 {% else %}
 <p>Nenhuma reserva em andamento.</p>
 {% endif %}

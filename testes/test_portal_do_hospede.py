@@ -447,13 +447,24 @@ def test_cada_lista_mostra_apenas_o_que_e_dela(aplicacao, conta, hospede):
     secao_andamento = html[html.index("Em andamento"):corte]
     secao_historico = html[corte:]
 
-    assert f">{viva}</td>" in secao_andamento
-    assert f">{acabada}</td>" not in secao_andamento, (
+    # Desde o Bloco 7, "Em andamento" desenha cards e o Histórico continua
+    # em tabela. A reserva aparece como célula (`>12</td>`) ou como o
+    # `id` do card (`id="reserva-12"`); as duas formas contam, e nenhuma
+    # outra — o número solto no texto não basta, porque "Reserva nº 12"
+    # poderia estar em qualquer lugar.
+    def mostra(numero, secao):
+        return (
+            f">{numero}</td>" in secao
+            or f'id="reserva-{numero}"' in secao
+        )
+
+    assert mostra(viva, secao_andamento)
+    assert not mostra(acabada, secao_andamento), (
         "uma reserva terminada apareceu em Em andamento"
     )
 
-    assert f">{acabada}</td>" in secao_historico
-    assert f">{viva}</td>" not in secao_historico, (
+    assert mostra(acabada, secao_historico)
+    assert not mostra(viva, secao_historico), (
         "uma reserva em andamento apareceu no Histórico"
     )
 

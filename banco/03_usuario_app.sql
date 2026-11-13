@@ -128,6 +128,12 @@ PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
 SET @sql = CONCAT('GRANT SELECT, INSERT ON `', @banco, '`.log_auditoria TO ', @conta);
 PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
 
+-- Pagamento: o mesmo desenho do log, pela mesma razão. O livro dos Pix
+-- conferidos é a única prova de quem afirmou ter visto o dinheiro; nem a
+-- aplicação comprometida consegue reescrevê-lo. (Etapa 5, Bloco 7.)
+SET @sql = CONCAT('GRANT SELECT, INSERT ON `', @banco, '`.pagamento TO ', @conta);
+PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
+
 FLUSH PRIVILEGES;
 
 -- --- Conferência -----------------------------------------------------------

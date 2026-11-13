@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block titulo %}Fazer uma reserva — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Fazer uma reserva</h1>
+
+{# Etapa 5, Bloco 7. Duas etapas, sem JavaScript.
+
+   1. A escolha — chalé, datas, pessoas — vai por GET para esta mesma
+      rota, porque escolher não altera nada.
+   2. Com a escolha completa, a tela mostra o resumo: valor, modalidade,
+      prazos, devolução, regulamento e a caixa de aceite. Só o botão
+      "Confirmar pedido" grava, por POST.
+
+   **Nenhum valor viaja no formulário.** O POST leva chalé, datas e
+   pessoas; o servidor recalcula o valor noite a noite. Um campo oculto
+   com o preço seria o primeiro alvo de quem quisesse pagar menos. #}
+
+{% if erro %}
+<p class="aviso aviso-erro">{{ erro }}</p>
+{% endif %}
+
+{% if not resumo %}
+<form method="get" action="{{ url_for('reservas.pedir') }}" class="formulario">
+  <label for="chale">Chalé</label>
+  <select id="chale" name="chale" required>
+    <option value="">escolha um chalé</option>
+    {% for chale in chales %}
+    <option value="{{ chale.id }}"
+            {{ 'selected' if escolha.chale == chale.id|string }}>
+      {{ chale.nome }} — até {{ chale.capacidade }} pessoas
+    </option>
+    {% endfor %}
+  </select>
+
+  <label for="entrada">Entrada</label>
+  <input type="date" id="entrada" name="entrada" required
+         min="{{ hoje }}" value="{{ escolha.entrada }}">
+
+  <label for="saida">Saída</label>
+  <input type="date" id="saida" name="saida" required
+         min="{{ hoje }}" value="{{ escolha.saida }}">
+
+  <label for="pessoas">Pessoas</label>
+  <input type="number" id="pessoas" name="pessoas" required
+         min="1" max="12" value="{{ escolha.pessoas or 2 }}">
+
+  <button type="submit">Ver valor e prazos</button>
+</form>
+
+{% else %}
+<section class="resumo-do-pedido">
+  <h2>{{ resumo.chale_nome }}</h2>
+  <dl>
+    <dt>Período</dt>
+    <dd>
+      {{ resumo.entrada.strftime('%d/%m/%Y') }} a
+      {{ resumo.saida.strftime('%d/%m/%Y') }}
+      — {{ resumo.noites }} noite{{ 's' if resumo.noites != 1 }}
+    </dd>
+
+    <dt>Pessoas</dt>
+    <dd>{{ resumo.pessoas }}</dd>
+
+    <dt>Valor total</dt>
+    <dd><strong>{{ resumo.total|reais }}</strong></dd>
+
+    <dt>Pagamento</dt>
+    {% if resumo.modalidade == 'sinal' %}
+    <dd>
+      Sinal de <strong>{{ resumo.primeiro|reais }}</strong> por Pix, em até
+      {{ minutos_para_o_pix }} minutos depois do pedido.<br>
+      Restante de <strong>{{ resumo.restante|reais }}</strong> até
+      {{ resumo.prazo_restante.strftime('%Hh%M de %d/%m/%Y') }}.
+    </dd>
+    {% else %}
+    <dd>
+      Valor integral de <strong>{{ resumo.primeiro|reais }}</strong> por
+      Pix, em até {{ minutos_para_o_pix }} minutos depois do pedido — a
+      entrada é em menos de 7 dias.
+    </dd>
+    {% endif %}
+
+    <dt>Cancelamento</dt>
+    {% if resumo.tem_devolucao %}
+    <dd>
+      Com devolução integral até
+      {{ resumo.ultimo_dia_com_devolucao.strftime('%d/%m/%Y') }}. Depois
+      dessa data, sem devolução.
+    </dd>
+    {% else %}
+    <dd class="sem-devolucao">
+      <strong>Sem devolução.</strong> A entrada é em menos de 7 dias: se
+      você desistir depois de pagar, o valor não é devolvido.
+    </dd>
+    {% endif %}
+  </dl>
+</section>
+
+<section class="regulamento-no-pedido">
+  <h2>Regulamento da pousada</h2>
+  {% include "_regulamento.html" %}
+</section>
+
+<form method="post" action="{{ url_for('reservas.pedir') }}" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="chale" value="{{ resumo.chale_id }}">
+  <input type="hidden" name="entrada" value="{{ resumo.entrada|iso }}">
+  <input type="hidden" name="saida" value="{{ resumo.saida|iso }}">
+  <input type="hidden" name="pessoas" value="{{ resumo.pessoas }}">
+
+  <label class="aceite">
+    <input type="checkbox" name="aceite" value="sim" required>
+    Li e aceito o regulamento da pousada.
+  </label>
+
+  <button type="submit">Confirmar pedido</button>
+</form>
+<p class="nota-campo">
+  O chalé fica guardado para você por {{ minutos_para_o_pix }} minutos a
+  partir da confirmação. A chave Pix aparece no seu painel.
+</p>
+
+<p class="voltar">
+  <a href="{{ url_for('reservas.pedir') }}">Escolher outro chalé ou outras datas</a>
+</p>
+{% endif %}
+
+<p class="voltar">
+  <a href="{{ url_for('reservas.minhas') }}">Minhas reservas</a>
+</p>
+{% endblock %}

@@ -36,6 +36,13 @@ ACESSO_NEGADO = "ACESSO_NEGADO"
 # acontece, a linha do log é o que permite datar o momento.
 SENHA_ALTERADA = "SENHA_ALTERADA"
 
+# Etapa 5, Bloco 7. O pedido feito pelo site, com o aceite do regulamento,
+# e a declaração do hóspede de que fez o Pix. A declaração não é
+# pagamento — quem confere o extrato é a equipe —, mas é o que interrompe
+# o prazo, e por isso precisa de data e autor.
+PEDIDO_DE_RESERVA = "PEDIDO_DE_RESERVA"
+PIX_INFORMADO = "PIX_INFORMADO"
+
 # Teto da coluna `detalhe` no schema. Texto maior seria truncado pelo
 # banco ou rejeitado, dependendo do modo estrito em vigor.
 TAMANHO_DO_DETALHE = 255

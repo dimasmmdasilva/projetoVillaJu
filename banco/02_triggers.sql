@@ -46,14 +46,16 @@
 -- evento fica registrado de qualquer forma, apenas sem o vínculo.
 --
 -- ---------------------------------------------------------------------------
--- Inventário - 17 triggers em 5 grupos
+-- Inventário - 21 triggers em 6 grupos
 --
 --   1. Regra de reserva          2 (antes de inserir, antes de alterar)
 --   2. Auditoria de reserva      3 (depois de inserir, alterar, excluir)
 --   3. Auditoria de hóspede      3 (depois de inserir, alterar, excluir)
---   4. Carimbo de tempo          8 (chale, tarifa, usuario, hospede x2;
---                                   contato x1, que só tem criado_em)
---   5. Integridade de perfil     1 (usuario, antes de inserir)
+--   4. Carimbo de tempo          8 (chale x2, tarifa x2, hospede x2,
+--                                   token_acesso x1, contato x1)
+--   5. Integridade de perfil     2 (usuario, antes de inserir e de alterar)
+--   6. Livro de pagamentos       3 (pagamento: carimbo, recusa de
+--                                   alteração, recusa de exclusão)
 --
 -- O requisito acadêmico pede no mínimo 5 grupos. O carimbo de tempo poderia
 -- ser DEFAULT CURRENT_TIMESTAMP na definição da coluna, mas o plano escolhe
@@ -546,6 +548,47 @@ BEGIN
 
     SET NEW.criado_em = OLD.criado_em;
     SET NEW.alterado_em = NOW();
+END$$
+
+
+-- ===========================================================================
+-- GRUPO 6 - Livro de pagamentos (Etapa 5, Bloco 7)
+-- ===========================================================================
+-- A tabela `pagamento` só aceita acréscimo. A conta da aplicação já não
+-- tem UPDATE nem DELETE sobre ela; os gatilhos fecham o mesmo caminho para
+-- quem entra no banco com outra conta — um administrador com o Workbench
+-- aberto, por exemplo.
+--
+-- As duas camadas não são redundantes: o privilégio protege contra a
+-- aplicação comprometida, e o gatilho protege contra a pessoa com acesso
+-- direto. Correção é lançamento novo.
+
+DROP TRIGGER IF EXISTS trg_pagamento_antes_inserir$$
+CREATE TRIGGER trg_pagamento_antes_inserir
+BEFORE INSERT ON pagamento
+FOR EACH ROW
+BEGIN
+    -- O momento vem do banco: a data do lançamento decide em que mês ele
+    -- soma, e não pode ser escolhida por quem lança.
+    SET NEW.registrado_em = NOW();
+END$$
+
+DROP TRIGGER IF EXISTS trg_pagamento_antes_alterar$$
+CREATE TRIGGER trg_pagamento_antes_alterar
+BEFORE UPDATE ON pagamento
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Pagamento registrado não se altera: registre a correção como lançamento novo.';
+END$$
+
+DROP TRIGGER IF EXISTS trg_pagamento_antes_excluir$$
+CREATE TRIGGER trg_pagamento_antes_excluir
+BEFORE DELETE ON pagamento
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Pagamento registrado não se apaga.';
 END$$
 
 DELIMITER ;

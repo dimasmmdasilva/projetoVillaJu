@@ -51,8 +51,56 @@ def create_app(configuracao=None, iniciar_banco: bool = True) -> Flask:
 
     if iniciar_banco:
         _registrar_varredura_de_cadastros(app)
+        _registrar_varredura_de_pedidos(app)
 
     return app
+
+
+def _registrar_varredura_de_pedidos(app: Flask) -> None:
+    """Cancela os pedidos cujo prazo do Pix venceu — Etapa 5, Bloco 7.
+
+    O mesmo desenho da varredura de cadastros, logo acima: sem agendador,
+    disparada por qualquer requisição, travada em uma vez por minuto, e
+    incapaz de derrubar a resposta.
+
+    **Uma diferença deliberada: roda ANTES da requisição, e não depois.**
+    A varredura de cadastros pode rodar depois porque nenhuma página mostra
+    cadastro não confirmado. Esta não: a consulta de disponibilidade
+    mostra se o chalé está livre, e se a varredura rodasse depois da
+    resposta, a página seria montada com o pedido vencido ainda ocupando
+    o chalé. O defeito seria o mesmo que a sabotagem encontrou no Bloco 4
+    — a varredura acontecendo, mas na ordem errada.
+
+    **E não é a única proteção.** Toda escrita de reserva varre dentro da
+    própria transação (`reserva_repo._cancelar_vencidos`). Este gancho é
+    o que faz o chalé liberado **aparecer** livre para quem só consulta.
+    Com a trava, o atraso máximo entre o fim do prazo e a liberação na
+    tela é de um minuto.
+    """
+    import threading
+    import time
+
+    app.varredura_de_pedidos = {"ultima": 0.0, "intervalo": 60.0}
+    estado = app.varredura_de_pedidos
+    tranca = threading.Lock()
+
+    @app.before_request
+    def varrer_pedidos():
+        agora = time.monotonic()
+
+        with tranca:
+            if agora - estado["ultima"] < estado["intervalo"]:
+                return None
+            estado["ultima"] = agora
+
+        try:
+            from app.dados import reserva_repo
+
+            reserva_repo.cancelar_pedidos_vencidos()
+        except Exception:  # noqa: BLE001
+            app.logger.exception("falha na varredura de pedidos vencidos")
+
+        return None
 
 
 def _registrar_varredura_de_cadastros(app: Flask) -> None:
@@ -265,6 +313,13 @@ def _registrar_contexto(app: Flask) -> None:
         if isinstance(valor, (dt.date, dt.datetime)):
             return valor.strftime("%Y-%m-%d")
         return str(valor)
+
+    @app.template_filter("reais")
+    def formatar_reais(valor):
+        """`1300.5` vira `R$ 1.300,50`. Etapa 5, Bloco 7."""
+        from app.servicos.pedido import em_reais
+
+        return em_reais(valor)
 
 
 def _registrar_cabecalhos_de_seguranca(app: Flask) -> None:

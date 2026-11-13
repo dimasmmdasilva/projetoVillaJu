@@ -66,6 +66,22 @@
   {{ entrada_legivel }} a {{ saida_legivel }}
   — {{ diarias }} noite{{ 's' if diarias != 1 }}.
 </p>
+{# Etapa 5, Bloco 7. Quem já está conectado como hóspede segue direto
+   para o pedido, com chalé e datas preenchidos. O valor continua fora
+   desta página: ele aparece na tela do pedido, para quem está
+   identificado. #}
+{% if tem_perfil('hospede') %}
+<p class="acao-chale">
+  <a class="botao" href="{{ url_for('reservas.pedir', chale=escolhido,
+                                    entrada=entrada, saida=saida) }}">
+    Reservar este chalé
+  </a>
+</p>
+<p class="nota-campo">
+  Na próxima tela você vê o valor, os prazos do Pix e o regulamento antes
+  de confirmar.
+</p>
+{% else %}
 <p>
   Complete o cadastro para ver os valores e fazer a sua reserva.
 </p>
@@ -75,6 +91,7 @@
 <p class="voltar">
   Já tem conta? <a href="{{ url_for('auth.login') }}">Entrar</a>
 </p>
+{% endif %}
 
 {% else %}
 <p class="aviso aviso-erro">

@@ -1,7 +1,8 @@
 -- ---------------------------------------------------------------------------
 -- VillaJu - modelo de dados
 --
--- As 7 tabelas do sistema, conforme a seção 5.1 do plano do projeto.
+-- As tabelas do sistema: as 7 da seção 5.1 do plano do projeto, mais
+-- `token_acesso` e `pagamento`, acrescentadas na Etapa 5.
 --
 -- Este script NÃO contém CREATE DATABASE nem USE, de propósito: quem decide
 -- em qual banco os objetos nascem é a conexão que o executa. É isso que
@@ -246,6 +247,45 @@ CREATE TABLE reserva (
 
     valor_total         DECIMAL(10,2) NULL,
 
+    -- -----------------------------------------------------------------------
+    -- Pagamento por Pix — Etapa 5, Bloco 7
+    --
+    -- O sistema NÃO transaciona: o Pix acontece entre o aplicativo do banco
+    -- do hóspede e o da pousada. Estas colunas guardam prazos e
+    -- declarações. O que a equipe conferiu no extrato vai para a tabela
+    -- `pagamento`, que só aceita acréscimo.
+    --
+    -- Reserva registrada pela equipe deixa todas nulas: segue o fluxo
+    -- manual de antes, e o cancelamento automático não a alcança.
+    -- -----------------------------------------------------------------------
+
+    -- `sinal` com 7 dias ou mais de antecedência; `integral` com menos.
+    modalidade              ENUM('sinal','integral') NULL,
+
+    -- Até quando o hóspede pode informar o primeiro Pix. Calculado PELO
+    -- BANCO no INSERT (NOW() + 90 minutos), para que o prazo e a varredura
+    -- que o aplica leiam o mesmo relógio. No Bloco 4, dois relógios para
+    -- um mesmo prazo foram defeito.
+    prazo_pagamento         DATETIME NULL,
+
+    -- Até quando o restante pode ser informado. Só existe com sinal.
+    prazo_restante          DATETIME NULL,
+
+    -- Quando o hóspede clicou "Fiz o Pix". É uma DECLARAÇÃO, não um
+    -- pagamento: para a contagem dos 90 minutos e põe o pedido na fila de
+    -- conferência da equipe.
+    pix_informado_em        DATETIME NULL,
+    restante_informado_em   DATETIME NULL,
+
+    -- Quando o hóspede marcou "Li e aceito o regulamento". Se um dia ele
+    -- contestar uma devolução negada, este registro mostra que a regra foi
+    -- lida antes do pedido.
+    regulamento_aceito_em   DATETIME NULL,
+
+    cancelado_em            DATETIME NULL,
+    motivo_cancelamento     ENUM('prazo_do_pix', 'falta_de_pagamento',
+                                 'pedido_do_hospede', 'equipe') NULL,
+
     -- Campo de texto livre. NÃO gravar dado sensível aqui: esta coluna não
     -- é cifrada e seu conteúdo aparece na interface sem proteção.
     observacoes         TEXT NULL,
@@ -276,7 +316,20 @@ CREATE TABLE reserva (
     -- a trigger de conflito e a consulta de disponibilidade filtram
     -- primeiro por chalé, depois pelo intervalo de datas, e por último
     -- descartam as reservas canceladas.
-    KEY idx_reserva_disponibilidade (chale_id, data_entrada, data_saida, situacao)
+    KEY idx_reserva_disponibilidade (chale_id, data_entrada, data_saida, situacao),
+
+    -- A varredura dos pedidos vencidos procura por situação e prazo.
+    KEY idx_reserva_prazo_pagamento (situacao, prazo_pagamento),
+
+    -- Pedido feito pelo site tem modalidade E prazo; reserva da equipe não
+    -- tem nenhum dos dois. Metade preenchida seria um pedido que nunca
+    -- vence, ou um prazo sem regra que o explique.
+    CONSTRAINT ck_reserva_modalidade_e_prazo
+        CHECK ((modalidade IS NULL) = (prazo_pagamento IS NULL)),
+
+    -- O restante só existe quando houve sinal.
+    CONSTRAINT ck_reserva_restante_so_com_sinal
+        CHECK (prazo_restante IS NULL OR modalidade = 'sinal')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -498,4 +551,71 @@ CREATE TABLE token_acesso (
 
     -- Limpeza dos vencidos.
     KEY idx_token_expiracao (expira_em)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ===========================================================================
+-- PAGAMENTO — o livro dos Pix conferidos (Etapa 5, Bloco 7)
+-- ===========================================================================
+-- Uma linha por fato que alguém da equipe conferiu no extrato: o sinal, o
+-- restante, o pagamento integral, ou a devolução — esta com valor negativo.
+--
+-- --------------------------------------------------------------------------
+-- Só aceita acréscimo
+--
+-- Os gatilhos recusam UPDATE e DELETE, inclusive de quem tem acesso direto
+-- ao banco, e a conta da aplicação recebe apenas SELECT e INSERT. Correção
+-- é lançamento novo, nunca reescrita.
+--
+-- É o mesmo desenho do `log_auditoria`, e pela mesma razão, aqui mais
+-- forte: o dinheiro não passa pelo sistema, e este livro é a única prova
+-- de quem afirmou ter visto o Pix no extrato, e quando.
+--
+-- A soma mensal do painel do administrador é uma soma sobre esta tabela,
+-- pela data do registro. A devolução entra no mês em que acontece.
+-- --------------------------------------------------------------------------
+
+CREATE TABLE pagamento (
+    id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+
+    reserva_id      INT UNSIGNED NOT NULL,
+
+    tipo            ENUM('sinal','restante','integral','devolucao') NOT NULL,
+
+    -- Positivo na entrada, negativo na devolução. A soma do mês é a soma
+    -- simples da coluna, sem regra de sinal espalhada pelas consultas.
+    valor           DECIMAL(10,2) NOT NULL,
+
+    -- Quem conferiu. NOT NULL e RESTRICT, ao contrário do SET NULL de
+    -- `reserva.criado_por`: aqui o autor é a parte do registro que lhe dá
+    -- valor. Conta de equipe se desativa, não se apaga.
+    registrado_por  INT UNSIGNED NOT NULL,
+
+    -- Preenchido pelo gatilho, nunca pela aplicação.
+    registrado_em   DATETIME NOT NULL,
+
+    PRIMARY KEY (id),
+
+    -- Um lançamento de cada tipo por reserva. Um clique duplo em "Pagou 50%"
+    -- não conta o sinal duas vezes.
+    UNIQUE KEY uq_pagamento_reserva_tipo (reserva_id, tipo),
+
+    -- A soma por mês.
+    KEY idx_pagamento_data (registrado_em),
+
+    -- RESTRICT nos dois sentidos: não se apaga reserva com pagamento, e o
+    -- identificador referenciado não muda por baixo do lançamento. Uma
+    -- ação em cascata alteraria a linha SEM disparar os gatilhos — o MySQL
+    -- não os executa em ações de chave estrangeira.
+    CONSTRAINT fk_pagamento_reserva
+        FOREIGN KEY (reserva_id) REFERENCES reserva (id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+
+    CONSTRAINT fk_pagamento_usuario
+        FOREIGN KEY (registrado_por) REFERENCES usuario (id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+
+    CONSTRAINT ck_pagamento_sinal_do_valor
+        CHECK ((tipo = 'devolucao' AND valor < 0)
+            OR (tipo <> 'devolucao' AND valor > 0))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

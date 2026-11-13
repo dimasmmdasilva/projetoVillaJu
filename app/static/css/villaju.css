@@ -732,3 +732,79 @@ a.foto-provisoria:focus {
 
 .dados-do-perfil dt { font-weight: 600; color: #444; }
 .dados-do-perfil dd { margin: 0; }
+
+
+/* ---------------------------------------------------------------------
+ * Etapa 5, Bloco 7 — o card da reserva e o pedido
+ * ------------------------------------------------------------------- */
+
+.cartao-reserva {
+  border: 1px solid #d6d6d6;
+  border-left: 5px solid #2f3e34;
+  border-radius: 4px;
+  background: #fff;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.cartao-reserva h3 { margin: 0; font-size: 1.15rem; }
+.cartao-reserva__periodo { margin: 0.25rem 0 0.75rem; color: #555; font-size: 0.92rem; }
+.cartao-reserva__estado { margin: 0.75rem 0; }
+
+/* A cor da borda diz o estado antes da leitura: âmbar quando falta uma
+ * ação do hóspede, azul quando a vez é da equipe, verde quando está tudo
+ * certo. O texto continua dizendo a mesma coisa — cor sozinha não chega
+ * a quem não a distingue. */
+.cartao-reserva--aguardando_pix,
+.cartao-reserva--aguardando_restante { border-left-color: #b7791f; }
+.cartao-reserva--pix_em_conferencia,
+.cartao-reserva--restante_em_conferencia { border-left-color: #2b6cb0; }
+.cartao-reserva--prazo_vencido,
+.cartao-reserva--restante_vencido { border-left-color: #a33; }
+
+.cartao-reserva__pix {
+  background: #f6f3ea;
+  border-radius: 3px;
+  padding: 0.5rem 0.75rem;
+}
+.cartao-reserva__pix p { margin: 0.25rem 0; }
+
+.chave-pix {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.cartao-reserva__prazo { font-size: 1.02rem; }
+
+.cartao-reserva__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+.cartao-reserva__acoes form { margin: 0; }
+.cartao-reserva__acoes button { margin-top: 0.25rem; }
+
+button.secundario {
+  background: #fff;
+  color: #2f3e34;
+}
+
+.resumo-do-pedido dl,
+.regulamento { margin: 0.5rem 0 1rem; }
+.resumo-do-pedido dt,
+.regulamento dt { font-weight: 600; margin-top: 0.75rem; }
+.resumo-do-pedido dd,
+.regulamento dd { margin: 0.15rem 0 0; }
+.sem-devolucao { color: #7a2520; }
+
+.aceite {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-top: 1rem;
+  font-weight: 600;
+}
+.aceite input { margin-top: 0.3rem; }
+

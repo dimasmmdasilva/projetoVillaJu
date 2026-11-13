@@ -238,6 +238,10 @@ _SQL_POR_ID = (
     "SELECT r.id, r.chale_id, r.hospede_id, r.data_entrada, r.data_saida, "
     "       r.num_pessoas, r.situacao, r.valor_total, r.observacoes, "
     "       r.criado_por, r.criado_em, r.alterado_em, "
+    "       r.modalidade, r.prazo_pagamento, r.prazo_restante, "
+    "       r.pix_informado_em, r.restante_informado_em, "
+    "       r.regulamento_aceito_em, r.cancelado_em, "
+    "       r.motivo_cancelamento, "
     "       c.nome AS chale_nome, c.capacidade AS chale_capacidade, "
     "       u.login AS criado_por_login "
     "FROM reserva r "
@@ -250,6 +254,10 @@ _SQL_LISTAR = (
     "SELECT r.id, r.chale_id, r.hospede_id, r.data_entrada, r.data_saida, "
     "       r.num_pessoas, r.situacao, r.valor_total, r.observacoes, "
     "       r.criado_por, r.criado_em, r.alterado_em, "
+    "       r.modalidade, r.prazo_pagamento, r.prazo_restante, "
+    "       r.pix_informado_em, r.restante_informado_em, "
+    "       r.regulamento_aceito_em, r.cancelado_em, "
+    "       r.motivo_cancelamento, "
     "       c.nome AS chale_nome, c.capacidade AS chale_capacidade, "
     "       u.login AS criado_por_login "
     "FROM reserva r "
@@ -262,6 +270,10 @@ _SQL_LISTAR_POR_SITUACAO = (
     "SELECT r.id, r.chale_id, r.hospede_id, r.data_entrada, r.data_saida, "
     "       r.num_pessoas, r.situacao, r.valor_total, r.observacoes, "
     "       r.criado_por, r.criado_em, r.alterado_em, "
+    "       r.modalidade, r.prazo_pagamento, r.prazo_restante, "
+    "       r.pix_informado_em, r.restante_informado_em, "
+    "       r.regulamento_aceito_em, r.cancelado_em, "
+    "       r.motivo_cancelamento, "
     "       c.nome AS chale_nome, c.capacidade AS chale_capacidade, "
     "       u.login AS criado_por_login "
     "FROM reserva r "
@@ -275,6 +287,10 @@ _SQL_POR_HOSPEDE = (
     "SELECT r.id, r.chale_id, r.hospede_id, r.data_entrada, r.data_saida, "
     "       r.num_pessoas, r.situacao, r.valor_total, r.observacoes, "
     "       r.criado_por, r.criado_em, r.alterado_em, "
+    "       r.modalidade, r.prazo_pagamento, r.prazo_restante, "
+    "       r.pix_informado_em, r.restante_informado_em, "
+    "       r.regulamento_aceito_em, r.cancelado_em, "
+    "       r.motivo_cancelamento, "
     "       c.nome AS chale_nome, c.capacidade AS chale_capacidade, "
     "       u.login AS criado_por_login "
     "FROM reserva r "
@@ -446,6 +462,7 @@ def criar(dados: dict, usuario_id=None) -> int:
     with obter_conexao(usuario_id=usuario_id) as conexao:
         cursor = conexao.cursor()
         try:
+            _cancelar_vencidos(cursor)
             _validar_regras(cursor, limpo)
             limpo["valor_total"] = _calcular_valor(limpo)
             executar(
@@ -480,6 +497,7 @@ def atualizar(identificador, dados: dict, usuario_id=None) -> None:
     with obter_conexao(usuario_id=usuario_id) as conexao:
         cursor = conexao.cursor()
         try:
+            _cancelar_vencidos(cursor)
             cursor.execute(
                 "SELECT situacao FROM reserva WHERE id = %s", (identificador,)
             )
@@ -530,6 +548,7 @@ def mudar_situacao(identificador, nova: str, usuario_id=None) -> None:
     with obter_conexao(usuario_id=usuario_id) as conexao:
         cursor = conexao.cursor()
         try:
+            _cancelar_vencidos(cursor)
             cursor.execute(
                 "SELECT situacao, chale_id, data_entrada, data_saida, "
                 "       num_pessoas, hospede_id "
@@ -571,6 +590,216 @@ def mudar_situacao(identificador, nova: str, usuario_id=None) -> None:
                 )
 
             executar(cursor, _SQL_MUDAR_SITUACAO, (nova, identificador))
+        finally:
+            cursor.close()
+
+
+# ---------------------------------------------------------------------------
+# O pedido do hóspede e o prazo do Pix — Etapa 5, Bloco 7
+# ---------------------------------------------------------------------------
+#
+# **A varredura roda ANTES de toda escrita, na mesma transação.** O gatilho
+# de não-sobreposição trata qualquer `pendente` como ocupação — inclusive
+# um pedido cujo prazo venceu e que ninguém cancelou ainda. Se a varredura
+# rodasse depois, a reserva nova seria recusada por causa de um pedido que
+# já devia estar cancelado. `test_o_gatilho_trata_pedido_vencido_como_ocupacao`
+# prende esse fato do banco.
+#
+# **O dono vai no WHERE.** Toda operação do hóspede sobre uma reserva leva
+# `hospede_id` na própria condição da atualização. Uma reserva de outra
+# pessoa não é encontrada, e a resposta é a mesma de uma reserva que não
+# existe: quem troca o número no endereço não aprende nada.
+#
+# **Nenhuma consulta compara prazo com relógio da aplicação.** O prazo é
+# gravado pelo banco (`NOW() + 90 minutos`) e conferido pelo banco
+# (`prazo_pagamento > NOW()`). Um relógio só para cada regra.
+
+_SQL_CANCELAR_VENCIDOS = (
+    "UPDATE reserva "
+    "SET situacao = 'cancelada', cancelado_em = NOW(), "
+    "    motivo_cancelamento = 'prazo_do_pix' "
+    "WHERE situacao = 'pendente' "
+    "  AND prazo_pagamento IS NOT NULL "
+    "  AND prazo_pagamento <= NOW() "
+    "  AND pix_informado_em IS NULL"
+)
+
+# Serializa os pedidos de um mesmo hóspede. Sem a trava, duas requisições
+# simultâneas contariam zero pedidos em aberto ao mesmo tempo, e as duas
+# passariam pelo limite.
+_SQL_TRAVAR_HOSPEDE = "SELECT id FROM hospede WHERE id = %s FOR UPDATE"
+
+_SQL_CONTAR_EM_ABERTO = (
+    "SELECT COUNT(*) FROM reserva "
+    "WHERE hospede_id = %s AND situacao = 'pendente'"
+)
+
+_SQL_CRIAR_PEDIDO = (
+    "INSERT INTO reserva "
+    "(chale_id, hospede_id, data_entrada, data_saida, num_pessoas, "
+    " situacao, valor_total, criado_por, modalidade, prazo_pagamento, "
+    " prazo_restante, regulamento_aceito_em) "
+    "VALUES (%s, %s, %s, %s, %s, 'pendente', %s, %s, %s, "
+    "        DATE_ADD(NOW(), INTERVAL %s MINUTE), %s, NOW())"
+)
+
+_SQL_INFORMAR_PRIMEIRO_PIX = (
+    "UPDATE reserva SET pix_informado_em = NOW() "
+    "WHERE id = %s AND hospede_id = %s "
+    "  AND situacao = 'pendente' "
+    "  AND modalidade IS NOT NULL "
+    "  AND pix_informado_em IS NULL "
+    "  AND prazo_pagamento > NOW()"
+)
+
+_SQL_INFORMAR_RESTANTE = (
+    "UPDATE reserva SET restante_informado_em = NOW() "
+    "WHERE id = %s AND hospede_id = %s "
+    "  AND situacao = 'confirmada' "
+    "  AND modalidade = 'sinal' "
+    "  AND restante_informado_em IS NULL "
+    "  AND prazo_restante > NOW()"
+)
+
+# Desistir só vale para o pedido feito pelo site que ainda não teve Pix
+# informado: é o único caso sem dinheiro envolvido. O cancelamento com
+# devolução é o Bloco 9.
+_SQL_DESISTIR = (
+    "UPDATE reserva "
+    "SET situacao = 'cancelada', cancelado_em = NOW(), "
+    "    motivo_cancelamento = 'pedido_do_hospede' "
+    "WHERE id = %s AND hospede_id = %s "
+    "  AND situacao = 'pendente' "
+    "  AND modalidade IS NOT NULL "
+    "  AND pix_informado_em IS NULL"
+)
+
+PRIMEIRO = "primeiro"
+RESTANTE = "restante"
+
+
+class PedidoEmAberto(ErroDeReserva):
+    """A conta já tem um pedido aguardando pagamento ou conferência."""
+
+
+def _cancelar_vencidos(cursor) -> int:
+    """Cancela os pedidos cujo prazo do Pix venceu sem declaração.
+
+    Recebe o cursor de quem chama para rodar **na mesma transação** da
+    escrita que vem depois. Ver a nota no topo desta seção.
+    """
+    executar(cursor, _SQL_CANCELAR_VENCIDOS)
+    return cursor.rowcount
+
+
+def cancelar_pedidos_vencidos(usuario_id=None) -> int:
+    """A mesma varredura, por conta própria. Devolve quantos cancelou.
+
+    Usada pelo gancho de requisição da aplicação, para que o chalé
+    liberado apareça livre na consulta de disponibilidade sem esperar a
+    próxima reserva.
+    """
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            return _cancelar_vencidos(cursor)
+        finally:
+            cursor.close()
+
+
+def criar_pedido(dados: dict, modalidade: str, minutos_para_o_pix: int,
+                 prazo_restante, limite_em_aberto: int, usuario_id) -> int:
+    """Grava o pedido do hóspede. Devolve o identificador da reserva.
+
+    `dados` traz chalé, hóspede, datas, pessoas e o valor total já
+    calculado. A modalidade e os prazos vêm do regulamento, decididos por
+    quem chama; este módulo grava, e o banco calcula o prazo do Pix.
+
+    Tudo numa transação, nesta ordem — e a ordem é a defesa:
+
+    1. cancela os pedidos vencidos;
+    2. trava a linha do hóspede;
+    3. confere o limite de pedidos em aberto;
+    4. confere as regras da reserva (chalé, capacidade, sobreposição);
+    5. grava.
+    """
+    limpo = _limpar(dados)
+    if limpo["valor_total"] is None:
+        raise ErroDeReserva("O pedido precisa do valor calculado.")
+
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            _cancelar_vencidos(cursor)
+
+            executar(cursor, _SQL_TRAVAR_HOSPEDE, (limpo["hospede_id"],))
+            if cursor.fetchone() is None:
+                raise ErroDeReserva("O cadastro do hóspede não foi encontrado.")
+
+            executar(cursor, _SQL_CONTAR_EM_ABERTO, (limpo["hospede_id"],))
+            if cursor.fetchone()[0] >= limite_em_aberto:
+                raise PedidoEmAberto(
+                    "Você já tem um pedido aguardando pagamento ou a "
+                    "conferência da equipe. Conclua ou desista dele antes "
+                    "de fazer outro."
+                )
+
+            _validar_regras(cursor, limpo)
+
+            executar(
+                cursor,
+                _SQL_CRIAR_PEDIDO,
+                (
+                    limpo["chale_id"],
+                    limpo["hospede_id"],
+                    limpo["data_entrada"],
+                    limpo["data_saida"],
+                    limpo["num_pessoas"],
+                    limpo["valor_total"],
+                    usuario_id,
+                    modalidade,
+                    minutos_para_o_pix,
+                    prazo_restante,
+                ),
+            )
+            return cursor.lastrowid
+        finally:
+            cursor.close()
+
+
+def informar_pix(identificador, hospede_id, etapa: str, usuario_id=None) -> bool:
+    """O hóspede declara que fez o Pix. Devolve se a declaração valeu.
+
+    `False` para todos os casos de recusa, sem distinguir: reserva de
+    outra pessoa, inexistente, fora do prazo, já declarada, na situação
+    errada. Quem sonda números de reserva não aprende quais existem.
+
+    A condição inteira está no UPDATE, e não numa leitura anterior: entre
+    ler e gravar, a varredura poderia cancelar o pedido.
+    """
+    if etapa == PRIMEIRO:
+        comando = _SQL_INFORMAR_PRIMEIRO_PIX
+    elif etapa == RESTANTE:
+        comando = _SQL_INFORMAR_RESTANTE
+    else:
+        return False
+
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            executar(cursor, comando, (identificador, hospede_id))
+            return cursor.rowcount == 1
+        finally:
+            cursor.close()
+
+
+def desistir(identificador, hospede_id, usuario_id=None) -> bool:
+    """O hóspede desiste de um pedido ainda sem Pix. Devolve se valeu."""
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            executar(cursor, _SQL_DESISTIR, (identificador, hospede_id))
+            return cursor.rowcount == 1
         finally:
             cursor.close()
 

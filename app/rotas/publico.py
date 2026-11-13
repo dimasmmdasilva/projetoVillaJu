@@ -61,6 +61,12 @@ from app.dados import chale_repo, contato_repo, vitrine
 from app.extensoes import limiter
 from app.servicos import cadastro
 
+# Etapa 5, Bloco 7. O regulamento é um módulo de constantes e funções
+# de data, SEM nenhuma importação de `app.dados`: a face pública o lê
+# sem ganhar caminho até repositório, e o teste de travessia de
+# importações continua valendo como está.
+from app.servicos import regulamento
+
 publico = Blueprint("publico", __name__)
 
 _registrador = logging.getLogger(__name__)
@@ -202,6 +208,7 @@ def inicio():
         hospedaria=HOSPEDARIA,
         chales=chales,
         banco_disponivel=banco_disponivel,
+        regras=regulamento.regras(),
     )
 
 

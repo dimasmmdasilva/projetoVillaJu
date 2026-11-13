@@ -16,6 +16,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}VillaJu{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/villaju.css') }}">
+  {# Etapa 5, Bloco 7: o card da reserva pede atualização automática
+     enquanto o prazo do Pix corre em minutos — sem JavaScript. #}
+  {% block cabeca %}{% endblock %}
 </head>
 {# A classe do corpo permite que uma página peça tratamento próprio de
    layout sem precisar de molde separado. A tela de entrada usa isso para
