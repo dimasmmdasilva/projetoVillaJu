@@ -492,6 +492,23 @@ def test_a_coluna_ocupa_sessenta_por_cento():
     assert "margin-right: auto" in bloco
 
 
+def test_o_aviso_tem_a_largura_do_texto_e_nao_da_coluna():
+    """O aviso não se estende além do que ele avisa.
+
+    Na tela do pedido, "O chalé Embaré recebe até 4 pessoas" ocupava a
+    coluna inteira, muito além do formulário de 22rem logo abaixo. Com
+    `fit-content` a caixa acompanha o texto; com `max-width: 100%`, uma
+    mensagem longa quebra dentro da coluna em vez de vazar dela.
+    """
+    bloco = _css().split("\n.aviso {")[1].split("}")[0]
+
+    assert "width: fit-content" in bloco
+    assert "max-width: 100%" in bloco
+    assert "box-sizing: border-box" in bloco, (
+        "sem border-box, o padding soma à largura e a caixa passa da coluna"
+    )
+
+
 def test_nenhuma_regra_compete_com_a_largura_da_coluna():
     """O defeito que desalinhou o menu, prendido.
 

@@ -149,10 +149,21 @@ th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; }
 th { background: #f0f0f0; }
 
 /* Avisos */
+/* A caixa tem a largura do PRÓPRIO TEXTO, e não da coluna.
+ *
+ * Antes ela ocupava a coluna inteira (60% da janela), enquanto o
+ * formulário logo abaixo para em 22rem: na tela do pedido, o aviso "O
+ * chalé Embaré recebe até 4 pessoas" se estendia muito além do formulário
+ * a que se referia. Com `fit-content`, frase curta vira caixa curta,
+ * alinhada à esquerda com o resto; frase longa quebra na largura da
+ * coluna, pelo `max-width`. Vale para os 16 moldes que desenham aviso. */
 .aviso {
   padding: 0.6rem 0.8rem;
   border-radius: 3px;
   border: 1px solid;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .aviso-erro { background: #fdecea; border-color: #e0b4b0; color: #7a2520; }
