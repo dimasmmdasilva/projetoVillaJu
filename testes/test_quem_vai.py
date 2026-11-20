@@ -380,3 +380,52 @@ def test_o_hospede_ve_a_correcao_no_card(aplicacao, reserva, hospede, admin):
     card = card[:card.index("</article>")]
     assert "Nome Corrigido" in card
     assert re.search(r"3\s*pessoas", card)
+
+
+# ===========================================================================
+# 6. O detalhe da reserva mostra quem vai (20/11)
+# ===========================================================================
+
+def _detalhe(aplicacao, login, reserva):
+    return _entrar(aplicacao, *login).get(f"/reservas/{reserva}").data.decode()
+
+
+def test_o_detalhe_mostra_titular_e_acompanhantes(aplicacao, reserva):
+    html = _detalhe(aplicacao, ADMIN, reserva)
+    secao = html[html.index("<h2>Quem vai</h2>"):html.index("<h2>Valor da estadia</h2>")]
+    itens = re.findall(r"<li>(.*?)</li>", secao, re.S)
+    assert DADOS["nome"] in itens[0] and "titular" in itens[0]
+    assert "Acompanhante Teste 1" in itens[1] and "RG0000001" in itens[1]
+    assert "Acompanhante Teste 2" in itens[2]
+
+
+def test_so_o_admin_tem_o_link_de_edicao_no_detalhe(aplicacao, reserva):
+    destino = f"/reservas/{reserva}/quem-vai"
+    assert destino in _detalhe(aplicacao, ADMIN, reserva)
+    recepcao = _detalhe(aplicacao, RECEPCAO, reserva)
+    assert "Acompanhante Teste 1" in recepcao, "a recepção vê a lista"
+    assert destino not in recepcao
+
+
+def test_o_detalhe_marca_o_menor(aplicacao, reserva, admin):
+    with aplicacao.app_context():
+        quem_vai.corrigir(reserva, 2, _nova("Criança Teste", "", "sim"), admin)
+    assert "menor de idade" in _detalhe(aplicacao, ADMIN, reserva)
+
+
+def test_lista_ilegivel_nao_derruba_o_detalhe(aplicacao, reserva, conexao_banco):
+    cursor = conexao_banco.cursor()
+    cursor.execute("UPDATE acompanhante SET nome_tag = REPEAT('x', 16) "
+                   "WHERE reserva_id = %s AND ordem = 1", (reserva,))
+    cursor.close()
+    resposta = _entrar(aplicacao, *ADMIN).get(f"/reservas/{reserva}")
+    assert resposta.status_code == 200
+    assert "lista de acompanhantes ilegível" in resposta.data.decode()
+
+
+def test_reserva_encerrada_nao_oferece_edicao(aplicacao, reserva, conta):
+    with aplicacao.app_context():
+        pedido.desistir(conta, reserva)
+    html = _detalhe(aplicacao, ADMIN, reserva)
+    assert f"/reservas/{reserva}/quem-vai" not in html
+    assert "Acompanhante Teste 1" in html, "a lista continua visível"

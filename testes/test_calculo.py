@@ -381,7 +381,8 @@ def test_tela_mostra_a_conta_aberta(banco):
 
     assert "Baixa temporada" in corpo
     assert "Alta temporada" in corpo
-    assert "3120.00" in corpo
+    # Desde 20/11 os valores saem no formato brasileiro, pelo filtro `reais`.
+    assert "R$ 3.120,00" in corpo
     assert "atravessa uma virada de temporada" in corpo
 
 

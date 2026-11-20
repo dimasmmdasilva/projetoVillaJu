@@ -20,8 +20,9 @@
 </form>
 
 <p class="total-do-ano">
-  Total recebido em {{ controle.ano }}:
+  Total líquido em {{ controle.ano }}:
   <strong>{{ controle.total_do_ano|reais }}</strong>
+  <span class="nota-campo">(entradas conferidas menos devoluções)</span>
 </p>
 
 <ul class="grade-de-meses">
@@ -58,7 +59,7 @@
       <td>{{ item.reserva_id }}</td>
       <td>{{ item.hospede_nome or 'cadastro ilegível' }}</td>
       <td>{{ item.chale_nome }}</td>
-      <td>{{ item.tipo }}</td>
+      <td>{{ item.tipo_rotulo }}</td>
       <td>{{ item.valor|reais }}</td>
       <td>{{ item.conferido_por }}</td>
     </tr>

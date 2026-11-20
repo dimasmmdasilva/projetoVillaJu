@@ -208,6 +208,20 @@ def inicio():
         hospedaria=HOSPEDARIA,
         chales=chales,
         banco_disponivel=banco_disponivel,
+    )
+
+
+@publico.route("/regulamento", endpoint="regulamento")
+def regulamento_da_pousada():
+    """O regulamento em página própria — 20/11, a pedido do Dimas.
+
+    O texto sai de `regulamento.regras()`, as mesmas constantes que o
+    sistema aplica. O passo 4 do pedido continua mostrando o regulamento
+    inteiro antes do aceite: lê-lo ali é o que dá valor ao aceite.
+    """
+    return render_template(
+        "publico/regulamento.html",
+        hospedaria=HOSPEDARIA,
         regras=regulamento.regras(),
     )
 

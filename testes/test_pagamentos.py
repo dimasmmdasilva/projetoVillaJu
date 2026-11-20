@@ -636,3 +636,20 @@ def test_a_recepcao_nao_tem_link_para_o_controle(aplicacao):
     assert "/pagamentos/controle" not in html
     html = _entrar(aplicacao, *ADMIN).get("/pagamentos").data.decode()
     assert "/pagamentos/controle" in html
+
+
+def test_a_grade_dos_meses_tem_quatro_colunas():
+    """20/11, a pedido do Dimas: 4 x 3 ocupando a coluna central.
+
+    Confere o valor FINAL fora das media queries — a regra de tela larga —,
+    e que as telas estreitas descem para 2 e 1 coluna.
+    """
+    import pathlib
+    from test_pagina_do_chale import _valor_final
+
+    css = (pathlib.Path(__file__).resolve().parents[1]
+           / "app/static/css/villaju.css").read_text(encoding="utf-8")
+    fora_das_midias = re.sub(r"@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}", "", css)
+    assert _valor_final(fora_das_midias, ".grade-de-meses",
+                        "grid-template-columns") == "repeat(4, minmax(0, 1fr))"
+    assert "repeat(2, minmax(0, 1fr))" in css

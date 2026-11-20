@@ -103,8 +103,8 @@
   {% endfor %}
 
   {% elif not banco_disponivel %}
-  {# Degradação deliberada: a apresentação e a localização acima são texto
-     fixo e continuam valendo. Só a lista de chalés depende do banco. #}
+  {# Degradação deliberada: a apresentação acima e a localização no
+     rodapé são texto fixo e continuam valendo. Só a lista de chalés depende do banco. #}
   <p>Não foi possível carregar a lista de chalés neste momento.
      Entre em contato pelos dados abaixo.</p>
   {% else %}
@@ -112,21 +112,8 @@
   {% endif %}
 </section>
 
-{# Etapa 5, Bloco 7. As regras de reserva, pagamento e cancelamento, à
-   vista de quem ainda não criou conta: quem vai reservar precisa saber
-   antes, e não descobrir na tela do pagamento. #}
-<section id="regulamento">
-  <h2>Regulamento da pousada</h2>
-  {% include "_regulamento.html" %}
-</section>
-
-<section id="localizacao">
-  <h2>Localização</h2>
-  <p>
-    <strong>{{ hospedaria.endereco }}</strong><br>
-    {{ hospedaria.cidade }}
-  </p>
-  <p>{{ hospedaria.regiao }}</p>
-</section>
+{# O regulamento ganhou página própria (/regulamento) e a localização foi
+   para o rodapé, em 20/11, a pedido do Dimas: a inicial fica com a
+   apresentação e os chalés. #}
 
 {% endblock %}

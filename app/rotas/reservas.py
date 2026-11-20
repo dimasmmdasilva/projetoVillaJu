@@ -196,8 +196,29 @@ def detalhe(identificador):
         reserva=reserva,
         transicoes=reserva_repo.TRANSICOES[reserva["situacao"]],
         hospede=_hospede_da_reserva(reserva),
+        acompanhantes=_acompanhantes_da_reserva(reserva),
         conta=_conta_da_reserva(reserva),
     )
+
+
+def _acompanhantes_da_reserva(reserva):
+    """A lista de quem vai com o titular, para a equipe (20/11).
+
+    Documento inteiro: é para a conferência na chegada. `None` se a lista
+    não passa na verificação de integridade — a página abre e diz isso,
+    em vez de cair.
+    """
+    from app.seguranca.cripto import FalhaDeAutenticacao
+
+    try:
+        return acompanhante_repo.listar_da_reserva(
+            reserva["id"], usuario_id=_quem()
+        )
+    except FalhaDeAutenticacao:
+        _registrador.warning(
+            "Acompanhante ilegível na reserva %s", reserva["id"]
+        )
+        return None
 
 
 @reservas.route("/<int:identificador>/editar", methods=["GET", "POST"])
@@ -387,6 +408,18 @@ def minhas():
     lancamentos = pagamento_repo.lancamentos_por_reserva_do_hospede(
         usuario["hospede_id"], usuario_id=usuario["id"]
     )
+    # 20/11: no Histórico, a situação da devolução de quem cancelou.
+    devolvidas = pagamento_repo.devolucoes_do_hospede(
+        usuario["hospede_id"], usuario_id=usuario["id"]
+    )
+    devolucoes = {
+        reserva["id"]: pedido.situacao_da_devolucao(
+            reserva, lancamentos.get(reserva["id"], {}),
+            devolvidas.get(reserva["id"]),
+        )
+        for reserva in historico
+    }
+
     cartoes = {
         reserva["id"]: pedido.cartao(
             {**reserva, "lancamentos": lancamentos.get(reserva["id"], {})}
@@ -419,6 +452,7 @@ def minhas():
         contas=contas,
         cartoes=cartoes,
         acompanhantes=acompanhantes,
+        devolucoes=devolucoes,
         # Ajuste 15.9: o titular no topo da lista de quem vai.
         titular=pedido.titular(usuario["hospede_id"], usuario_id=usuario["id"]),
         chave_pix=getattr(current_app.villaju, "PIX_CHAVE", ""),

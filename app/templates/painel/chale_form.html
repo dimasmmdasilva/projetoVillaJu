@@ -49,7 +49,7 @@
     <tr>
       <td>{{ tarifa.data_inicio.strftime('%d/%m/%Y') }} a
           {{ tarifa.data_fim.strftime('%d/%m/%Y') }}</td>
-      <td>R$ {{ '%.2f'|format(tarifa.valor_diaria) }}</td>
+      <td>{{ tarifa.valor_diaria|reais }}</td>
       <td>{{ tarifa.descricao or '—' }}</td>
       <td>
         <a href="{{ url_for('chales.editar_tarifa', chale_id=chale.id,

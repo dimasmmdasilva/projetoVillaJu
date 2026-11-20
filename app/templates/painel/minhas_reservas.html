@@ -180,17 +180,24 @@
       {# Intervalo semiaberto: quem sai dia 18 não dorme na noite do 18. #}
       <td>{{ (reserva.data_saida - reserva.data_entrada).days }}</td>
       <td>{{ reserva.num_pessoas }}</td>
-      <td><strong>{{ reserva.situacao }}</strong></td>
+      <td>
+        <strong>{{ reserva.situacao }}</strong>
+        {# 20/11: quem cancelou acompanha a devolução. #}
+        {% set devolucao = devolucoes.get(reserva.id) if devolucoes else none %}
+        {% if devolucao %}
+        <br><small class="devolucao devolucao--{{ devolucao.etapa }}">{{ devolucao.texto }}</small>
+        {% endif %}
+      </td>
       <td>
         {% set conta = contas.get(reserva.id) %}
         {% if conta %}
-          R$ {{ '%.2f'|format(conta.total) }}
+          {{ conta.total|reais }}
           {% if conta.atravessa_virada %}
           <br><small>{% for trecho in conta.trechos %}{{ trecho.noites }} &times;
-            R$ {{ '%.2f'|format(trecho.valor_diaria) }}{{ ' + ' if not loop.last }}{% endfor %}</small>
+            {{ trecho.valor_diaria|reais }}{{ ' + ' if not loop.last }}{% endfor %}</small>
           {% endif %}
         {% elif reserva.valor_total %}
-          R$ {{ '%.2f'|format(reserva.valor_total) }}
+          {{ reserva.valor_total|reais }}
         {% else %}
           &mdash;
         {% endif %}

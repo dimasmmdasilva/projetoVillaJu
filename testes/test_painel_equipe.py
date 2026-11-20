@@ -325,3 +325,32 @@ def test_toda_cor_de_card_existe_na_folha_de_estilo(aplicacao, conta, chale):
     card = html[html.index(f'id="painel-reserva-{identificador}"'):]
     usada = int(re.search(r'amostra--(\d+)', card).group(1))
     assert usada in definidas
+
+
+def test_o_filtro_em_linha_alinha_o_botao_com_a_caixa():
+    """O "Filtrar" do Painel e o "Ver" do Controle desciam — o Dimas viu.
+
+    Confere o valor FINAL no CSS: a margem do botão dentro do filtro em
+    linha é zero (e não o 1rem da regra geral), e botão e caixa têm a
+    mesma altura de linha e o mesmo espaço interno vertical.
+    """
+    import pathlib
+    from test_pagina_do_chale import _valor_final
+
+    css = (pathlib.Path(__file__).resolve().parents[1]
+           / "app/static/css/villaju.css").read_text(encoding="utf-8")
+    assert _valor_final(css, ".seletor-de-ano button", "margin") == "0"
+    assert _valor_final(css, ".seletor-de-ano select", "margin") == "0"
+    assert (_valor_final(css, ".seletor-de-ano button", "line-height")
+            == _valor_final(css, ".seletor-de-ano select", "line-height"))
+    vertical_botao = _valor_final(css, "button", "padding").split()[0]
+    vertical_caixa = _valor_final(css, "select", "padding").split()[0]
+    assert vertical_botao == vertical_caixa
+
+
+@pytest.mark.parametrize("rota", ["/painel", "/pagamentos/controle"])
+def test_os_dois_filtros_usam_a_linha_alinhada(aplicacao, rota):
+    html = _entrar(aplicacao, *ADMIN).get(rota).data.decode()
+    formulario = html[html.index('class="seletor-de-ano"'):]
+    formulario = formulario[:formulario.index("</form>")]
+    assert "<select" in formulario and "<button" in formulario

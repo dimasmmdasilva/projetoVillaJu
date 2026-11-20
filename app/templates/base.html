@@ -60,7 +60,9 @@
        telas internas equivalentes, que mostrariam a mesma coisa com
        outro molde e teriam de ser mantidas em dobro. #}
     <a href="{{ url_for('publico.inicio') }}#chales">Chalés</a>
-    <a href="{{ url_for('publico.disponibilidade') }}">Consultar disponibilidade</a>
+    {# "Consultar disponibilidade" saiu da barra em 20/11, a pedido do
+       Dimas: a consulta é o botão principal da página inicial, que
+       "Chalés" já abre. #}
     {% endif %}
     {# Esconder o link é conveniência de interface, NÃO controle de acesso:
        a rota continua decorada com @requer_perfil e responde 403 a quem

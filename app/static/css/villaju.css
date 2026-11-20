@@ -299,6 +299,7 @@ th { background: #f0f0f0; }
 }
 
 .rodape-publico .aviso-academico { color: #777; font-size: 0.82rem; }
+.rodape-publico .rodape-regiao { font-size: 0.88rem; color: #555; }
 
 /* As cinco faixas provisórias, uma por chalé.
  *
@@ -920,6 +921,18 @@ fieldset.acompanhante legend { font-weight: 700; padding: 0 0.25rem; }
 }
 .seletor-de-ano label { margin: 0; }
 
+/* O botão herdava `margin-top: 1rem` da regra geral de `button` — a que
+ * afasta o envio do último campo de um formulário em coluna. Numa linha
+ * flexível centralizada, essa margem o empurrava para baixo da caixa de
+ * seleção: o "Filtrar" do Painel e o "Ver" do Controle. Os dois já têm o
+ * mesmo espaço interno vertical e a mesma borda; a altura de linha igual
+ * fecha a diferença de altura entre navegadores. */
+.seletor-de-ano button,
+.seletor-de-ano select {
+  margin: 0;
+  line-height: 1.4;
+}
+
 .total-do-ano { font-size: 1.1rem; }
 
 .grade-de-meses {
@@ -944,6 +957,32 @@ fieldset.acompanhante legend { font-weight: 700; padding: 0 0.25rem; }
 .grade-de-meses .escolhido a { border-color: #2f3e34; border-width: 2px; }
 .mes-nome { text-transform: capitalize; }
 .mes-quantidade { font-size: 0.85rem; color: #5b6a60; }
+
+/* 20/11, a pedido do Dimas: os cards dos meses eram pequenos (auto-fill
+ * de 9rem dava 7 por linha). Agora 4 colunas por 3 linhas ocupam a coluna
+ * central inteira — janeiro a abril, maio a agosto, setembro a dezembro —
+ * e a tabela de lançamentos continua logo abaixo, sem rolar. Em tela
+ * estreita, 2 colunas; no celular, 1. */
+.grade-de-meses {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.grade-de-meses a {
+  padding: 1rem 1.25rem;
+  gap: 0.35rem;
+  min-height: 7rem;
+  justify-content: center;
+}
+.grade-de-meses .mes-nome { font-size: 1.05rem; }
+.grade-de-meses strong { font-size: 1.35rem; }
+.grade-de-meses .mes-quantidade { font-size: 0.9rem; }
+
+@media (max-width: 48rem) {
+  .grade-de-meses { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 30rem) {
+  .grade-de-meses { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* Bloco 8b: a linha do tempo do pagamento no card do hóspede. */
 .linha-do-tempo {
@@ -1025,3 +1064,64 @@ a.botao {
   .cartao-painel { flex-direction: column; }
   .cartao-painel__foto { flex: 0 0 auto; width: 100%; }
 }
+
+/* =======================================================================
+ * AS DUAS BARRAS COM UMA MEDIDA SÓ — 20/11
+ *
+ * O cabeçalho da face pública e a barra da área interna nasceram em
+ * regras separadas, e divergiam em cinco pontos: a altura, o espaço
+ * entre os grupos, o tamanho da marca, a cor dos links e a altura do
+ * botão da direita ("Entrar"/"Painel" sem borda, "Sair" com 1px). O Dimas
+ * viu nos prints. Esta é a medida das duas, declarada uma vez, por
+ * último; `test_as_duas_barras_tem_a_mesma_medida` compara o valor final
+ * de cada propriedade nos dois lados.
+ * ===================================================================== */
+.barra,
+.cabecalho-publico {
+  padding: 0.85rem 0;
+  background: #2f3e34;
+  color: #fff;
+}
+
+.barra .coluna-central,
+.cabecalho-publico .coluna-central {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  min-height: 2.25rem;
+}
+
+.barra nav,
+.cabecalho-publico nav {
+  display: flex;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+}
+
+.barra nav a,
+.cabecalho-publico nav a { color: #e8ece9; }
+
+.barra .marca,
+.cabecalho-publico .marca {
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #fff;
+  text-decoration: none;
+}
+
+.barra .sair,
+.cabecalho-publico .entrar {
+  padding: 0.4rem 1rem;
+  border: 1px solid #e8ece9;
+  border-radius: 4px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* 20/11: a situação da devolução no Histórico do hóspede. */
+.devolucao { display: inline-block; margin-top: 0.2rem; }
+.devolucao--aguardando { color: #8a5a00; }
+.devolucao--devolvida { color: #2f5e3e; }
+.devolucao--sem_direito { color: #7a2520; }

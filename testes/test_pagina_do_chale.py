@@ -826,6 +826,10 @@ def test_o_sair_tem_a_mesma_cara_do_entrar():
 def test_o_hospede_alcanca_os_chales_e_a_disponibilidade(aplicacao):
     """O cercado, e o que o abriu.
 
+    Desde 20/11, a pedido do Dimas, "Consultar disponibilidade" saiu da
+    barra: o hóspede chega a ela por "Chalés", que abre a página inicial,
+    onde a consulta é o botão principal. O teste segue o caminho inteiro.
+
     Quem entrava como hospede via duas telas: o painel e as proprias
     reservas. A face publica continuava aberta — nao exige sessao —, mas
     sem link para ela a partir de dentro a pessoa nao tinha como chegar.
@@ -836,11 +840,14 @@ def test_o_hospede_alcanca_os_chales_e_a_disponibilidade(aplicacao):
     html = _entrar_como(aplicacao, HOSPEDE).get("/painel/").data.decode()
     barra = html.split("</header>")[0]
 
-    assert "/disponibilidade" in barra, (
+    assert "Consultar disponibilidade" not in barra
+    assert 'href="/#chales"' in barra and "Chalés" in barra
+    assert "/reservas/minhas" in barra
+
+    inicio = _entrar_como(aplicacao, HOSPEDE).get("/").data.decode()
+    assert 'href="/disponibilidade"' in inicio, (
         "o hospede precisa alcancar a consulta de disponibilidade"
     )
-    assert "Chalés" in barra
-    assert "/reservas/minhas" in barra
 
 
 def test_a_marca_da_barra_leva_a_vitrine(aplicacao):
@@ -898,3 +905,41 @@ def test_o_hospede_continua_sem_alcancar_as_telas_da_equipe(aplicacao):
         "/chales/",
     ):
         assert cliente.get(rota).status_code == 403, rota
+
+
+def _valor_final(css, seletor, propriedade):
+    """O valor que vale no fim da folha: a última declaração da
+    propriedade num bloco cujo seletor (sozinho ou numa lista) é este."""
+    valor = None
+    for seletores, corpo in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
+        lista = [s.strip() for s in re.sub(r"/\*.*?\*/", "", seletores, flags=re.S).split(",")]
+        if seletor in lista:
+            achado = re.findall(rf"(?:^|;|\s){re.escape(propriedade)}\s*:\s*([^;]+);", corpo)
+            if achado:
+                valor = achado[-1].strip()
+    return valor
+
+
+@pytest.mark.parametrize("interno,publico,propriedades", [
+    (".barra", ".cabecalho-publico", ("padding", "background", "color")),
+    (".barra .coluna-central", ".cabecalho-publico .coluna-central",
+     ("gap", "align-items", "min-height")),
+    (".barra nav", ".cabecalho-publico nav", ("gap",)),
+    (".barra nav a", ".cabecalho-publico nav a", ("color",)),
+    (".barra .marca", ".cabecalho-publico .marca", ("font-size", "font-weight")),
+    (".barra .sair", ".cabecalho-publico .entrar",
+     ("padding", "border", "font-size", "line-height", "background", "color")),
+])
+def test_as_duas_barras_tem_a_mesma_medida(interno, publico, propriedades):
+    """Pedido do Dimas em 20/11: o mesmo padrão nas duas faces.
+
+    Compara o valor FINAL de cada propriedade — o que o navegador aplica —,
+    e não a presença de uma regra: as regras antigas continuam na folha, e
+    é a última declaração que vale.
+    """
+    css = _css()
+    for propriedade in propriedades:
+        a = _valor_final(css, interno, propriedade)
+        b = _valor_final(css, publico, propriedade)
+        assert a is not None and a == b, (
+            f"{propriedade}: {interno} = {a!r}, {publico} = {b!r}")

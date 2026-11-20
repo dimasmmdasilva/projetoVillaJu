@@ -406,3 +406,116 @@ def test_o_card_de_devolucao_pela_tela(aplicacao, conta, chale, recepcao):
         data={"csrf_token": _token(equipe, "/pagamentos")},
         follow_redirects=True)
     assert "Devolução registrada" in resposta.data.decode()
+
+
+# ===========================================================================
+# 4. O hóspede acompanha a devolução no Histórico (20/11)
+# ===========================================================================
+
+def _cancelada(**campos):
+    base = {
+        "situacao": "cancelada", "motivo_cancelamento": "pedido_do_hospede",
+        "data_entrada": dt.date(2026, 12, 4),
+        "cancelado_em": dt.datetime(2026, 11, 20, 17, 23),
+    }
+    base.update(campos)
+    return base
+
+
+def test_devolucao_aguardando_a_pousada():
+    estado = pedido.situacao_da_devolucao(
+        _cancelada(), {"sinal": Decimal("1330"), "restante": Decimal("1330")})
+    assert estado == {"etapa": "aguardando", "texto": (
+        "Devolução de R$ 2.660,00: aguardando a pousada fazer o Pix.")}
+
+
+def test_devolucao_feita_diz_a_data():
+    estado = pedido.situacao_da_devolucao(
+        _cancelada(),
+        {"sinal": Decimal("1330"), "restante": Decimal("1330"),
+         "devolucao": Decimal("-2660")},
+        dt.datetime(2026, 11, 21, 9, 0))
+    assert estado["etapa"] == "devolvida"
+    assert estado["texto"] == (
+        "Devolução de R$ 2.660,00 feita pela pousada em 21/11/2026.")
+
+
+def test_sem_direito_diz_o_motivo():
+    estado = pedido.situacao_da_devolucao(
+        _cancelada(cancelado_em=dt.datetime(2026, 11, 30, 10, 0)),
+        {"sinal": Decimal("1330")})
+    assert estado["etapa"] == "sem_direito"
+    assert "menos de 7 dias" in estado["texto"]
+
+
+@pytest.mark.parametrize("reserva,lancamentos", [
+    ({"situacao": "confirmada"}, {"sinal": Decimal("1")}),
+    ({"motivo_cancelamento": "falta_de_pagamento"}, {"sinal": Decimal("1")}),
+    ({}, {}),
+])
+def test_sem_nada_a_dizer(reserva, lancamentos):
+    assert pedido.situacao_da_devolucao(_cancelada(**reserva), lancamentos) is None
+
+
+def _historico(cliente):
+    html = cliente.get("/reservas/minhas").data.decode()
+    return html[html.index(">Histórico<"):]
+
+
+def test_o_historico_acompanha_a_devolucao(aplicacao, hospede, conta, chale,
+                                          recepcao):
+    identificador = _confirmada(aplicacao, conta, chale, recepcao)
+    _cancelar(aplicacao, conta, identificador)
+    assert "Devolução de R$ 300,00: aguardando a pousada" in _historico(hospede)
+
+    _devolver(aplicacao, identificador, recepcao)
+    hoje = dt.date.today().strftime("%d/%m/%Y")
+    assert (f"Devolução de R$ 300,00 feita pela pousada em {hoje}"
+            in _historico(hospede))
+
+
+def test_a_devolucao_alheia_nao_aparece(aplicacao, conta, outra, chale,
+                                       recepcao):
+    identificador = _confirmada(aplicacao, conta, chale, recepcao)
+    _cancelar(aplicacao, conta, identificador)
+    _devolver(aplicacao, identificador, recepcao)
+    with aplicacao.app_context():
+        assert pagamento_repo.devolucoes_do_hospede(outra["hospede_id"]) == {}
+    alheio = _entrar(aplicacao, OUTRA["email"])
+    assert "Devolução de" not in _historico(alheio)
+
+
+# ===========================================================================
+# 5. Acabamentos de 20/11: rótulos, total líquido, formato do valor
+# ===========================================================================
+
+def test_o_controle_mostra_o_rotulo_e_o_total_liquido(aplicacao, conta, chale,
+                                                     recepcao):
+    identificador = _confirmada(aplicacao, conta, chale, recepcao)
+    _cancelar(aplicacao, conta, identificador)
+    _devolver(aplicacao, identificador, recepcao)
+    admin = _entrar(aplicacao, "admin", "Villa@Admin2026")
+    html = admin.get(f"/pagamentos/controle?ano={HOJE.year}&mes={HOJE.month}"
+                     ).data.decode()
+    # Sem a barra de fechamento: o guarda de acento em caminho de arquivo
+    # confundiria "<td>devolução</td>" com um caminho.
+    assert ">devolução<" in html and ">devolucao<" not in html
+    assert "<td>sinal (50%)</td>" in html
+    assert "Total líquido em" in html
+
+
+def test_os_valores_saem_no_formato_brasileiro(aplicacao, hospede, conta,
+                                              chale, recepcao):
+    """O detalhe da reserva e o Histórico mostravam "R$ 2660.00"."""
+    identificador = _confirmada(aplicacao, conta, chale, recepcao)
+    _cancelar(aplicacao, conta, identificador)
+    americano = re.compile(r"R\$ \d+\.\d{2}\b")
+
+    historico = _historico(hospede)
+    assert "R$ 600,00" in historico
+    assert not americano.search(historico), americano.search(historico)
+
+    equipe = _entrar(aplicacao, *RECEPCAO)
+    detalhe = equipe.get(f"/reservas/{identificador}").data.decode()
+    assert "R$ 600,00" in detalhe
+    assert not americano.search(detalhe), americano.search(detalhe)

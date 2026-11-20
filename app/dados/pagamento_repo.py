@@ -89,6 +89,14 @@ _SQL_LANCAMENTOS_POR_RESERVAS_DO_HOSPEDE = (
 # de uma vez — uma consulta, e não uma por card.
 _SQL_LANCAMENTOS_DE_TODAS = "SELECT reserva_id, tipo, valor FROM pagamento"
 
+# 20/11: o hóspede acompanha a devolução no Histórico — quando a pousada
+# devolveu. O dono vai no WHERE, como em toda leitura do perfil hóspede.
+_SQL_DEVOLUCOES_DO_HOSPEDE = (
+    "SELECT p.reserva_id, p.registrado_em "
+    "FROM pagamento p JOIN reserva r ON r.id = p.reserva_id "
+    "WHERE r.hospede_id = %s AND p.tipo = 'devolucao'"
+)
+
 _SQL_LANCAMENTOS_DA_RESERVA = (
     "SELECT tipo, valor FROM pagamento WHERE reserva_id = %s"
 )
@@ -327,6 +335,13 @@ def lancamentos_por_reserva_do_hospede(hospede_id, usuario_id=None) -> dict:
     return resultado
 
 
+def devolucoes_do_hospede(hospede_id, usuario_id=None) -> dict:
+    """`{reserva_id: registrado_em}` das devoluções feitas a um hóspede."""
+    with obter_cursor(usuario_id=usuario_id) as cursor:
+        cursor.execute(_SQL_DEVOLUCOES_DO_HOSPEDE, (hospede_id,))
+        return {reserva_id: quando for reserva_id, quando in cursor.fetchall()}
+
+
 def lancamentos_de_todas(usuario_id=None) -> dict:
     """`{reserva_id: {tipo: valor}}` de todo o livro. Só para a equipe."""
     resultado = {}
@@ -375,6 +390,7 @@ __all__ = [
     "cancelar_por_falta_de_pagamento",
     "confirmar_primeiro",
     "confirmar_restante",
+    "devolucoes_do_hospede",
     "devolucoes_em_aberto",
     "registrar_devolucao",
     "lancamentos_da_reserva",

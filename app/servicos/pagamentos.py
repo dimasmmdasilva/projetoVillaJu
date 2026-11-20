@@ -57,6 +57,13 @@ CANCELAR = "cancelar"
 DEVOLVER = "devolver"
 ACOES = (PRIMEIRO, RESTANTE, CANCELAR, DEVOLVER)
 
+ROTULOS_DO_TIPO = {
+    "sinal": "sinal (50%)",
+    "restante": "restante (50%)",
+    "integral": "integral (100%)",
+    "devolucao": "devolução",
+}
+
 MESES = (
     "janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
     "agosto", "setembro", "outubro", "novembro", "dezembro",
@@ -323,7 +330,12 @@ def controle(ano=None, mes=None, usuario_id=None, hoje: dt.date = None) -> dict:
             dt.date(ano, mes, 1), fim, usuario_id=usuario_id
         ):
             titular = titular_completo(linha["hospede_id"], usuario_id)
-            lancamentos.append({**linha, "hospede_nome": titular["nome"]})
+            lancamentos.append({
+                **linha,
+                "hospede_nome": titular["nome"],
+                # O valor do ENUM é sem acento; a tela mostra o rótulo.
+                "tipo_rotulo": ROTULOS_DO_TIPO.get(linha["tipo"], linha["tipo"]),
+            })
 
     return {
         "ano": ano,

@@ -578,3 +578,40 @@ def test_os_titulos_de_aba_distinguem_as_duas_faces(visitante):
 
     assert titulo("/") == "VillaJu — Praia da Juréia"
     assert titulo("/login") == "Entrar — VillaJu"
+
+
+# ---------------------------------------------------------------------------
+# 20/11: localização no rodapé, regulamento em página própria
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("rota", ["/", "/regulamento", "/disponibilidade", "/contato"])
+def test_a_ancora_da_localizacao_existe_em_toda_pagina_publica(visitante, rota):
+    """O link "Localização" é `#localizacao`, e o alvo é o rodapé — que
+    está em toda página pública. Antes, só a inicial tinha o alvo."""
+    html = visitante.get(rota).data.decode()
+    assert 'href="#localizacao"' in html
+    rodape = html[html.index("<footer"):]
+    assert 'id="localizacao"' in rodape.split(">")[0]
+    assert "Alameda Jubéris" in rodape and "Boiçucanga" in rodape
+
+
+def test_a_inicial_nao_tem_mais_as_secoes_de_localizacao_e_regulamento(visitante):
+    html = visitante.get("/").data.decode()
+    corpo = html[html.index("<main"):html.index("</main>")]
+    assert ">Localização<" not in corpo
+    assert "Regulamento da pousada" not in corpo
+
+
+def test_a_pagina_do_regulamento_e_publica(visitante):
+    resposta = visitante.get("/regulamento")
+    assert resposta.status_code == 200
+    with visitante.session_transaction() as sessao:
+        assert "usuario_id" not in dict(sessao)
+
+
+def test_o_pedido_continua_mostrando_o_regulamento_antes_do_aceite():
+    """O passo 4 inclui o regulamento inteiro: o aceite vale pelo que foi lido."""
+    import pathlib
+    molde = (pathlib.Path(__file__).resolve().parents[1]
+             / "app/templates/painel/pedir_reserva.html").read_text(encoding="utf-8")
+    assert '{% include "_regulamento.html" %}' in molde

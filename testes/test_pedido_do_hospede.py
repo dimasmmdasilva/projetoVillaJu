@@ -1067,12 +1067,16 @@ def test_a_chave_pix_nao_tem_valor_padrao_no_codigo(monkeypatch):
     assert Configuracao(modo_teste=True).PIX_CHAVE == ""
 
 
-def test_a_pagina_inicial_mostra_o_regulamento(aplicacao):
-    html = aplicacao.test_client().get("/").data.decode()
-
+def test_o_regulamento_tem_pagina_propria(aplicacao):
+    """Desde 20/11 o regulamento mora em /regulamento, e a barra leva lá."""
+    cliente = aplicacao.test_client()
+    html = cliente.get("/regulamento").data.decode()
     assert "Regulamento da pousada" in html
     assert f"{regulamento.MINUTOS_PARA_O_PIX} minutos" in html
-    assert 'href="/#regulamento"' in html
+
+    inicio = cliente.get("/").data.decode()
+    assert 'href="/regulamento"' in inicio
+    assert 'id="regulamento"' not in inicio
 
 
 def test_a_consulta_oferece_reservar_a_quem_e_hospede(aplicacao, hospede, chale):

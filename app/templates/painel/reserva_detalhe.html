@@ -29,13 +29,38 @@
     <tr><th>Situação</th><td><strong>{{ reserva.situacao }}</strong></td></tr>
     <tr>
       <th>Valor total</th>
-      <td>{{ 'R$ %.2f'|format(reserva.valor_total) if reserva.valor_total else '—' }}</td>
+      <td>{{ reserva.valor_total|reais if reserva.valor_total else '—' }}</td>
     </tr>
     <tr><th>Observações</th><td>{{ reserva.observacoes or '—' }}</td></tr>
     <tr><th>Registrada por</th><td>{{ 'pelo site' if reserva.modalidade else (reserva.criado_por_login or '—') }}</td></tr>
     <tr><th>Criada em</th><td>{{ reserva.criado_em.strftime('%d/%m/%Y %H:%M') }}</td></tr>
   </tbody>
 </table>
+
+{# 20/11, a pedido do Dimas: quem vai, com o titular no topo e os
+   documentos inteiros — a mesma lista do card de Pagamentos. Só o
+   administrador recebe o link de edição (Bloco 15b). #}
+<h2>Quem vai</h2>
+<ol class="lista-de-hospedes">
+  <li>
+    {% if hospede %}{{ hospede.nome }}{% if hospede.documento %} — documento {{ hospede.documento }}{% endif %}{% else %}<em>cadastro ilegível</em>{% endif %}
+    — titular
+  </li>
+  {% if acompanhantes is none %}
+  <li><em>lista de acompanhantes ilegível</em></li>
+  {% else %}
+  {% for pessoa in acompanhantes %}
+  <li>
+    {{ pessoa.nome }}
+    {% if pessoa.documento %}— documento {{ pessoa.documento }}{% endif %}
+    {% if pessoa.menor_de_idade %}— menor de idade{% endif %}
+  </li>
+  {% endfor %}
+  {% endif %}
+</ol>
+{% if tem_perfil('administrador') and reserva.situacao in ('pendente', 'confirmada') %}
+<p><a href="{{ url_for('quem_vai.editar', identificador=reserva.id) }}">Editar a lista de quem vai</a></p>
+{% endif %}
 
 <h2>Valor da estadia</h2>
 
@@ -53,13 +78,13 @@
       <td>{{ trecho.de.strftime('%d/%m') }} a {{ trecho.ate.strftime('%d/%m/%Y') }}
           {{ '(' ~ trecho.descricao ~ ')' if trecho.descricao }}</td>
       <td>{{ trecho.noites }}</td>
-      <td>R$ {{ '%.2f'|format(trecho.valor_diaria) }}</td>
-      <td>R$ {{ '%.2f'|format(trecho.subtotal) }}</td>
+      <td>{{ trecho.valor_diaria|reais }}</td>
+      <td>{{ trecho.subtotal|reais }}</td>
     </tr>
     {% endfor %}
     <tr>
       <th colspan="3">Total · {{ conta.noites }} noite{{ 's' if conta.noites != 1 }}</th>
-      <th>R$ {{ '%.2f'|format(conta.total) }}</th>
+      <th>{{ conta.total|reais }}</th>
     </tr>
   </tbody>
 </table>

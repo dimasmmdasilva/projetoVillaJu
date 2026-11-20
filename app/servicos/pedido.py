@@ -611,6 +611,54 @@ def cancelar(usuario: dict, identificador, hoje: dt.date = None):
     return pago if devolve else Decimal("0.00")
 
 
+def situacao_da_devolucao(reserva: dict, lancamentos: dict,
+                          devolvida_em=None):
+    """O que o Histórico do hóspede diz sobre a devolução (20/11).
+
+    Pedido do Dimas: quem cancelou precisa acompanhar o dinheiro de volta.
+    `None` quando não há o que dizer — reserva viva, nada pago, ou
+    cancelada pela equipe.
+    """
+    if (
+        reserva["situacao"] != "cancelada"
+        or reserva.get("motivo_cancelamento") != "pedido_do_hospede"
+    ):
+        return None
+    pago = sum((v for v in lancamentos.values() if v > 0), Decimal("0.00"))
+    if pago <= 0:
+        return None
+
+    if "devolucao" in lancamentos:
+        quando = f" em {devolvida_em:%d/%m/%Y}" if devolvida_em else ""
+        return {
+            "etapa": "devolvida",
+            "texto": (
+                f"Devolução de {em_reais(-lancamentos['devolucao'])} feita "
+                f"pela pousada{quando}."
+            ),
+        }
+
+    cancelada = reserva.get("cancelado_em")
+    if cancelada and regulamento.tem_devolucao(
+        reserva["data_entrada"], cancelada.date()
+    ):
+        return {
+            "etapa": "aguardando",
+            "texto": (
+                f"Devolução de {em_reais(pago)}: aguardando a pousada fazer "
+                f"o Pix."
+            ),
+        }
+    return {
+        "etapa": "sem_direito",
+        "texto": (
+            f"Sem devolução: o cancelamento foi feito com menos de "
+            f"{regulamento.DIAS_ANTES_DA_ENTRADA_PARA_DEVOLUCAO} dias da "
+            f"entrada."
+        ),
+    }
+
+
 # ---------------------------------------------------------------------------
 # O card do hóspede
 # ---------------------------------------------------------------------------
@@ -884,5 +932,6 @@ __all__ = [
     "validar_acompanhante",
     "prazo_por_extenso",
     "simular",
+    "situacao_da_devolucao",
     "tempo_restante",
 ]

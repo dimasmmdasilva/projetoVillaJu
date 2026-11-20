@@ -49,7 +49,7 @@
     <nav>
       <a href="{{ url_for('publico.contato') }}">Falar com a recepção</a>
       <a href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
-      <a href="{{ url_for('publico.inicio') }}#regulamento">Regulamento</a>
+      <a href="{{ url_for('publico.regulamento') }}">Regulamento</a>
       <a href="#localizacao">Localização</a>
     </nav>
 
@@ -74,11 +74,15 @@
   {% block conteudo %}{% endblock %}
 </main>
 
-<footer class="rodape-publico">
+{# A âncora da localização é o rodapé, que está em toda página pública:
+   o link "Localização" funciona em qualquer uma, e não só na inicial
+   (até 20/11 ele apontava para uma seção que só a inicial tinha). #}
+<footer class="rodape-publico" id="localizacao">
   <p>
     <strong>{{ hospedaria.nome }}</strong> &middot;
     {{ hospedaria.endereco }} &middot; {{ hospedaria.cidade }}
   </p>
+  <p class="rodape-regiao">{{ hospedaria.regiao }}</p>
   <p class="aviso-academico">
     Projeto Integrador 4 — Bacharelado em Cibersegurança — PUC-Campinas.
   </p>
