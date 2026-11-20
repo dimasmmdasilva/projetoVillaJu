@@ -284,6 +284,16 @@ def test_cadastro_que_nao_decifra_vira_aviso_e_nao_pagina_em_branco(
 # A separação das reservas
 # ---------------------------------------------------------------------------
 
+def _confirmar_como_o_pix(identificador):
+    """Bloco 16b: `mudar_situacao` não confirma mais — quem confirma é a
+    conferência do Pix. Aqui, o efeito dela na situação, por SQL direto."""
+    with conexao.obter_cursor() as cursor:
+        cursor.execute(
+            "UPDATE reserva SET situacao = 'confirmada' WHERE id = %s",
+            (identificador,),
+        )
+
+
 def _reservar(aplicacao, hospede_id, chale_id, entrada, saida, situacao):
     with aplicacao.app_context():
         identificador = reserva_repo.criar({
@@ -296,19 +306,12 @@ def _reservar(aplicacao, hospede_id, chale_id, entrada, saida, situacao):
         # O caminho até a situação pedida, e não um salto.
         #
         # `mudar_situacao` aplica a máquina de estados: uma reserva
-        # pendente só passa para confirmada ou cancelada, e `concluida`
-        # vem depois de confirmada. Saltar seria contornar a regra que o
-        # sistema inteiro se apoia — e o teste passaria a montar um
-        # estado que a aplicação não produz.
-        caminho = {
-            "pendente": [],
-            "confirmada": ["confirmada"],
-            "cancelada": ["cancelada"],
-            "concluida": ["confirmada", "concluida"],
-        }[situacao]
-
-        for passo in caminho:
-            reserva_repo.mudar_situacao(identificador, passo)
+        # pendente só passa para cancelada, e `concluida` vem depois de
+        # confirmada. A confirmação é a da conferência do Pix (Bloco 16b).
+        if situacao in ("confirmada", "concluida"):
+            _confirmar_como_o_pix(identificador)
+        if situacao in ("cancelada", "concluida"):
+            reserva_repo.mudar_situacao(identificador, situacao)
     return identificador
 
 

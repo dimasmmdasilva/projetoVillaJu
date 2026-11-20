@@ -49,6 +49,11 @@ ANTECEDENCIA_PARA_SINAL_DIAS = 7
 # pagamento uma forma barata de bloquear datas.
 MINUTOS_PARA_O_PIX = 90
 
+# Etapa 5, Bloco 16b: a reserva registrada pela recepção, por telefone ou
+# WhatsApp, segue o mesmo controle do Pix, com prazo maior — quem pediu
+# não está diante da tela, e o código do Pix ainda precisa chegar a ele.
+HORAS_PARA_O_PIX_PELA_RECEPCAO = 24
+
 # O restante vence "48 horas antes da entrada", contado em DIAS DE
 # CALENDÁRIO: às 23h59 de dois dias antes. O sistema não guarda horário
 # de entrada, e um prazo que dependesse dele obrigaria a pessoa a
@@ -143,6 +148,16 @@ def regras() -> list:
             ),
         },
         {
+            "titulo": "Reserva feita com a recepção",
+            "texto": (
+                f"Quando a reserva é registrada pela recepção, por telefone "
+                f"ou mensagem, o prazo para o Pix é de "
+                f"{HORAS_PARA_O_PIX_PELA_RECEPCAO} horas. As demais regras "
+                f"são as mesmas, e a recepção as lê para você antes de "
+                f"registrar."
+            ),
+        },
+        {
             "titulo": "Confirmação",
             "texto": (
                 "A reserva está confirmada quando a equipe da pousada "
@@ -176,6 +191,7 @@ __all__ = [
     "ANTECEDENCIA_PARA_SINAL_DIAS",
     "DIAS_ANTES_DA_ENTRADA_PARA_DEVOLUCAO",
     "DIAS_ANTES_DA_ENTRADA_PARA_O_RESTANTE",
+    "HORAS_PARA_O_PIX_PELA_RECEPCAO",
     "INTEGRAL",
     "LIMITE_DE_PEDIDOS_EM_ABERTO",
     "MINUTOS_PARA_O_PIX",

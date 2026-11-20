@@ -578,17 +578,25 @@ def test_a_reserva_da_equipe_tambem_varre_antes_de_gravar(
     antigo = _pedir(aplicacao, outra, chale, entrada=10)
     _vencer(aplicacao, antigo)
 
+    # Bloco 16b: a recepção registra pelo mesmo `criar_pedido`, que varre
+    # antes de gravar.
+    from app.servicos import registro_pela_recepcao
+
     with aplicacao.app_context():
-        nova = reserva_repo.criar({
+        with conexao.obter_cursor(dicionario=True) as cursor:
+            cursor.execute("SELECT id FROM usuario WHERE login = 'recepcao'")
+            recepcao = cursor.fetchone()
+        nova = registro_pela_recepcao.registrar(recepcao, {
             "chale_id": chale["id"],
             "hospede_id": conta["hospede_id"],
             "data_entrada": _dia(10),
             "data_saida": _dia(12),
             "num_pessoas": 2,
-            "situacao": "confirmada",
+            "aceite": True,
         })
 
-    assert _reserva(aplicacao, nova)["situacao"] == "confirmada"
+    assert _reserva(aplicacao, nova)["situacao"] == "pendente"
+    assert _reserva(aplicacao, antigo)["situacao"] == "cancelada"
 
 
 def test_a_consulta_publica_ve_o_chale_liberado(aplicacao, outra, chale):

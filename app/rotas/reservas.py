@@ -38,7 +38,7 @@ from app.seguranca.autorizacao import (
 )
 from app.extensoes import limiter
 from app.seguranca.cripto import FalhaDeAutenticacao
-from app.servicos import pedido, regulamento
+from app.servicos import pedido, registro_pela_recepcao, regulamento
 
 # A exigência de tamanho da senha vive em `app/servicos/cadastro.py`, que
 # é onde a política foi escrita. Importada e não repetida: uma política
@@ -156,6 +156,12 @@ def nova():
         "chales": chale_repo.listar(apenas_ativos=True, usuario_id=_quem()),
         "hospedes": _hospedes_para_selecao(),
         "novo": True,
+        # O texto do aviso sai das constantes do regulamento, como a página
+        # pública: mudar o prazo é mudar um número só.
+        "horas_para_o_pix": regulamento.HORAS_PARA_O_PIX_PELA_RECEPCAO,
+        "percentual_do_sinal": regulamento.PERCENTUAL_DO_SINAL,
+        "antecedencia_para_sinal": regulamento.ANTECEDENCIA_PARA_SINAL_DIAS,
+        "aceite_da_recepcao": registro_pela_recepcao.ACEITE_DA_RECEPCAO,
     }
 
     if request.method == "GET":
@@ -166,20 +172,28 @@ def nova():
             "data_entrada": request.args.get("entrada", ""),
             "data_saida": request.args.get("saida", ""),
             "num_pessoas": request.args.get("pessoas", type=int),
-            "situacao": "pendente",
         }
         return render_template("painel/reserva_form.html", **contexto)
 
+    # Bloco 16b: a reserva da recepção entra no controle do Pix, pelo mesmo
+    # `criar_pedido` do site. A caixa do aceite é da recepção — ela declara
+    # que leu as regras ao hóspede.
     dados = _dados_do_formulario()
+    dados["aceite"] = request.form.get("aceite") == "sim"
 
     try:
-        identificador = reserva_repo.criar(dados, usuario_id=_quem())
+        identificador = registro_pela_recepcao.registrar(usuario_atual(), dados)
     except ErroDeDados as erro:
         flash(str(erro), "erro")
         contexto["reserva"] = dados
         return render_template("painel/reserva_form.html", **contexto), _codigo(erro)
 
-    flash(f"Reserva {identificador} criada.", "sucesso")
+    flash(
+        f"Reserva {identificador} registrada. O hóspede tem "
+        f"{regulamento.HORAS_PARA_O_PIX_PELA_RECEPCAO} horas para o Pix; "
+        f"a conferência é em Pagamentos.",
+        "sucesso",
+    )
     return redirect(url_for("reservas.detalhe", identificador=identificador))
 
 
@@ -262,9 +276,11 @@ def mudar_situacao(identificador):
     """Move a reserva no ciclo de vida.
 
     Aceita apenas POST, com token CSRF. A situação não vem do formulário
-    de edição de propósito: confirmar, cancelar e concluir têm regra de
-    transição própria, e misturá-las com a edição permitiria reabilitar
-    uma reserva cancelada por um campo oculto.
+    de edição de propósito: cancelar e concluir têm regra de transição
+    própria, e misturá-las com a edição permitiria reabilitar uma reserva
+    cancelada por um campo oculto. Confirmar não passa por aqui desde o
+    Bloco 16b — é a conferência do Pix, em Pagamentos; um envio forjado
+    com `situacao=confirmada` é recusado pelo mapa de transições.
     """
     if reserva_repo.buscar_por_id(identificador, usuario_id=_quem()) is None:
         abort(404)
@@ -302,7 +318,6 @@ def _dados_do_formulario() -> dict:
         "data_saida": request.form.get("data_saida"),
         "num_pessoas": request.form.get("num_pessoas"),
         "observacoes": request.form.get("observacoes"),
-        "situacao": "pendente",
     }
 
 

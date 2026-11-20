@@ -206,8 +206,14 @@ def chale_disponivel(chale_id, entrada, saida, ignorar_id=0, usuario_id=None) ->
 # e `concluida` é terminal. Sem este mapa, a interface permitiria
 # reabilitar uma reserva cancelada só trocando o valor num campo oculto —
 # e a trigger não impediria, porque ela valida sobreposição, não história.
+#
+# **De `pendente` não se vai a `confirmada` por aqui** (Bloco 16b). Quem
+# confirma é a conferência do Pix, em `pagamento_repo.confirmar_primeiro`,
+# que lança o pagamento junto. Um "Marcar como confirmada" deixaria passar
+# uma reserva confirmada sem nenhum Pix conferido — e o selo da estadia, o
+# controle do mês e a devolução contam com esse lançamento.
 TRANSICOES = {
-    "pendente": ("confirmada", "cancelada"),
+    "pendente": ("cancelada",),
     "confirmada": ("cancelada", "concluida"),
     "cancelada": (),
     "concluida": (),
@@ -243,7 +249,7 @@ _SQL_POR_ID = (
     "       r.regulamento_aceito_em, r.cancelado_em, "
     "       r.motivo_cancelamento, "
     "       c.nome AS chale_nome, c.capacidade AS chale_capacidade, "
-    "       u.login AS criado_por_login "
+    "       u.login AS criado_por_login, u.perfil AS criado_por_perfil "
     "FROM reserva r "
     "JOIN chale c ON c.id = r.chale_id "
     "LEFT JOIN usuario u ON u.id = r.criado_por "
@@ -259,7 +265,7 @@ _SQL_LISTAR = (
     "       r.regulamento_aceito_em, r.cancelado_em, "
     "       r.motivo_cancelamento, "
     "       c.nome AS chale_nome, c.capacidade AS chale_capacidade, "
-    "       u.login AS criado_por_login "
+    "       u.login AS criado_por_login, u.perfil AS criado_por_perfil "
     "FROM reserva r "
     "JOIN chale c ON c.id = r.chale_id "
     "LEFT JOIN usuario u ON u.id = r.criado_por "
@@ -275,7 +281,7 @@ _SQL_LISTAR_POR_SITUACAO = (
     "       r.regulamento_aceito_em, r.cancelado_em, "
     "       r.motivo_cancelamento, "
     "       c.nome AS chale_nome, c.capacidade AS chale_capacidade, "
-    "       u.login AS criado_por_login "
+    "       u.login AS criado_por_login, u.perfil AS criado_por_perfil "
     "FROM reserva r "
     "JOIN chale c ON c.id = r.chale_id "
     "LEFT JOIN usuario u ON u.id = r.criado_por "
@@ -292,7 +298,7 @@ _SQL_POR_HOSPEDE = (
     "       r.regulamento_aceito_em, r.cancelado_em, "
     "       r.motivo_cancelamento, "
     "       c.nome AS chale_nome, c.capacidade AS chale_capacidade, "
-    "       u.login AS criado_por_login "
+    "       u.login AS criado_por_login, u.perfil AS criado_por_perfil "
     "FROM reserva r "
     "JOIN chale c ON c.id = r.chale_id "
     "LEFT JOIN usuario u ON u.id = r.criado_por "
@@ -448,7 +454,17 @@ def _calcular_valor(limpo: dict):
 # ---------------------------------------------------------------------------
 
 def criar(dados: dict, usuario_id=None) -> int:
-    """Grava uma reserva nova, validando antes de tentar.
+    """Grava uma reserva nova, validando antes de tentar — sem modalidade,
+    como as reservas antigas.
+
+    **Nenhuma rota chama esta função desde o Bloco 16b**: a recepção
+    registra pelo mesmo caminho do Pix (`criar_pedido`, via
+    `app/servicos/registro_pela_recepcao.py`), e um teste confere que o
+    código da aplicação não volta a chamá-la. Ela fica para as regras da
+    reserva (datas, capacidade, sobreposição), que os testes exercitam por
+    aqui, e para o histórico (cancelada ou concluída, que não ocupam o
+    chalé). **Confirmada é recusada**: nenhum caminho cria uma reserva
+    confirmada sem Pix conferido.
 
     A validação e a gravação acontecem na mesma transação e na mesma
     conexão. Isso importa: verificar o conflito numa conexão e gravar em
@@ -458,6 +474,10 @@ def criar(dados: dict, usuario_id=None) -> int:
     mas a mensagem ao usuário seria pior.
     """
     limpo = _limpar(dados)
+    if limpo["situacao"] == "confirmada":
+        raise ErroDeReserva(
+            "Uma reserva só fica confirmada pela conferência do Pix."
+        )
 
     with obter_conexao(usuario_id=usuario_id) as conexao:
         cursor = conexao.cursor()
@@ -537,9 +557,11 @@ def atualizar(identificador, dados: dict, usuario_id=None) -> None:
 def mudar_situacao(identificador, nova: str, usuario_id=None) -> None:
     """Move a reserva no ciclo de vida, respeitando as transições.
 
-    Confirmar uma reserva pendente exige reverificar o conflito: entre a
-    criação e a confirmação, outra reserva pode ter ocupado o período. A
-    trigger reverifica de qualquer forma; aqui se antecipa a mensagem.
+    Desde o Bloco 16b, só cancela e conclui: a confirmação é da conferência
+    do Pix. Nenhuma transição volta a ocupar o chalé, e por isso a
+    reverificação de conflito que havia aqui saiu — era código que nenhum
+    caminho alcançava. Se o mapa mudar, a trigger de sobreposição continua
+    recusando no banco.
     """
     nova = (nova or "").strip()
     if nova not in SITUACOES:
@@ -550,10 +572,7 @@ def mudar_situacao(identificador, nova: str, usuario_id=None) -> None:
         try:
             _cancelar_vencidos(cursor)
             cursor.execute(
-                "SELECT situacao, chale_id, data_entrada, data_saida, "
-                "       num_pessoas, hospede_id "
-                "FROM reserva WHERE id = %s",
-                (identificador,),
+                "SELECT situacao FROM reserva WHERE id = %s", (identificador,)
             )
             linha = cursor.fetchone()
             if linha is None:
@@ -573,20 +592,6 @@ def mudar_situacao(identificador, nova: str, usuario_id=None) -> None:
                 )
                 raise ErroDeReserva(
                     f"Uma reserva {atual} só pode passar para {destino}."
-                )
-
-            if nova in SITUACOES_ATIVAS and atual not in SITUACOES_ATIVAS:
-                _validar_regras(
-                    cursor,
-                    {
-                        "chale_id": linha[1],
-                        "hospede_id": linha[5],
-                        "data_entrada": linha[2],
-                        "data_saida": linha[3],
-                        "num_pessoas": linha[4],
-                        "situacao": nova,
-                    },
-                    ignorar_id=identificador,
                 )
 
             executar(cursor, _SQL_MUDAR_SITUACAO, (nova, identificador))
@@ -637,9 +642,9 @@ _SQL_CONTAR_EM_ABERTO = (
 _SQL_CRIAR_PEDIDO = (
     "INSERT INTO reserva "
     "(chale_id, hospede_id, data_entrada, data_saida, num_pessoas, "
-    " situacao, valor_total, criado_por, modalidade, prazo_pagamento, "
-    " prazo_restante, regulamento_aceito_em) "
-    "VALUES (%s, %s, %s, %s, %s, 'pendente', %s, %s, %s, "
+    " situacao, valor_total, observacoes, criado_por, modalidade, "
+    " prazo_pagamento, prazo_restante, regulamento_aceito_em) "
+    "VALUES (%s, %s, %s, %s, %s, 'pendente', %s, %s, %s, %s, "
     "        DATE_ADD(NOW(), INTERVAL %s MINUTE), %s, NOW())"
 )
 
@@ -779,6 +784,8 @@ def criar_pedido(dados: dict, modalidade: str, minutos_para_o_pix: int,
                 raise ErroDeReserva("O cadastro do hóspede não foi encontrado.")
 
             executar(cursor, _SQL_CONTAR_EM_ABERTO, (limpo["hospede_id"],))
+            # A mensagem fala ao hóspede; quando é a recepção que registra,
+            # `registro_pela_recepcao` troca pela versão da equipe.
             if cursor.fetchone()[0] >= limite_em_aberto:
                 raise PedidoEmAberto(
                     "Você já tem um pedido aguardando pagamento ou a "
@@ -798,6 +805,7 @@ def criar_pedido(dados: dict, modalidade: str, minutos_para_o_pix: int,
                     limpo["data_saida"],
                     limpo["num_pessoas"],
                     limpo["valor_total"],
+                    limpo["observacoes"],
                     usuario_id,
                     modalidade,
                     minutos_para_o_pix,

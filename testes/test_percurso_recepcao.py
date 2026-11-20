@@ -161,6 +161,8 @@ def test_percurso_da_recepcao_do_login_a_confirmacao(aplicacao):
             "data_saida": SAIDA,
             "num_pessoas": "3",
             "observacoes": "Chegada prevista para o fim da tarde.",
+            # Bloco 16b: a recepção declara que leu as regras ao hóspede.
+            "aceite": "sim",
         },
         follow_redirects=True,
     )
@@ -175,6 +177,8 @@ def test_percurso_da_recepcao_do_login_a_confirmacao(aplicacao):
         if reserva["hospede_id"] == hospede["id"]
     )
     assert criada["situacao"] == "pendente"
+    # Bloco 16b: nasce no controle do Pix, com sinal (mais de 7 dias).
+    assert criada["modalidade"] == "sinal"
 
     # O valor saiu do cadastro de tarifas, noite a noite. Julho é baixa
     # temporada no Dunas: cinco noites pela mesma diária, sem virada.
@@ -193,12 +197,15 @@ def test_percurso_da_recepcao_do_login_a_confirmacao(aplicacao):
     assert livres_depois == livres_antes - {DUNAS}
 
     # --- 7. Ser impedido de criar a conflitante -------------------------
-    # O núcleo do critério. A mesma data, o mesmo chalé.
+    # O núcleo do critério. A mesma data, o mesmo chalé — por outro
+    # hóspede da massa: para a Helena, o limite de um pedido em aberto
+    # (Bloco 16b) recusaria antes de chegar ao conflito.
     conflito = sessao.post(
         "/reservas/nova",
         data={
             "chale_id": str(DUNAS),
-            "hospede_id": str(hospede["id"]),
+            "hospede_id": "2",
+            "aceite": "sim",
             "data_entrada": ENTRADA,
             "data_saida": SAIDA,
             "num_pessoas": "2",
@@ -235,10 +242,13 @@ def test_percurso_da_recepcao_do_login_a_confirmacao(aplicacao):
     assert len(reserva_repo.conflitos(DUNAS, ENTRADA, SAIDA)) == 1
 
     # --- 8. Confirmar a reserva ----------------------------------------
+    # Bloco 16b: não há "Marcar como confirmada". A recepção confere o Pix
+    # do sinal em Pagamentos, e a confirmação vem com o lançamento.
+    antes = sessao.get(f"/reservas/{criada['id']}").data.decode()
+    assert "Marcar como confirmada" not in antes
+    assert "Pagou 50% Pix" in sessao.get("/pagamentos").data.decode()
     confirmacao = sessao.post(
-        f"/reservas/{criada['id']}/situacao",
-        data={"situacao": "confirmada"},
-        follow_redirects=True,
+        f"/pagamentos/{criada['id']}/primeiro", follow_redirects=True
     )
     assert confirmacao.status_code == 200
     assert reserva_repo.buscar_por_id(criada["id"])["situacao"] == "confirmada"

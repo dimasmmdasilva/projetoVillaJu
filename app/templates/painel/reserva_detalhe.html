@@ -32,7 +32,7 @@
       <td>{{ reserva.valor_total|reais if reserva.valor_total else '—' }}</td>
     </tr>
     <tr><th>Observações</th><td>{{ reserva.observacoes or '—' }}</td></tr>
-    <tr><th>Registrada por</th><td>{{ 'pelo site' if reserva.modalidade else (reserva.criado_por_login or '—') }}</td></tr>
+    <tr><th>Registrada por</th><td>{{ 'pelo site' if reserva.criado_por_perfil == 'hospede' else (reserva.criado_por_login or '—') }}</td></tr>
     <tr><th>Criada em</th><td>{{ reserva.criado_em.strftime('%d/%m/%Y %H:%M') }}</td></tr>
   </tbody>
 </table>
@@ -99,6 +99,19 @@
 {% endif %}
 
 <h2>Situação</h2>
+
+{% if reserva.situacao == 'pendente' %}
+{# Bloco 16b: não há "Marcar como confirmada". Confirmar é conferir o Pix,
+   e o lançamento entra junto. A reserva antiga, de antes do controle do
+   Pix, não tem o que conferir: só pode ser cancelada e registrada de novo. #}
+{% if reserva.modalidade %}
+<p>A reserva é confirmada quando a equipe confere o Pix, em
+   <a href="{{ url_for('pagamentos.cards') }}">Pagamentos</a>.</p>
+{% else %}
+<p>Reserva anterior ao controle do Pix. Para confirmá-la, cancele e
+   registre de novo: a nova entra no controle do Pix.</p>
+{% endif %}
+{% endif %}
 
 {% if transicoes %}
 {# Cada transição é um POST próprio, com token CSRF. A situação não vem do

@@ -12,7 +12,8 @@ Uma reserva passa por duas coisas independentes, cada uma com o seu
 
 - **Pagamento** — aguardando Pix, aguardando conferência, 50% pago,
   restante em conferência, concluído; ou "combinado com a recepção",
-  para a reserva registrada pela equipe.
+  para a reserva antiga, registrada pela equipe antes do Bloco 16b. As
+  novas da recepção seguem o Pix como as do site.
 - **Estadia** — próxima, em andamento, concluída; ou cancelada.
 
 Um status só esconderia uma das duas: "concluída" no dia em que o
@@ -90,8 +91,14 @@ def selo_estadia(reserva: dict, hoje: dt.date) -> str:
 
 def autor(reserva: dict) -> str:
     """Quem registrou. O login do hóspede é o HMAC do e-mail (Bloco 3) e
-    não diz nada a ninguém; pedido do site se reconhece pela modalidade."""
-    if reserva.get("modalidade"):
+    não diz nada a ninguém: o pedido feito por uma conta de hóspede aparece
+    como "pelo site".
+
+    Até o Bloco 16b o pedido do site se reconhecia pela modalidade; desde
+    então a reserva da recepção também tem modalidade, e o que distingue
+    as duas é o perfil de quem gravou.
+    """
+    if reserva.get("criado_por_perfil") == "hospede":
         return "pelo site"
     return reserva.get("criado_por_login") or "—"
 

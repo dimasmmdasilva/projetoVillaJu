@@ -66,6 +66,16 @@ def visitante(aplicacao):
     return aplicacao.test_client()
 
 
+def _confirmar_como_o_pix(identificador):
+    """Bloco 16b: `mudar_situacao` não confirma mais — quem confirma é a
+    conferência do Pix. Aqui, o efeito dela na situação, por SQL direto."""
+    with conexao.obter_cursor() as cursor:
+        cursor.execute(
+            "UPDATE reserva SET situacao = 'confirmada' WHERE id = %s",
+            (identificador,),
+        )
+
+
 def _reservar(aplicacao, chale_id, entrada, saida, situacao="confirmada"):
     with aplicacao.app_context():
         identificador = reserva_repo.criar({
@@ -75,7 +85,9 @@ def _reservar(aplicacao, chale_id, entrada, saida, situacao="confirmada"):
             "data_saida": saida,
             "num_pessoas": 2,
         })
-        if situacao != "pendente":
+        if situacao in ("confirmada", "concluida"):
+            _confirmar_como_o_pix(identificador)
+        if situacao in ("cancelada", "concluida"):
             reserva_repo.mudar_situacao(identificador, situacao)
     return identificador
 

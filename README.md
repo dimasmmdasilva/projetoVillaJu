@@ -428,6 +428,7 @@ afrouxar a política.
 | 15 | Quem vai se hospedar: número de pessoas e acompanhantes, com o titular no topo | concluído |
 | 15b | Edição da lista de quem vai, só pelo administrador | concluído |
 | 16 | Painel da equipe em cards, com os selos de pagamento e de estadia | concluído |
+| 16b | Reserva registrada pela recepção no mesmo controle do Pix, com prazo de 24 horas | concluído |
 
 Falta só o **12** (mensagem em HTML), opcional. O inventário 8d foi
 fechado com os prints de 20/11.

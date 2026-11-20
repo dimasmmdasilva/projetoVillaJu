@@ -53,7 +53,23 @@
   <textarea id="observacoes" name="observacoes" rows="3"
             placeholder="Não inclua documento, telefone ou e-mail aqui.">{{ reserva.observacoes or '' }}</textarea>
 
-  <button type="submit">{{ 'Criar reserva' if novo else 'Salvar' }}</button>
+  {% if novo %}
+  {# Bloco 16b: a reserva nasce pendente, no controle do Pix. O aceite é da
+     recepção, que lê as regras ao hóspede antes de registrar. #}
+  <p class="nota-campo">
+    A reserva fica aguardando o Pix por
+    {{ horas_para_o_pix }} horas: sinal de {{ percentual_do_sinal }}% com
+    {{ antecedencia_para_sinal }} dias ou mais de antecedência, valor
+    integral com menos. A conferência é em Pagamentos.
+    <a href="{{ url_for('publico.regulamento') }}">Ver o regulamento</a>
+  </p>
+  <label class="aceite">
+    <input type="checkbox" name="aceite" value="sim" required>
+    {{ aceite_da_recepcao }}
+  </label>
+  {% endif %}
+
+  <button type="submit">{{ 'Registrar reserva' if novo else 'Salvar' }}</button>
 </form>
 
 <p>

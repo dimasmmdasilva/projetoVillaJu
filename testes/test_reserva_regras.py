@@ -291,23 +291,56 @@ def test_trigger_recusa_mesmo_contornando_a_aplicacao(banco):
 # Transições de situação
 # ---------------------------------------------------------------------------
 
-def test_pendente_vira_confirmada(banco):
+def _confirmar_pelo_banco(_banco, identificador):
+    """O que a conferência do Pix faz com a situação, sem o lançamento.
+
+    Desde o Bloco 16b `mudar_situacao` não confirma; os testes que precisam
+    de uma reserva confirmada a põem assim, por SQL direto.
+    """
+    with conexao.obter_conexao() as conectada:
+        cursor = conectada.cursor()
+        cursor.execute(
+            "UPDATE reserva SET situacao = 'confirmada' WHERE id = %s",
+            (identificador,),
+        )
+        cursor.close()
+
+
+def test_pendente_nao_vira_confirmada_por_aqui(banco):
+    """Bloco 16b: quem confirma é a conferência do Pix, com o lançamento."""
     identificador = reserva_repo.criar(_reserva("2027-07-01", "2027-07-05"))
-    reserva_repo.mudar_situacao(identificador, "confirmada")
-    assert reserva_repo.buscar_por_id(identificador)["situacao"] == "confirmada"
+    with pytest.raises(ErroDeReserva) as erro:
+        reserva_repo.mudar_situacao(identificador, "confirmada")
+    assert "pendente" in str(erro.value)
+    assert reserva_repo.buscar_por_id(identificador)["situacao"] == "pendente"
+
+
+def test_reserva_nao_nasce_confirmada(banco):
+    with pytest.raises(ErroDeReserva) as erro:
+        reserva_repo.criar(
+            _reserva("2027-07-01", "2027-07-05", situacao="confirmada")
+        )
+    assert "Pix" in str(erro.value)
 
 
 def test_confirmada_vira_concluida(banco):
     identificador = reserva_repo.criar(_reserva("2027-07-01", "2027-07-05"))
-    reserva_repo.mudar_situacao(identificador, "confirmada")
+    _confirmar_pelo_banco(banco, identificador)
     reserva_repo.mudar_situacao(identificador, "concluida")
     assert reserva_repo.buscar_por_id(identificador)["situacao"] == "concluida"
+
+
+def test_pendente_vira_cancelada(banco):
+    identificador = reserva_repo.criar(_reserva("2027-07-01", "2027-07-05"))
+    reserva_repo.mudar_situacao(identificador, "cancelada")
+    assert reserva_repo.buscar_por_id(identificador)["situacao"] == "cancelada"
 
 
 @pytest.mark.parametrize(
     "de,para",
     [
         ("pendente", "concluida"),
+        ("pendente", "confirmada"),
         ("cancelada", "confirmada"),
         ("cancelada", "pendente"),
         ("concluida", "confirmada"),
@@ -323,30 +356,16 @@ def test_transicao_proibida_e_recusada(banco, de, para):
     """
     identificador = reserva_repo.criar(_reserva("2027-07-01", "2027-07-05"))
 
-    caminho = {"pendente": [], "confirmada": ["confirmada"],
-               "cancelada": ["cancelada"],
-               "concluida": ["confirmada", "concluida"]}[de]
-    for passo in caminho:
-        reserva_repo.mudar_situacao(identificador, passo)
+    if de == "concluida":
+        _confirmar_pelo_banco(banco, identificador)
+        reserva_repo.mudar_situacao(identificador, "concluida")
+    elif de == "cancelada":
+        reserva_repo.mudar_situacao(identificador, "cancelada")
 
     with pytest.raises(ErroDeReserva) as erro:
         reserva_repo.mudar_situacao(identificador, para)
 
     assert de in str(erro.value)
-
-
-def test_confirmar_reverifica_o_conflito(banco):
-    """Entre criar e confirmar, outra reserva pode ter ocupado o período.
-
-    O caso só acontece quando a primeira é cancelada e outra assume o
-    período: ao tentar reabilitar... que é proibido. Aqui se verifica a
-    reverificação pelo caminho possível — criar duas pendentes é
-    impedido, então o teste confirma que a reverificação existe sem
-    conflito e a transição passa.
-    """
-    identificador = reserva_repo.criar(_reserva("2027-07-01", "2027-07-05"))
-    reserva_repo.mudar_situacao(identificador, "confirmada")
-    assert reserva_repo.buscar_por_id(identificador)["situacao"] == "confirmada"
 
 
 def test_situacao_invalida_e_recusada(banco):
@@ -421,11 +440,14 @@ def test_criterio_de_conclusao_pela_interface(cliente):
     """
     sessao = cliente(RECEPCAO)
 
+    # Bloco 16b: a reserva da recepção precisa de tarifa (o Pix precisa do
+    # valor) e respeita o limite de um pedido em aberto por hóspede — o
+    # hóspede 1 tem a pendente do Boracéia na massa de dados.
     valida = sessao.post(
         "/reservas/nova",
-        data={"chale_id": "5", "hospede_id": "1",
-              "data_entrada": "2028-03-01", "data_saida": "2028-03-05",
-              "num_pessoas": "2", "observacoes": "Chegada à tarde."},
+        data={"chale_id": "5", "hospede_id": "2",
+              "data_entrada": "2027-01-10", "data_saida": "2027-01-14",
+              "num_pessoas": "2", "aceite": "sim", "observacoes": "Chegada à tarde."},
         follow_redirects=False,
     )
     assert valida.status_code == 302
@@ -433,9 +455,9 @@ def test_criterio_de_conclusao_pela_interface(cliente):
 
     conflitante = sessao.post(
         "/reservas/nova",
-        data={"chale_id": "5", "hospede_id": "2",
-              "data_entrada": "2028-03-03", "data_saida": "2028-03-08",
-              "num_pessoas": "2"},
+        data={"chale_id": "5", "hospede_id": "3",
+              "data_entrada": "2027-01-12", "data_saida": "2027-01-16",
+              "num_pessoas": "2", "aceite": "sim"},
     )
     # 409, não 400: a reserva está bem formada, o que falta é
     # disponibilidade. Depois de um cancelamento, o mesmo pedido passa.
@@ -443,7 +465,7 @@ def test_criterio_de_conclusao_pela_interface(cliente):
 
     mensagem = _aviso(conflitante)
     assert "Dunas" in mensagem
-    assert "01/03/2028" in mensagem
+    assert "10/01/2027" in mensagem
     assert "1644" not in mensagem
     assert "mysql" not in mensagem.lower()
 
@@ -451,9 +473,9 @@ def test_criterio_de_conclusao_pela_interface(cliente):
 def test_erro_do_banco_nao_vaza_para_a_tela(cliente):
     resposta = cliente(RECEPCAO).post(
         "/reservas/nova",
-        data={"chale_id": "1", "hospede_id": "1",
-              "data_entrada": "2027-12-16", "data_saida": "2027-12-18",
-              "num_pessoas": "9"},
+        data={"chale_id": "1", "hospede_id": "5",
+              "data_entrada": "2027-01-16", "data_saida": "2027-01-18",
+              "num_pessoas": "9", "aceite": "sim"},
     )
 
     corpo = resposta.data.decode()
@@ -464,9 +486,9 @@ def test_erro_do_banco_nao_vaza_para_a_tela(cliente):
 def test_formulario_preserva_o_que_foi_digitado(cliente):
     resposta = cliente(RECEPCAO).post(
         "/reservas/nova",
-        data={"chale_id": "1", "hospede_id": "1",
-              "data_entrada": "2027-12-16", "data_saida": "2027-12-18",
-              "num_pessoas": "9", "observacoes": "Texto que não pode sumir"},
+        data={"chale_id": "1", "hospede_id": "5",
+              "data_entrada": "2027-01-16", "data_saida": "2027-01-18",
+              "num_pessoas": "9", "aceite": "sim", "observacoes": "Texto que não pode sumir"},
     )
     assert "Texto que não pode sumir" in resposta.data.decode()
 
@@ -475,9 +497,9 @@ def test_observacoes_com_script_sao_escapadas(cliente):
     sessao = cliente(RECEPCAO)
     sessao.post(
         "/reservas/nova",
-        data={"chale_id": "3", "hospede_id": "1",
-              "data_entrada": "2028-06-01", "data_saida": "2028-06-05",
-              "num_pessoas": "2",
+        data={"chale_id": "3", "hospede_id": "4",
+              "data_entrada": "2027-02-01", "data_saida": "2027-02-05",
+              "num_pessoas": "2", "aceite": "sim",
               "observacoes": "<script>alert(1)</script>"},
     )
     # Bloco 16: /reservas/ leva ao Painel em cards.
@@ -608,13 +630,15 @@ def test_formulario_recusado_preserva_chale_e_hospede(cliente, banco):
     pagina = sessao.get("/reservas/nova").data.decode()
     achado = re.search(r'name="csrf_token" value="([^"]+)"', pagina)
 
+    # Hóspede 3: o 1 tem a pendente do Boracéia, e o limite de um pedido
+    # em aberto viria antes do conflito (Bloco 16b).
     dados = {
         "chale_id": str(CHALE),
-        "hospede_id": str(HOSPEDE_ID),
+        "hospede_id": "3",
         # Período que colide com a reserva do Boracéia na massa de dados.
         "data_entrada": "2027-02-11",
         "data_saida": "2027-02-14",
-        "num_pessoas": "3",
+        "num_pessoas": "3", "aceite": "sim",
         "observacoes": "Chegada tarde da noite",
     }
     if achado:
@@ -628,7 +652,7 @@ def test_formulario_recusado_preserva_chale_e_hospede(cliente, banco):
     assert re.search(rf'<option value="{CHALE}"\s*\n?\s*selected', html), (
         "o chalé escolhido se perdeu no envio recusado"
     )
-    assert re.search(rf'<option value="{HOSPEDE_ID}"\s*\n?\s*selected', html), (
+    assert re.search(rf'<option value="3"\s*\n?\s*selected', html), (
         "o hóspede escolhido se perdeu no envio recusado"
     )
     assert 'value="3"' in html
@@ -648,7 +672,7 @@ def test_formulario_sem_selecao_ainda_recusa_com_a_mensagem_certa(cliente, banco
         "hospede_id": "",
         "data_entrada": "2027-08-01",
         "data_saida": "2027-08-05",
-        "num_pessoas": "2",
+        "num_pessoas": "2", "aceite": "sim",
     }
     if achado:
         dados["csrf_token"] = achado.group(1)

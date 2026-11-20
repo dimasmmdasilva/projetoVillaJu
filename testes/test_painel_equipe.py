@@ -118,8 +118,10 @@ def test_concluida_no_banco_e_concluida_na_tela():
 
 
 def test_pedido_do_site_diz_pelo_site_e_nao_o_codigo():
-    assert painel_equipe.autor(_r()) == "pelo site"
-    assert painel_equipe.autor(_r(modalidade=None,
+    """Bloco 16b: o que distingue é o perfil de quem gravou — a reserva da
+    recepção também tem modalidade."""
+    assert painel_equipe.autor(_r(criado_por_perfil="hospede")) == "pelo site"
+    assert painel_equipe.autor(_r(criado_por_perfil="recepcionista",
                                   criado_por_login="recepcao")) == "recepcao"
 
 
