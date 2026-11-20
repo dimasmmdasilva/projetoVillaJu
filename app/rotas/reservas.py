@@ -135,22 +135,15 @@ def _hospedes_para_selecao():
 @reservas.route("/")
 @requer_perfil(ADMINISTRADOR, RECEPCIONISTA)
 def listar():
+    """Bloco 16: a lista de reservas virou o Painel, em cards.
+
+    O endereço continua respondendo — links salvos e favoritos levam ao
+    mesmo lugar, com o filtro de situação preservado.
+    """
     situacao = (request.args.get("situacao") or "").strip() or None
-
-    try:
-        lista = reserva_repo.listar(situacao=situacao, usuario_id=_quem())
-    except ErroDeDados as erro:
-        flash(str(erro), "erro")
-        lista = reserva_repo.listar(usuario_id=_quem())
+    if situacao not in reserva_repo.SITUACOES:
         situacao = None
-
-    return render_template(
-        "painel/reservas.html",
-        usuario=usuario_atual(),
-        reservas=lista,
-        situacao=situacao,
-        situacoes=reserva_repo.SITUACOES,
-    )
+    return redirect(url_for("painel.inicio", situacao=situacao))
 
 
 @reservas.route("/nova", methods=["GET", "POST"])

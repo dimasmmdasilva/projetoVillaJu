@@ -427,9 +427,10 @@ afrouxar a política.
 | 14 | Recuperação de senha pelo link de e-mail | concluído |
 | 15 | Quem vai se hospedar: número de pessoas e acompanhantes, com o titular no topo | concluído |
 | 15b | Edição da lista de quem vai, só pelo administrador | concluído |
+| 16 | Painel da equipe em cards, com os selos de pagamento e de estadia | concluído |
 
-Falta só o **12** (mensagem em HTML), opcional, e o inventário de
-alinhamento das mensagens (8d), que aguarda os prints das telas.
+Falta só o **12** (mensagem em HTML), opcional. O inventário 8d foi
+fechado com os prints de 20/11.
 
 > **O Bloco 11 — contas da equipe — saiu do escopo em 13/11.** Contas de
 > administrador e recepcionista são provisionadas uma vez, na instalação,

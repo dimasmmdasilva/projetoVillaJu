@@ -12,7 +12,8 @@ reservas.
 
 from flask import Blueprint, render_template, request
 
-from app.dados import auditoria_repo, conexao
+from app.dados import auditoria_repo, conexao, reserva_repo
+from app.servicos import painel_equipe
 from app.seguranca.autorizacao import (
     ADMINISTRADOR,
     HOSPEDE,
@@ -64,13 +65,30 @@ def inicio():
     # sido lido — e o que não se lê não vaza.
     if usuario["perfil"] == HOSPEDE:
         resumo = None
+        cards = None
     else:
         try:
             resumo = _resumo(usuario["id"])
         except Exception:  # noqa: BLE001 - o painel não cai por causa do resumo
             resumo = None
 
-    return render_template("painel/inicio.html", usuario=usuario, resumo=resumo)
+        # Bloco 16: as reservas em cards, em três grupos, com o filtro por
+        # situação e o histórico paginado — tudo na URL, sem JavaScript.
+        situacao = (request.args.get("situacao") or "").strip() or None
+        if situacao not in reserva_repo.SITUACOES:
+            situacao = None
+        cards = painel_equipe.montar(
+            usuario["id"], situacao=situacao,
+            pagina=request.args.get("pagina", 1),
+        )
+
+    return render_template(
+        "painel/inicio.html",
+        usuario=usuario,
+        resumo=resumo,
+        cards=cards,
+        situacoes=reserva_repo.SITUACOES,
+    )
 
 
 @painel.route("/auditoria")

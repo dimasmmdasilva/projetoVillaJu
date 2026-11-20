@@ -85,6 +85,10 @@ _SQL_LANCAMENTOS_POR_RESERVAS_DO_HOSPEDE = (
     "WHERE r.hospede_id = %s"
 )
 
+# Bloco 16: o Painel da equipe precisa dos lançamentos de todas as reservas
+# de uma vez — uma consulta, e não uma por card.
+_SQL_LANCAMENTOS_DE_TODAS = "SELECT reserva_id, tipo, valor FROM pagamento"
+
 _SQL_LANCAMENTOS_DA_RESERVA = (
     "SELECT tipo, valor FROM pagamento WHERE reserva_id = %s"
 )
@@ -323,6 +327,16 @@ def lancamentos_por_reserva_do_hospede(hospede_id, usuario_id=None) -> dict:
     return resultado
 
 
+def lancamentos_de_todas(usuario_id=None) -> dict:
+    """`{reserva_id: {tipo: valor}}` de todo o livro. Só para a equipe."""
+    resultado = {}
+    with obter_cursor(usuario_id=usuario_id) as cursor:
+        cursor.execute(_SQL_LANCAMENTOS_DE_TODAS)
+        for reserva_id, tipo, valor in cursor.fetchall():
+            resultado.setdefault(reserva_id, {})[tipo] = valor
+    return resultado
+
+
 def lancamentos_da_reserva(reserva_id, usuario_id=None) -> dict:
     with obter_cursor(usuario_id=usuario_id) as cursor:
         cursor.execute(_SQL_LANCAMENTOS_DA_RESERVA, (reserva_id,))
@@ -364,6 +378,7 @@ __all__ = [
     "devolucoes_em_aberto",
     "registrar_devolucao",
     "lancamentos_da_reserva",
+    "lancamentos_de_todas",
     "lancamentos_do_periodo",
     "lancamentos_por_reserva_do_hospede",
     "pendencias",

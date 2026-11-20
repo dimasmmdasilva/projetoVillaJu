@@ -12,48 +12,101 @@
    quantos hóspedes estão cadastrados não é informação dele. #}
 <p><a href="{{ url_for('reservas.minhas') }}">Ver minhas reservas</a></p>
 
-{% elif resumo %}
-<h2>Resumo</h2>
-{# Cada número leva à tela correspondente. Um painel cujos números não
-   são clicáveis obriga quem atende a ler "3 contatos novos" e depois
-   procurar onde eles estão — e os três links que o administrador vê aqui
-   são os mesmos que a barra oferece, só que com o contexto certo. #}
-<table>
-  <tbody>
-    {% if tem_perfil('administrador') %}
-    <tr>
-      <th><a href="{{ url_for('chales.listar') }}">Chalés ativos</a></th>
-      <td>{{ resumo.chales }}</td>
-    </tr>
-    {% else %}
-    <tr><th>Chalés ativos</th><td>{{ resumo.chales }}</td></tr>
-    {% endif %}
-    <tr>
-      <th><a href="{{ url_for('hospedes.listar') }}">Hóspedes cadastrados</a></th>
-      <td>{{ resumo.hospedes }}</td>
-    </tr>
-    <tr>
-      <th><a href="{{ url_for('reservas.listar') }}">Reservas ativas</a></th>
-      <td>{{ resumo.reservas_ativas }}</td>
-    </tr>
-    <tr>
-      <th>
-        <a href="{{ url_for('contatos.listar', situacao='novo') }}">Contatos novos</a>
-      </th>
-      <td>{{ resumo.contatos_novos }}</td>
-    </tr>
-  </tbody>
-</table>
+{% else %}
+{# Etapa 5, Bloco 16. O Painel da equipe: o resumo numa linha e as
+   reservas em cards, em três grupos. Administrador e recepção veem o
+   mesmo Painel. Cada card leva dois selos — pagamento e estadia —,
+   porque são duas coisas que terminam em momentos diferentes. #}
+
+{% if resumo %}
+<p class="resumo-em-linha">
+  {% if tem_perfil('administrador') %}
+  <a href="{{ url_for('chales.listar') }}">{{ resumo.chales }} chalés ativos</a>
+  {% else %}{{ resumo.chales }} chalés ativos{% endif %}
+  · <a href="{{ url_for('hospedes.listar') }}">{{ resumo.hospedes }} hóspedes</a>
+  · {{ resumo.reservas_ativas }} reservas ativas
+  · <a href="{{ url_for('contatos.listar', situacao='novo') }}">{{ resumo.contatos_novos }} contatos novos</a>
+</p>
 {% else %}
 <p class="aviso aviso-erro">Não foi possível ler o resumo do banco de dados.</p>
 {% endif %}
 
-{% if tem_perfil('administrador', 'recepcionista') %}
-<h2>Atalhos</h2>
-<ul>
-  <li><a href="{{ url_for('reservas.disponibilidade') }}">Consultar disponibilidade</a></li>
-  <li><a href="{{ url_for('reservas.nova') }}">Registrar reserva</a></li>
-  <li><a href="{{ url_for('contatos.listar', situacao='novo') }}">Atender pedidos de contato</a></li>
-</ul>
+<p class="atalhos">
+  <a href="{{ url_for('reservas.nova') }}">Registrar reserva</a>
+  · <a href="{{ url_for('reservas.disponibilidade') }}">Consultar disponibilidade</a>
+  · <a href="{{ url_for('pagamentos.cards') }}">Pagamentos</a>
+</p>
+
+<form method="get" action="{{ url_for('painel.inicio') }}" class="seletor-de-ano">
+  <label for="situacao">Filtrar por situação</label>
+  <select id="situacao" name="situacao">
+    <option value="">todas</option>
+    {% for valor in situacoes %}
+    <option value="{{ valor }}" {{ 'selected' if cards.situacao == valor }}>{{ valor }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filtrar</button>
+</form>
+
+{% macro card_de_reserva(card) %}
+{% set reserva = card.reserva %}
+<article class="cartao-painel" id="painel-reserva-{{ reserva.id }}">
+  {# A cor sai de `cor_da_foto`, que tem 12 amostras (.amostra--1 a 12),
+     a mesma da foto 1 na página do chalé. A classe da vitrine
+     (.foto-provisoria--N) só tem 5, e as cores 6 a 12 ficavam em branco. #}
+  <a class="foto-provisoria amostra--{{ card.cor }} cartao-painel__foto"
+     href="{{ url_for('reservas.detalhe', identificador=reserva.id) }}">
+    <span>{{ reserva.chale_nome }}</span>
+  </a>
+  <div class="cartao-painel__dados">
+    <h3>{{ reserva.chale_nome }} · Reserva nº {{ reserva.id }}</h3>
+    <p class="cartao-reserva__periodo">
+      {{ reserva.data_entrada.strftime('%d/%m/%Y') }} a
+      {{ reserva.data_saida.strftime('%d/%m/%Y') }}
+      · {{ reserva.num_pessoas }} pessoa{{ 's' if reserva.num_pessoas != 1 }}
+      · {{ card.titular }} · {{ card.autor }}
+    </p>
+    <p class="selos">
+      {% if card.pagamento %}
+      <span class="selo">Pagamento: <strong>{{ card.pagamento }}</strong></span>
+      {% endif %}
+      <span class="selo">Estadia: <strong>{{ card.estadia }}</strong></span>
+    </p>
+    <p class="cartao-painel__acoes">
+      {% if card.botao %}
+      <a class="botao" href="{{ url_for('pagamentos.cards') }}#{{ card.botao.ancora }}">{{ card.botao.rotulo }}</a>
+      {% endif %}
+      <a href="{{ url_for('reservas.detalhe', identificador=reserva.id) }}">Ver reserva</a>
+    </p>
+  </div>
+</article>
+{% endmacro %}
+
+<h2>Precisa de ação</h2>
+{% for card in cards.acao %}{{ card_de_reserva(card) }}{% else %}
+<p>Nada a resolver agora.</p>
+{% endfor %}
+
+<h2>Próximas estadias</h2>
+{% for card in cards.proximas %}{{ card_de_reserva(card) }}{% else %}
+<p>Nenhuma estadia marcada.</p>
+{% endfor %}
+
+<h2>Histórico</h2>
+{% for card in cards.historico %}{{ card_de_reserva(card) }}{% else %}
+<p>Nenhuma reserva no histórico.</p>
+{% endfor %}
+
+{% if cards.paginas > 1 %}
+<nav class="paginacao" aria-label="Páginas do histórico">
+  {% if cards.pagina > 1 %}
+  <a href="{{ url_for('painel.inicio', situacao=cards.situacao, pagina=cards.pagina - 1) }}">Anterior</a>
+  {% endif %}
+  <span>Página {{ cards.pagina }} de {{ cards.paginas }}</span>
+  {% if cards.pagina < cards.paginas %}
+  <a href="{{ url_for('painel.inicio', situacao=cards.situacao, pagina=cards.pagina + 1) }}">Próxima</a>
+  {% endif %}
+</nav>
+{% endif %}
 {% endif %}
 {% endblock %}

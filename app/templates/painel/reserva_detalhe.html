@@ -32,7 +32,7 @@
       <td>{{ 'R$ %.2f'|format(reserva.valor_total) if reserva.valor_total else '—' }}</td>
     </tr>
     <tr><th>Observações</th><td>{{ reserva.observacoes or '—' }}</td></tr>
-    <tr><th>Registrada por</th><td>{{ reserva.criado_por_login or '—' }}</td></tr>
+    <tr><th>Registrada por</th><td>{{ 'pelo site' if reserva.modalidade else (reserva.criado_por_login or '—') }}</td></tr>
     <tr><th>Criada em</th><td>{{ reserva.criado_em.strftime('%d/%m/%Y %H:%M') }}</td></tr>
   </tbody>
 </table>
@@ -96,6 +96,6 @@
   {% if reserva.situacao in ('pendente', 'confirmada') %}
   <a href="{{ url_for('reservas.editar', identificador=reserva.id) }}">Editar</a> &middot;
   {% endif %}
-  <a href="{{ url_for('reservas.listar') }}">Voltar à lista</a>
+  <a href="{{ url_for('painel.inicio') }}">Voltar ao painel</a>
 </p>
 {% endblock %}

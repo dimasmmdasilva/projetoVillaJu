@@ -150,8 +150,12 @@ def test_painel_mostra_resumo_sem_dado_pessoal(cliente):
     """Contagens, não conteúdo: a tabela hospede é contada, não lida."""
     _entrar(cliente, ADMIN)
     corpo = cliente.get("/painel").data.decode()
-    assert "Chalés ativos" in corpo
-    assert "Hóspedes cadastrados" in corpo
+    # Bloco 16: o resumo virou uma linha acima dos cards.
+    resumo = corpo[corpo.index('class="resumo-em-linha"'):]
+    resumo = resumo[:resumo.index("</p>")]
+    assert "chalés ativos" in resumo
+    assert "hóspedes" in resumo
+    assert "@" not in resumo, "o resumo é contagem, não conteúdo"
 
 
 def test_sessao_guarda_o_identificador_e_so(cliente, aplicacao):

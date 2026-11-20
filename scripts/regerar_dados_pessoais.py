@@ -70,7 +70,9 @@ HOSPEDES = [
     {
         # Sem telefone nem e-mail, para exercitar os campos opcionais.
         "nome": "Juliana Castro",
-        "documento": "555.555.555-55",
+        # Era 555.555.555-55 até 20/11: uma conta de teste cadastrada pelo
+        # site usou esse mesmo documento, e a unicidade recusou a troca.
+        "documento": "999.999.999-99",
         "telefone": None,
         "email": None,
     },

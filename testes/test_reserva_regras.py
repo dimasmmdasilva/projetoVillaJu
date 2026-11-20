@@ -480,12 +480,18 @@ def test_observacoes_com_script_sao_escapadas(cliente):
               "num_pessoas": "2",
               "observacoes": "<script>alert(1)</script>"},
     )
-    assert b"<script>alert(1)</script>" not in sessao.get("/reservas/").data
+    # Bloco 16: /reservas/ leva ao Painel em cards.
+    assert b"<script>alert(1)</script>" not in sessao.get(
+        "/reservas/", follow_redirects=True).data
+    detalhe = sessao.get("/painel").data
+    assert b"<script>alert(1)</script>" not in detalhe
 
 
 @pytest.mark.parametrize("credenciais", [ADMIN, RECEPCAO])
 def test_administrador_e_recepcionista_gerenciam_reservas(cliente, credenciais):
-    assert cliente(credenciais).get("/reservas/").status_code == 200
+    resposta = cliente(credenciais).get("/reservas/", follow_redirects=True)
+    assert resposta.status_code == 200
+    assert b"Precisa de a" in resposta.data
 
 
 def test_hospede_nao_acessa_a_gestao_de_reservas(cliente):
@@ -501,7 +507,10 @@ def test_reserva_inexistente_devolve_404(cliente):
 
 
 def test_filtro_por_situacao_invalida_nao_quebra(cliente):
-    resposta = cliente(RECEPCAO).get("/reservas/?situacao=inventada")
+    resposta = cliente(RECEPCAO).get("/reservas/?situacao=inventada",
+                                     follow_redirects=True)
+    assert resposta.status_code == 200
+    resposta = cliente(RECEPCAO).get("/painel?situacao=inventada&pagina=abc")
     assert resposta.status_code == 200
 
 

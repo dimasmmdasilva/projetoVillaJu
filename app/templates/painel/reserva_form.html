@@ -58,7 +58,7 @@
 
 <p>
   {% if novo %}
-  <a href="{{ url_for('reservas.listar') }}">Voltar à lista</a>
+  <a href="{{ url_for('painel.inicio') }}">Voltar ao painel</a>
   {% else %}
   <a href="{{ url_for('reservas.detalhe', identificador=reserva.id) }}">Voltar à reserva</a>
   {% endif %}

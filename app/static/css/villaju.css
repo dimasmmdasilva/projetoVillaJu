@@ -971,3 +971,57 @@ fieldset.acompanhante legend { font-weight: 700; padding: 0 0.25rem; }
 }
 .linha-do-tempo li.feito::before { background: #2f3e34; border-color: #2f3e34; }
 .linha-do-tempo span { font-size: 0.9rem; color: #5b6a60; }
+
+/* --- Etapa 5, Bloco 16: o Painel da equipe em cards -------------------- */
+
+.resumo-em-linha, .atalhos { margin: 0.25rem 0 0.75rem; }
+
+.cartao-painel {
+  display: flex;
+  gap: 1rem;
+  align-items: stretch;
+  background: #fff;
+  border: 1px solid #d6dcd4;
+  border-radius: 0.4rem;
+  padding: 0.75rem;
+  margin: 0.75rem 0;
+}
+.cartao-painel__foto {
+  flex: 0 0 9rem;
+  aspect-ratio: 4 / 3;
+  text-decoration: none;
+}
+.cartao-painel__dados { flex: 1 1 auto; min-width: 0; }
+.cartao-painel__dados h3 { margin: 0 0 0.25rem; }
+.cartao-painel__acoes {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0.5rem 0 0;
+}
+
+.selos { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0 0; }
+.selo {
+  border: 1px solid #d6dcd4;
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  font-size: 0.9rem;
+  background: #f4f6f3;
+}
+
+a.botao {
+  display: inline-block;
+  background: #2f3e34;
+  color: #fff;
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.3rem;
+  text-decoration: none;
+}
+
+.paginacao { display: flex; gap: 1rem; align-items: center; margin: 1rem 0; }
+
+@media (max-width: 40rem) {
+  .cartao-painel { flex-direction: column; }
+  .cartao-painel__foto { flex: 0 0 auto; width: 100%; }
+}
