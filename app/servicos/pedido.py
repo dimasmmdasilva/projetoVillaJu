@@ -29,6 +29,7 @@ quisesse pagar menos, e está na lista de testes de abuso do Relatório 2.
 """
 
 import datetime as dt
+import logging
 import math
 import re
 import unicodedata
@@ -39,12 +40,16 @@ from app.dados import (
     auditoria_repo,
     chale_repo,
     hospede_repo,
+    pagamento_repo,
     reserva_repo,
 )
 from app.dados.calculo import TarifaAusente
 from app.dados.calculo import valor_total as calcular_valor_total
 from app.dados.erros import ErroDeDados
+from app.seguranca import cripto
 from app.servicos import regulamento
+
+_log = logging.getLogger(__name__)
 
 PRIMEIRO = reserva_repo.PRIMEIRO
 RESTANTE = reserva_repo.RESTANTE
@@ -328,36 +333,52 @@ def ler_acompanhantes(dados, pessoas: int, hospede_id=None) -> list:
     lista = []
     vistos = set()
     for numero in range(1, quantidade + 1):
-        nome = _nome_limpo(_campo(dados, numero, "nome"), numero)
-        documento = _documento_limpo(_campo(dados, numero, "documento"), numero)
-        menor = bool(_campo(dados, numero, "menor"))
+        lista.append(validar_acompanhante(
+            _campo(dados, numero, "nome"),
+            _campo(dados, numero, "documento"),
+            bool(_campo(dados, numero, "menor")),
+            numero,
+            vistos=vistos,
+            hospede_id=hospede_id,
+        ))
+    return lista
 
-        if documento is None and not menor:
-            raise ErroDePedido(
-                f"Acompanhante {numero}: informe o documento. Só menor de "
-                f"idade pode ficar sem."
-            )
 
-        if documento is not None:
-            if documento in vistos:
-                raise ErroDePedido(
-                    f"Acompanhante {numero}: o documento se repete na lista."
-                )
-            vistos.add(documento)
+def validar_acompanhante(nome, documento, menor, numero, vistos=None,
+                         hospede_id=None, mensagem_do_titular=None) -> dict:
+    """Valida UM acompanhante. Usada no pedido e na edição (Bloco 15b).
 
-            if hospede_id and hospede_repo.documento_e_do_hospede(
-                hospede_id, documento
-            ):
-                raise ErroDePedido(
-                    f"Acompanhante {numero}: este é o seu documento. Você já "
-                    f"conta como uma das pessoas."
-                )
+    `vistos` são os documentos já presentes na lista, normalizados; o
+    documento aceito é acrescentado a ele. `hospede_id` é o titular, cujo
+    documento não pode reaparecer como acompanhante.
+    """
+    nome = _nome_limpo(nome or "", numero)
+    documento = _documento_limpo((documento or "").strip(), numero)
+    menor = bool(menor)
+    vistos = vistos if vistos is not None else set()
 
-        lista.append(
-            {"nome": nome, "documento": documento, "menor_de_idade": menor}
+    if documento is None and not menor:
+        raise ErroDePedido(
+            f"Acompanhante {numero}: informe o documento. Só menor de "
+            f"idade pode ficar sem."
         )
 
-    return lista
+    if documento is not None:
+        if documento in vistos:
+            raise ErroDePedido(
+                f"Acompanhante {numero}: o documento se repete na lista."
+            )
+
+        if hospede_id and hospede_repo.documento_e_do_hospede(
+            hospede_id, documento
+        ):
+            raise ErroDePedido(mensagem_do_titular or (
+                f"Acompanhante {numero}: este é o seu documento. Você já "
+                f"conta como uma das pessoas."
+            ))
+        vistos.add(documento)
+
+    return {"nome": nome, "documento": documento, "menor_de_idade": menor}
 
 
 def descrever_acompanhantes(quantidade: int) -> str:
@@ -375,9 +396,37 @@ def mascarar_documento(documento) -> str:
     O prefixo tem tamanho fixo, para não contar quantos caracteres o
     documento tem — e com isso de que tipo ele é.
     """
-    if not documento:
+    # Sem pontuação antes de cortar: o documento do titular está guardado
+    # como foi digitado no cadastro, e "529.982.247-25" daria "•••-25".
+    limpo = "".join(c for c in (documento or "") if c.isalnum()).upper()
+    if not limpo:
         return ""
-    return "•••" + documento[-3:]
+    return "•••" + limpo[-3:]
+
+
+def titular(hospede_id, usuario_id=None) -> dict:
+    """O titular, para o topo da lista de quem vai (ajuste 15.9).
+
+    Vem do cadastro da conta, decifrado; o documento sai já mascarado,
+    como o dos acompanhantes no card do hóspede. Telefone e e-mail não
+    entram: estão no perfil, e repeti-los no card só aumentaria a
+    exposição.
+    """
+    try:
+        cadastro = hospede_repo.buscar_por_id(hospede_id, usuario_id=usuario_id)
+    except cripto.FalhaDeAutenticacao:
+        # Um cadastro que não passa na verificação de integridade não
+        # derruba a página das reservas: a tela diz "Você" no lugar do
+        # nome, como a listagem da equipe marca a linha ilegível. O log
+        # registra o fato, nunca o conteúdo.
+        _log.warning("Cadastro ilegível do hóspede %s no card", hospede_id)
+        cadastro = None
+    if cadastro is None:
+        return {"nome": "", "documento": ""}
+    return {
+        "nome": cadastro["nome"],
+        "documento": mascarar_documento(cadastro.get("documento")),
+    }
 
 
 def revisar(usuario: dict, dados: dict, hoje: dt.date = None) -> dict:
@@ -389,6 +438,9 @@ def revisar(usuario: dict, dados: dict, hoje: dt.date = None) -> dict:
     resumo = simular(dados, hoje=hoje)
     resumo["acompanhantes"] = ler_acompanhantes(
         dados, resumo["pessoas"], usuario.get("hospede_id")
+    )
+    resumo["titular"] = titular(
+        usuario.get("hospede_id"), usuario_id=usuario.get("id")
     )
     return resumo
 
@@ -517,6 +569,48 @@ def desistir(usuario: dict, identificador) -> bool:
     )
 
 
+def cancelar(usuario: dict, identificador, hoje: dt.date = None):
+    """O hóspede cancela uma reserva confirmada (Bloco 9).
+
+    Devolve `None` se a reserva não aceita o cancelamento, ou o valor a
+    devolver — `Decimal('0.00')` quando não há devolução. A regra é a do
+    regulamento: 7 dias ou mais antes da entrada devolve tudo o que a
+    equipe conferiu; menos, nada.
+    """
+    hoje = hoje or dt.date.today()
+    hospede_id = usuario.get("hospede_id")
+    if not hospede_id:
+        return None
+
+    reserva = reserva_repo.buscar_por_id(identificador, usuario_id=usuario["id"])
+    if reserva is None or reserva["hospede_id"] != hospede_id:
+        return None
+
+    if not reserva_repo.cancelar_pelo_hospede(
+        identificador, hospede_id, usuario_id=usuario["id"]
+    ):
+        return None
+
+    pago = sum(
+        (v for v in pagamento_repo.lancamentos_da_reserva(
+            identificador, usuario_id=usuario["id"]).values() if v > 0),
+        Decimal("0.00"),
+    )
+    devolve = regulamento.tem_devolucao(reserva["data_entrada"], hoje)
+
+    auditoria_repo.registrar(
+        auditoria_repo.CANCELADA_PELO_HOSPEDE,
+        usuario_id=usuario["id"],
+        tabela="reserva",
+        registro_id=identificador,
+        detalhe=(
+            "Hóspede cancelou a reserva confirmada; "
+            + ("com devolução" if devolve and pago > 0 else "sem devolução")
+        ),
+    )
+    return pago if devolve else Decimal("0.00")
+
+
 # ---------------------------------------------------------------------------
 # O card do hóspede
 # ---------------------------------------------------------------------------
@@ -524,7 +618,7 @@ def desistir(usuario: dict, identificador) -> bool:
 _MOTIVOS = {
     "prazo_do_pix": "o Pix não foi informado dentro do prazo",
     "falta_de_pagamento": "o pagamento não foi identificado",
-    "pedido_do_hospede": "você desistiu do pedido",
+    "pedido_do_hospede": "você cancelou o pedido",
     "equipe": "cancelada pela equipe da pousada",
 }
 
@@ -556,6 +650,10 @@ def cartao(reserva: dict, agora: dt.datetime = None) -> dict:
         "atualizar": False,
         "modalidade": modalidade,
         "total": total,
+        "linha_do_tempo": [],
+        "valor_pago": None,
+        "pode_cancelar": False,
+        "aviso_cancelamento": "",
     }
 
     if situacao == "cancelada":
@@ -581,14 +679,25 @@ def cartao(reserva: dict, agora: dt.datetime = None) -> dict:
         return estado
 
     primeiro, restante = dividir(total, modalidade)
+    lancamentos = reserva.get("lancamentos") or {}
+    integral = modalidade == regulamento.INTEGRAL
+    percentual = 100 if integral else regulamento.PERCENTUAL_DO_SINAL
+
+    # Bloco 8b: o caminho inteiro, e não só a etapa atual. "Valor pago"
+    # soma só o que a equipe conferiu — a declaração do hóspede não é
+    # pagamento.
+    estado["linha_do_tempo"] = _linha_do_tempo(
+        reserva, primeiro, restante, lancamentos, agora
+    )
+    estado["valor_pago"] = sum(lancamentos.values(), Decimal("0.00"))
 
     if situacao == "pendente":
         if reserva.get("pix_informado_em"):
             estado["etapa"] = "pix_em_conferencia"
             estado["texto"] = (
-                f"Você informou o Pix em "
-                f"{reserva['pix_informado_em']:%d/%m/%Y às %Hh%M}. A equipe "
-                f"vai conferir o extrato e confirmar a reserva."
+                f"Aguardando confirmação do Pix {percentual}%. Você informou "
+                f"o Pix em {reserva['pix_informado_em']:%d/%m/%Y às %Hh%M}, "
+                f"e a equipe vai conferir o extrato."
             )
             return estado
 
@@ -603,7 +712,7 @@ def cartao(reserva: dict, agora: dt.datetime = None) -> dict:
 
         rotulo = (
             f"Fiz o Pix 100% — {em_reais(primeiro)}"
-            if modalidade == regulamento.INTEGRAL
+            if integral
             else f"Fiz o Pix 50% — {em_reais(primeiro)}"
         )
         estado.update(
@@ -624,10 +733,20 @@ def cartao(reserva: dict, agora: dt.datetime = None) -> dict:
         )
         return estado
 
-    # Confirmada.
-    if modalidade == regulamento.SINAL and not reserva.get(
-        "restante_informado_em"
-    ):
+    # Confirmada: o primeiro Pix foi conferido pela equipe.
+    _oferecer_cancelamento(estado, reserva, lancamentos, agora)
+
+    if not integral and "restante" not in lancamentos:
+        if reserva.get("restante_informado_em"):
+            estado["etapa"] = "restante_em_conferencia"
+            estado["texto"] = (
+                f"Aguardando confirmação do Pix 100%. Você informou o Pix "
+                f"do restante em "
+                f"{reserva['restante_informado_em']:%d/%m/%Y às %Hh%M}, e a "
+                f"equipe vai conferir o extrato."
+            )
+            return estado
+
         prazo = reserva["prazo_restante"]
         if prazo <= agora:
             estado["etapa"] = "restante_vencido"
@@ -639,7 +758,7 @@ def cartao(reserva: dict, agora: dt.datetime = None) -> dict:
         estado.update(
             etapa="aguardando_restante",
             texto=(
-                f"Sinal confirmado. Falta {em_reais(restante)}, até 48 "
+                f"Pix 50% confirmado. Falta {em_reais(restante)}, até 48 "
                 f"horas antes da entrada."
             ),
             a_pagar=restante,
@@ -647,34 +766,109 @@ def cartao(reserva: dict, agora: dt.datetime = None) -> dict:
             restam=tempo_restante(prazo, agora),
             botao={
                 "etapa": RESTANTE,
-                "rotulo": (
-                    f"Fiz o Pix dos 50% restantes — {em_reais(restante)}"
-                ),
+                "rotulo": f"Fiz o Pix 100% — {em_reais(restante)}",
             },
         )
         return estado
 
-    if modalidade == regulamento.SINAL:
-        estado["etapa"] = "restante_em_conferencia"
-        estado["texto"] = (
-            f"Você informou o Pix do restante em "
-            f"{reserva['restante_informado_em']:%d/%m/%Y às %Hh%M}. A "
-            f"equipe vai conferir o extrato."
-        )
-        return estado
-
-    estado["etapa"] = "confirmada"
-    estado["texto"] = (
-        "Reserva confirmada. Esperamos você na VillaJu para viver ótimos "
-        "momentos."
-    )
+    estado["etapa"] = "pagamento_concluido"
+    estado["texto"] = PAGAMENTO_CONCLUIDO
     return estado
+
+
+def _oferecer_cancelamento(estado, reserva, lancamentos, agora):
+    """O botão "Cancelar reserva" e o que ele diz ANTES do clique (Bloco 9).
+
+    As mesmas condições do UPDATE: confirmada, entrada depois de hoje, e
+    sem Pix do restante em conferência.
+    """
+    hoje = agora.date()
+    if reserva["data_entrada"] <= hoje:
+        return
+    if reserva.get("restante_informado_em") and "restante" not in lancamentos:
+        return
+
+    pago = estado["valor_pago"] or Decimal("0.00")
+    estado["pode_cancelar"] = True
+    if regulamento.tem_devolucao(reserva["data_entrada"], hoje):
+        ultimo = regulamento.ultimo_dia_com_devolucao(reserva["data_entrada"])
+        estado["aviso_cancelamento"] = (
+            f"Cancelando até {ultimo:%d/%m/%Y}, você recebe de volta tudo o "
+            f"que pagou ({em_reais(pago)})."
+        )
+    else:
+        estado["aviso_cancelamento"] = (
+            f"Faltam menos de {regulamento.DIAS_ANTES_DA_ENTRADA_PARA_DEVOLUCAO}"
+            f" dias para a entrada: se cancelar agora, o valor pago "
+            f"({em_reais(pago)}) não é devolvido."
+        )
+
+
+PAGAMENTO_CONCLUIDO = (
+    "Pagamento concluído. Obrigado por escolher a VillaJu — vamos preparar "
+    "tudo para a sua chegada."
+)
+
+
+def _passo(rotulo, valor, situacao, feito=False, prazo=None):
+    return {
+        "rotulo": rotulo,
+        "valor": valor,
+        "situacao": situacao,
+        "feito": feito,
+        "prazo": prazo,
+    }
+
+
+def _linha_do_tempo(reserva, primeiro, restante, lancamentos, agora) -> list:
+    """As etapas do pagamento, sempre todas visíveis (Bloco 8b).
+
+    Com sinal, duas: o Pix 50% e o Pix 100% (o restante). Em cima da hora,
+    uma só. Cada uma diz o valor, o prazo e a situação.
+    """
+    confirmada = reserva["situacao"] == "confirmada"
+    integral = reserva.get("modalidade") == regulamento.INTEGRAL
+    percentual = 100 if integral else regulamento.PERCENTUAL_DO_SINAL
+
+    if confirmada:
+        situacao, feito = f"Pix {percentual}% confirmado", True
+    elif reserva.get("pix_informado_em"):
+        situacao, feito = f"Aguardando confirmação do Pix {percentual}%", False
+    else:
+        situacao, feito = "Aguardando o seu Pix", False
+    prazo = None
+    if not feito and reserva.get("prazo_pagamento"):
+        prazo = prazo_por_extenso(reserva["prazo_pagamento"], agora)
+
+    passos = [_passo(
+        "Pix 100%" if integral else "Pix 50% (sinal)",
+        primeiro, situacao, feito, prazo,
+    )]
+    if integral:
+        return passos
+
+    if "restante" in lancamentos:
+        situacao, feito = "Pix 100% confirmado", True
+    elif reserva.get("restante_informado_em"):
+        situacao, feito = "Aguardando confirmação do Pix 100%", False
+    elif confirmada:
+        situacao, feito = "Aguardando o seu Pix", False
+    else:
+        situacao, feito = "Liberado depois da confirmação do sinal", False
+    prazo = None
+    if not feito and reserva.get("prazo_restante"):
+        prazo = prazo_por_extenso(reserva["prazo_restante"], agora)
+
+    passos.append(_passo("Pix 100% (restante)", restante, situacao, feito, prazo))
+    return passos
 
 
 __all__ = [
     "ErroDePedido",
+    "PAGAMENTO_CONCLUIDO",
     "PRIMEIRO",
     "RESTANTE",
+    "cancelar",
     "cartao",
     "descrever_acompanhantes",
     "desistir",
@@ -686,6 +880,8 @@ __all__ = [
     "mascarar_documento",
     "pedir",
     "revisar",
+    "titular",
+    "validar_acompanhante",
     "prazo_por_extenso",
     "simular",
     "tempo_restante",

@@ -43,6 +43,7 @@
     <a href="{{ url_for('painel.inicio') }}">Painel</a>
     {% if tem_perfil('administrador', 'recepcionista') %}
     <a href="{{ url_for('reservas.listar') }}">Reservas</a>
+    <a href="{{ url_for('pagamentos.cards') }}">Pagamentos</a>
     <a href="{{ url_for('reservas.disponibilidade') }}">Disponibilidade</a>
     <a href="{{ url_for('hospedes.listar') }}">Hóspedes</a>
     <a href="{{ url_for('contatos.listar') }}">Contatos</a>
@@ -67,6 +68,7 @@
        digitar o endereço. #}
     {% if tem_perfil('administrador') %}
     <a href="{{ url_for('painel.auditoria') }}">Auditoria</a>
+    <a href="{{ url_for('pagamentos.controle') }}">Controle</a>
     {% endif %}
     {# A caixa de saída só existe em modo arquivo. O link some junto com a
        rota, para não oferecer caminho que responde 404. #}

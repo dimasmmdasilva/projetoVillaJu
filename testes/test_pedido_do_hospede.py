@@ -831,6 +831,9 @@ def _linha(**campos):
         "situacao": "pendente",
         "modalidade": "sinal",
         "valor_total": Decimal("1300.00"),
+        # Bloco 9: o aviso de cancelamento lê a entrada, como toda
+        # reserva real tem.
+        "data_entrada": dt.date(2026, 11, 30),
         "prazo_pagamento": AGORA + dt.timedelta(minutes=72),
         "prazo_restante": dt.datetime(2026, 11, 28, 23, 59, 59),
         "pix_informado_em": None,
@@ -887,9 +890,8 @@ def test_card_aguardando_o_restante():
 
     assert estado["etapa"] == "aguardando_restante"
     assert estado["botao"]["etapa"] == pedido.RESTANTE
-    assert estado["botao"]["rotulo"] == (
-        "Fiz o Pix dos 50% restantes — R$ 650,00"
-    )
+    # Bloco 8b: o botão do restante se chama "Fiz o Pix 100%".
+    assert estado["botao"]["rotulo"] == "Fiz o Pix 100% — R$ 650,00"
     assert estado["prazo"] == "até 23h59 de 28/11/2026"
     assert estado["pode_desistir"] is False
     # Contagem de dias não precisa de atualização a cada minuto.
@@ -903,8 +905,9 @@ def test_card_integral_confirmado():
         agora=AGORA,
     )
 
-    assert estado["etapa"] == "confirmada"
-    assert "Esperamos você" in estado["texto"]
+    # Bloco 8b: integral confirmado é pagamento concluído.
+    assert estado["etapa"] == "pagamento_concluido"
+    assert estado["texto"] == pedido.PAGAMENTO_CONCLUIDO
     assert estado["botao"] is None
 
 
@@ -1039,7 +1042,8 @@ def test_o_botao_fiz_o_pix_pela_tela(aplicacao, hospede, conta, chale):
     )
 
     html = hospede.get("/reservas/minhas").data.decode()
-    assert "A equipe vai conferir" in html
+    # Bloco 8b: o card diz em que etapa o Pix está.
+    assert "Aguardando confirmação do Pix 50%" in html
     assert "Fiz o Pix 50%" not in html
     assert 'http-equiv="refresh"' not in html
 

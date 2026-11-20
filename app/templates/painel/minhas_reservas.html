@@ -55,12 +55,19 @@
     </p>
   </header>
 
-  {# Bloco 15: quem vai. O documento chega aqui já mascarado pela rota. #}
+  {# Bloco 15 e ajuste 15.9: quem vai, com o titular no topo. Os
+     documentos chegam aqui já mascarados pela rota. #}
   {% set pessoas = acompanhantes.get(reserva.id, []) if acompanhantes else [] %}
-  {% if pessoas %}
   <div class="cartao-reserva__hospedes">
-    Acompanhantes:
-    <ul>
+    Quem vai:
+    <ol>
+      {% if titular %}
+      <li>
+        {{ titular.nome or "Você" }}
+        {% if titular.documento %}— documento {{ titular.documento }}{% endif %}
+        — titular
+      </li>
+      {% endif %}
       {% for pessoa in pessoas %}
       <li>
         {{ pessoa.nome }}
@@ -68,15 +75,29 @@
         {% if pessoa.menor_de_idade %}— menor de idade{% endif %}
       </li>
       {% endfor %}
-    </ul>
+    </ol>
   </div>
-  {% endif %}
 
   {% if estado.total %}
   <p class="cartao-reserva__total">
     Valor total: <strong>{{ estado.total|reais }}</strong>
     {% if estado.modalidade == 'sinal' %}— sinal de 50% e restante
     {% elif estado.modalidade == 'integral' %}— pagamento integral{% endif %}
+  </p>
+  {% endif %}
+
+  {# Bloco 8b: o caminho inteiro do pagamento, sempre visível. #}
+  {% if estado.linha_do_tempo %}
+  <ol class="linha-do-tempo">
+    {% for passo in estado.linha_do_tempo %}
+    <li class="{{ 'feito' if passo.feito }}">
+      <strong>{{ passo.rotulo }} — {{ passo.valor|reais }}</strong>
+      <span>{{ passo.situacao }}{% if passo.prazo %} · {{ passo.prazo }}{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ol>
+  <p class="cartao-reserva__pago">
+    Valor pago: <strong>{{ estado.valor_pago|reais }}</strong>
   </p>
   {% endif %}
 
@@ -99,7 +120,11 @@
   </p>
   {% endif %}
 
-  {% if estado.botao or estado.pode_desistir %}
+  {% if estado.aviso_cancelamento %}
+  <p class="cartao-reserva__aviso-cancelamento">{{ estado.aviso_cancelamento }}</p>
+  {% endif %}
+
+  {% if estado.botao or estado.pode_desistir or estado.pode_cancelar %}
   <div class="cartao-reserva__acoes">
     {% if estado.botao %}
     <form method="post"
@@ -107,6 +132,15 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="etapa" value="{{ estado.botao.etapa }}">
       <button type="submit">{{ estado.botao.rotulo }}</button>
+    </form>
+    {% endif %}
+
+    {# Bloco 9: o card diz, antes do clique, se haverá devolução. #}
+    {% if estado.pode_cancelar %}
+    <form method="post"
+          action="{{ url_for('reservas.cancelar', identificador=reserva.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="secundario">Cancelar reserva</button>
     </form>
     {% endif %}
 

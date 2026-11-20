@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block titulo %}Quem vai — Reserva nº {{ reserva.id }} — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Quem vai — Reserva nº {{ reserva.id }}</h1>
+
+{# Etapa 5, Bloco 15b. Só o administrador chega aqui. Os dados do titular
+   não se editam nesta tela: são o cadastro da conta da pessoa, e ficam
+   na tela de hóspedes (regra do caminho único). #}
+
+<p class="escolha-feita">
+  {{ reserva.chale_nome }} ·
+  {{ reserva.data_entrada.strftime('%d/%m/%Y') }} a
+  {{ reserva.data_saida.strftime('%d/%m/%Y') }} ·
+  {{ reserva.num_pessoas }} pessoa{{ 's' if reserva.num_pessoas != 1 }}
+  (até {{ reserva.chale_capacidade }})
+</p>
+
+{% if erro %}
+<p class="aviso aviso-erro">{{ erro }}</p>
+{% endif %}
+
+{% if not legivel %}
+<p class="aviso aviso-erro">
+  A lista desta reserva não passou na verificação de integridade e não pode
+  ser editada.
+</p>
+{% elif not editavel %}
+<p class="nota-campo">
+  A reserva está {{ reserva.situacao }}: a lista fica como está.
+</p>
+{% endif %}
+
+<section>
+  <h2>Titular</h2>
+  <p>
+    {% if titular.legivel %}
+    {{ titular.nome }} — documento {{ titular.documento }}
+    {% else %}cadastro ilegível{% endif %}
+  </p>
+  <p class="nota-campo">
+    Os dados do titular são corrigidos na
+    <a href="{{ url_for('hospedes.listar') }}">tela de hóspedes</a>.
+  </p>
+</section>
+
+{% macro campos(prefixo, nome, documento, menor) %}
+  <label for="{{ prefixo }}-nome">Nome completo</label>
+  <input type="text" id="{{ prefixo }}-nome" name="nome" required
+         minlength="2" maxlength="120" autocomplete="off" value="{{ nome }}">
+  <label for="{{ prefixo }}-documento">Documento (CPF, RG, passaporte ou certidão)</label>
+  <input type="text" id="{{ prefixo }}-documento" name="documento"
+         maxlength="30" autocomplete="off" value="{{ documento or '' }}">
+  <label class="caixa">
+    <input type="checkbox" name="menor" value="sim" {{ 'checked' if menor }}>
+    Menor de idade (o documento é opcional)
+  </label>
+{% endmacro %}
+
+<section>
+  <h2>Acompanhantes</h2>
+  {% if not acompanhantes %}<p>Nenhum acompanhante.</p>{% endif %}
+
+  {% for pessoa in acompanhantes %}
+  {% set com_erro = ordem_com_erro == pessoa.ordem %}
+  <fieldset class="acompanhante" id="acompanhante-{{ pessoa.ordem }}">
+    <legend>Acompanhante {{ pessoa.ordem }}</legend>
+    {% if editavel %}
+    <form method="post" class="formulario"
+          action="{{ url_for('quem_vai.corrigir', identificador=reserva.id, ordem=pessoa.ordem) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ campos('a' ~ pessoa.ordem,
+                digitado.nome if com_erro else pessoa.nome,
+                digitado.documento if com_erro else pessoa.documento,
+                digitado.menor if com_erro else pessoa.menor_de_idade) }}
+      <button type="submit">Salvar correção</button>
+    </form>
+    <form method="post"
+          action="{{ url_for('quem_vai.remover', identificador=reserva.id, ordem=pessoa.ordem) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="secundario">Remover da lista</button>
+    </form>
+    {% else %}
+    <p>
+      {{ pessoa.nome }}
+      {% if pessoa.documento %}— documento {{ pessoa.documento }}{% endif %}
+      {% if pessoa.menor_de_idade %}— menor de idade{% endif %}
+    </p>
+    {% endif %}
+  </fieldset>
+  {% endfor %}
+</section>
+
+{% if editavel %}
+<section>
+  <h2>Acrescentar pessoa</h2>
+  <form method="post" class="formulario"
+        action="{{ url_for('quem_vai.acrescentar', identificador=reserva.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% set com_erro = ordem_com_erro == 'novo' %}
+    {{ campos('novo', digitado.nome if com_erro else '',
+              digitado.documento if com_erro else '',
+              digitado.menor if com_erro else False) }}
+    <button type="submit">Acrescentar</button>
+  </form>
+  <p class="nota-campo">
+    Acrescentar ou remover muda o número de pessoas da reserva. O valor não
+    muda: a diária é por chalé.
+  </p>
+</section>
+{% endif %}
+
+<p class="voltar">
+  <a href="{{ url_for('pagamentos.cards') }}">Pagamentos</a>
+</p>
+{% endblock %}

@@ -10,7 +10,8 @@ Nome e documento são cifrados com AES-256-GCM, como em `hospede` e
 `contato`. A etiqueta (dado adicional autenticado) é
 `acompanhante:<reserva>:<ordem>:<campo>`, conhecida antes do INSERT. Por
 isso não há a segunda fase com UPDATE que os outros dois repositórios
-fazem: a aplicação tem só SELECT e INSERT nesta tabela.
+fazem. A edição pelo administrador (Bloco 15b, no fim deste módulo)
+cifra de novo com a mesma etiqueta.
 
 ## Na transação do pedido
 
@@ -29,7 +30,7 @@ de 4 pessoas com só o titular conhecido.
 escreve "com N acompanhantes".
 """
 
-from app.dados.conexao import obter_cursor
+from app.dados.conexao import obter_conexao, obter_cursor
 from app.dados.erros import executar
 from app.seguranca import cripto
 
@@ -172,12 +173,132 @@ def listar_da_reserva(reserva_id, usuario_id=None) -> list:
         return [_decifrar(linha) for linha in cursor.fetchall()]
 
 
+# ---------------------------------------------------------------------------
+# Edição pelo administrador — Etapa 5, Bloco 15b
+# ---------------------------------------------------------------------------
+#
+# Decidido pelo Dimas em 13/11: só o administrador edita a lista —
+# acrescentar, remover e corrigir. A aplicação passou a ter UPDATE e DELETE
+# nesta tabela; "só o administrador" é garantido pela rota, porque o banco
+# não sabe quem está conectado.
+#
+# Toda operação trava a reserva, como o gatilho de quantidade, e mexe em
+# `num_pessoas` na mesma transação. A ordem importa: ao acrescentar, o
+# número sobe ANTES do INSERT (o gatilho conta contra ele); ao remover, o
+# DELETE vem ANTES da baixa (o gatilho da reserva recusaria baixar com a
+# lista ainda cheia).
+#
+# A correção cifra de novo com a MESMA etiqueta — reserva, ordem e campo
+# não mudam, e o gatilho `trg_acompanhante_antes_alterar` recusa quem
+# tentar mudá-los — e com nonce novo, que `cripto.cifrar` sorteia a cada
+# chamada.
+
+class ListaNaoEditavel(Exception):
+    """A reserva não existe, ou não está mais viva."""
+
+
+_SQL_TRAVAR_RESERVA = (
+    "SELECT num_pessoas, situacao FROM reserva WHERE id = %s FOR UPDATE"
+)
+
+_SQL_CONTAR_E_ULTIMA = (
+    "SELECT COUNT(*), COALESCE(MAX(ordem), 0) FROM acompanhante "
+    "WHERE reserva_id = %s"
+)
+
+_SQL_SUBIR_PESSOAS = (
+    "UPDATE reserva SET num_pessoas = num_pessoas + 1 WHERE id = %s"
+)
+
+_SQL_BAIXAR_PESSOAS = (
+    "UPDATE reserva SET num_pessoas = num_pessoas - 1 "
+    "WHERE id = %s AND num_pessoas > 1"
+)
+
+_SQL_REMOVER = "DELETE FROM acompanhante WHERE reserva_id = %s AND ordem = %s"
+
+_SQL_CORRIGIR = (
+    "UPDATE acompanhante SET nome_cif = %s, nome_nonce = %s, nome_tag = %s, "
+    "       documento_cif = %s, documento_nonce = %s, documento_tag = %s, "
+    "       menor_de_idade = %s, cripto_versao = %s "
+    "WHERE reserva_id = %s AND ordem = %s"
+)
+
+
+def _travar_viva(cursor, reserva_id):
+    executar(cursor, _SQL_TRAVAR_RESERVA, (reserva_id,))
+    linha = cursor.fetchone()
+    if linha is None or linha[1] not in ("pendente", "confirmada"):
+        raise ListaNaoEditavel("Esta reserva não aceita mais alterações.")
+    return linha[0]
+
+
+def acrescentar(reserva_id, acompanhante: dict, usuario_id) -> int:
+    """Acrescenta no fim da lista. Devolve a ordem nova.
+
+    Se a lista já ocupa todas as vagas de `num_pessoas`, o número sobe
+    junto — e o gatilho da reserva recusa se passar da capacidade.
+    """
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            pessoas = _travar_viva(cursor, reserva_id)
+            executar(cursor, _SQL_CONTAR_E_ULTIMA, (reserva_id,))
+            quantidade, ultima = cursor.fetchone()
+            if quantidade + 1 > pessoas - 1:
+                executar(cursor, _SQL_SUBIR_PESSOAS, (reserva_id,))
+            ordem = ultima + 1
+            executar(
+                cursor, _SQL_INSERIR,
+                _parametros(reserva_id, ordem, acompanhante),
+            )
+            return ordem
+        finally:
+            cursor.close()
+
+
+def remover(reserva_id, ordem, usuario_id) -> bool:
+    """Remove um acompanhante; uma pessoa a menos na reserva."""
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            _travar_viva(cursor, reserva_id)
+            executar(cursor, _SQL_REMOVER, (reserva_id, ordem))
+            if cursor.rowcount != 1:
+                return False
+            executar(cursor, _SQL_BAIXAR_PESSOAS, (reserva_id,))
+            return True
+        finally:
+            cursor.close()
+
+
+def corrigir(reserva_id, ordem, acompanhante: dict, usuario_id) -> bool:
+    """Reescreve nome, documento e "menor de idade" de um acompanhante."""
+    parametros = _parametros(reserva_id, ordem, acompanhante)
+    # _parametros devolve (reserva, ordem, 3 do nome, 3 do documento,
+    # menor, versão); o UPDATE quer os cifrados primeiro e a chave no fim.
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            _travar_viva(cursor, reserva_id)
+            executar(
+                cursor, _SQL_CORRIGIR, (*parametros[2:], reserva_id, ordem)
+            )
+            return cursor.rowcount == 1
+        finally:
+            cursor.close()
+
+
 __all__ = [
     "DOCUMENTO_MAXIMO",
     "DOCUMENTO_MINIMO",
     "NOME_MAXIMO",
+    "ListaNaoEditavel",
     "NOME_MINIMO",
+    "acrescentar",
+    "corrigir",
     "gravar",
     "listar_da_reserva",
     "listar_por_hospede",
+    "remover",
 ]

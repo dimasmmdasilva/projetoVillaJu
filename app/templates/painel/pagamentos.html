@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block titulo %}Pagamentos — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Pagamentos</h1>
+
+{# Etapa 5, Bloco 8a. Um card por pedido do site com algo a resolver,
+   do mais urgente ao menos urgente. Administrador e recepção veem o
+   mesmo card; nenhum botão leva valor — ele sai da reserva. #}
+
+<p class="nota-campo">
+  Confira o Pix no extrato do banco antes de registrar. Cada registro fica
+  com o seu nome e a hora.
+</p>
+
+{# Bloco 9: as devoluções vêm primeiro — alguém espera o dinheiro de volta. #}
+{% if devolucoes %}
+<h2>Devoluções pendentes</h2>
+{% for item in devolucoes %}
+{% set reserva = item.reserva %}
+<article class="cartao-reserva cartao-equipe cartao-equipe--urgencia-1"
+         id="devolucao-{{ reserva.id }}">
+  <header>
+    <h3>{{ reserva.chale_nome }} · Reserva nº {{ reserva.id }}</h3>
+    <p class="cartao-reserva__periodo">
+      {{ reserva.data_entrada.strftime('%d/%m/%Y') }} a
+      {{ reserva.data_saida.strftime('%d/%m/%Y') }}
+    </p>
+  </header>
+  <p class="cartao-reserva__estado">{{ item.texto }}</p>
+  <p>
+    Titular:
+    {% if item.titular.legivel %}{{ item.titular.nome }} — documento
+    {{ item.titular.documento }}{% else %}cadastro ilegível{% endif %}
+  </p>
+  <div class="cartao-reserva__acoes">
+    <form method="post"
+          action="{{ url_for('pagamentos.agir', identificador=reserva.id, acao='devolver') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit">{{ item.rotulo }}</button>
+    </form>
+  </div>
+</article>
+{% endfor %}
+<h2>Pagamentos a conferir</h2>
+{% endif %}
+
+{% if not cards %}
+<p>Nenhum pagamento a conferir agora.</p>
+{% endif %}
+
+{% for card in cards %}
+{% set reserva = card.reserva %}
+{% set estado = card.estado %}
+<article class="cartao-reserva cartao-equipe cartao-equipe--urgencia-{{ estado.urgencia }}"
+         id="pagamento-{{ reserva.id }}">
+  <header>
+    <h3>{{ reserva.chale_nome }} · Reserva nº {{ reserva.id }}</h3>
+    <p class="cartao-reserva__periodo">
+      {{ reserva.data_entrada.strftime('%d/%m/%Y') }} a
+      {{ reserva.data_saida.strftime('%d/%m/%Y') }}
+      · {{ (reserva.data_saida - reserva.data_entrada).days }} noites
+      · {{ reserva.num_pessoas }} pessoa{{ 's' if reserva.num_pessoas != 1 }}
+    </p>
+  </header>
+
+  <p class="cartao-reserva__estado">{{ estado.texto }}</p>
+
+  <p class="cartao-reserva__total">
+    Valor total: <strong>{{ reserva.valor_total|reais }}</strong>
+    {% if reserva.modalidade == 'sinal' %}
+    — sinal {{ estado.primeiro|reais }} e restante {{ estado.restante|reais }}
+    {% else %}— pagamento integral{% endif %}
+    · Valor pago: <strong>{{ estado.valor_pago|reais }}</strong>
+  </p>
+
+  <div class="cartao-reserva__hospedes">
+    Quem vai:
+    <ol>
+      <li>
+        {% if card.titular.legivel %}
+        {{ card.titular.nome }} — documento {{ card.titular.documento }}
+        {% if card.titular.telefone %}— telefone {{ card.titular.telefone }}{% endif %}
+        {% else %}
+        cadastro ilegível — verifique na tela de hóspedes
+        {% endif %}
+        — titular
+      </li>
+      {% for pessoa in card.acompanhantes %}
+      <li>
+        {{ pessoa.nome }}
+        {% if pessoa.documento %}— documento {{ pessoa.documento }}{% endif %}
+        {% if pessoa.menor_de_idade %}— menor de idade{% endif %}
+      </li>
+      {% endfor %}
+      {% if not card.acompanhantes_legiveis %}
+      <li>lista de acompanhantes ilegível</li>
+      {% endif %}
+    </ol>
+    {# Bloco 15b: só o administrador edita a lista. #}
+    {% if tem_perfil('administrador') %}
+    <p><a href="{{ url_for('quem_vai.editar', identificador=reserva.id) }}">Editar a lista de quem vai</a></p>
+    {% endif %}
+  </div>
+
+  <div class="cartao-reserva__acoes">
+    {% for botao in estado.botoes %}
+    <form method="post"
+          action="{{ url_for('pagamentos.agir', identificador=reserva.id, acao=botao.acao) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit">{{ botao.rotulo }}</button>
+    </form>
+    {% endfor %}
+    {% if estado.pode_cancelar %}
+    <form method="post"
+          action="{{ url_for('pagamentos.agir', identificador=reserva.id, acao='cancelar') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="secundario">Cancelar reserva por falta de pagamento</button>
+    </form>
+    {% endif %}
+  </div>
+</article>
+{% endfor %}
+{% endblock %}

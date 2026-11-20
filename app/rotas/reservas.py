@@ -22,6 +22,7 @@ from app.dados import (
     acompanhante_repo,
     auditoria_repo,
     chale_repo,
+    pagamento_repo,
     reserva_repo,
     usuario_repo,
 )
@@ -388,7 +389,17 @@ def minhas():
 
     # Etapa 5, Bloco 7: cada reserva em andamento vira um card, com o que
     # falta pagar, o prazo e os botões que o banco aceitaria agora.
-    cartoes = {reserva["id"]: pedido.cartao(reserva) for reserva in em_andamento}
+    # Bloco 8b: o que a equipe já conferiu entra no card, para a linha do
+    # tempo e o "Valor pago". O filtro de dono está no SQL.
+    lancamentos = pagamento_repo.lancamentos_por_reserva_do_hospede(
+        usuario["hospede_id"], usuario_id=usuario["id"]
+    )
+    cartoes = {
+        reserva["id"]: pedido.cartao(
+            {**reserva, "lancamentos": lancamentos.get(reserva["id"], {})}
+        )
+        for reserva in em_andamento
+    }
 
     # Etapa 5, Bloco 15: quem vai em cada reserva. O documento sai daqui
     # já mascarado — o texto inteiro nem chega ao template.
@@ -415,6 +426,8 @@ def minhas():
         contas=contas,
         cartoes=cartoes,
         acompanhantes=acompanhantes,
+        # Ajuste 15.9: o titular no topo da lista de quem vai.
+        titular=pedido.titular(usuario["hospede_id"], usuario_id=usuario["id"]),
         chave_pix=getattr(current_app.villaju, "PIX_CHAVE", ""),
         atualizar=any(c["atualizar"] for c in cartoes.values()),
         vinculada=True,
@@ -853,6 +866,34 @@ def informar_pix(identificador):
     else:
         flash(_RECUSA_UNIFORME, "erro")
 
+    return redirect(url_for("reservas.minhas"))
+
+
+@reservas.route("/<int:identificador>/cancelar", methods=["POST"])
+@requer_perfil(HOSPEDE)
+def cancelar(identificador):
+    """Bloco 9: o hóspede cancela uma reserva confirmada.
+
+    O card disse, antes do clique, se haveria devolução. A resposta para
+    reserva alheia, inexistente ou que não aceita cancelamento é a mesma.
+    """
+    usuario = _hospede_conectado()
+    devolve = pedido.cancelar(usuario, identificador)
+
+    if devolve is None:
+        flash(_RECUSA_UNIFORME, "erro")
+    elif devolve > 0:
+        flash(
+            f"Reserva cancelada. O chalé voltou a ficar disponível. A equipe "
+            f"da pousada vai devolver {pedido.em_reais(devolve)} pelo Pix.",
+            "sucesso",
+        )
+    else:
+        flash(
+            "Reserva cancelada. O chalé voltou a ficar disponível. Pela regra "
+            "do regulamento, não há devolução.",
+            "sucesso",
+        )
     return redirect(url_for("reservas.minhas"))
 
 

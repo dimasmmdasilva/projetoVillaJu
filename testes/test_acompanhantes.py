@@ -852,7 +852,7 @@ def test_a_revisao_mostra_quem_vai(aplicacao, hospede, chale):
     html = hospede.post("/reservas/pedir/revisar", data=dados).data.decode()
 
     assert _passo(html) == "Confirmar"
-    assert "Você, titular da reserva" in html
+    assert f"{DADOS['nome']}" in html and "titular (você)" in html
     assert NOME_1 in html and NOME_2 in html
     assert "Confirmar pedido" in html
 
@@ -932,3 +932,87 @@ def test_a_revisao_e_so_do_hospede(aplicacao, chale):
     resposta = visitante.post("/reservas/pedir/revisar", data=dados)
     assert resposta.status_code == 302
     assert "/login" in resposta.headers["Location"]
+
+
+# ===========================================================================
+# 7. Ajuste 15.9 — o titular no topo da lista
+# ===========================================================================
+
+_DOC_TITULAR = re.sub(r"\D", "", DADOS["documento"])
+
+
+def test_a_revisao_poe_o_titular_primeiro_com_documento_mascarado(
+        aplicacao, hospede, chale):
+    dados = _familia(chale)
+    dados["csrf_token"] = _token(hospede, "/reservas/pedir")
+    html = hospede.post("/reservas/pedir/revisar", data=dados).data.decode()
+
+    lista = html[html.index('class="lista-de-hospedes"'):]
+    lista = lista[:lista.index("</ul>")]
+    assert lista.index(DADOS["nome"]) < lista.index(NOME_1) < lista.index(NOME_2)
+    assert "•••" + _DOC_TITULAR[-3:] in lista
+    assert _DOC_TITULAR not in html and DADOS["documento"] not in html
+
+
+def test_o_card_poe_o_titular_primeiro(aplicacao, hospede, conta, chale):
+    with aplicacao.app_context():
+        identificador = pedido.pedir(conta, _familia(chale))
+
+    html = hospede.get("/reservas/minhas").data.decode()
+    card = html[html.index(f'id="reserva-{identificador}"'):]
+    card = card[:card.index("</article>")]
+    itens = re.findall(r"<li>(.*?)</li>", card, re.S)
+    assert DADOS["nome"] in itens[0] and "titular" in itens[0]
+    assert NOME_1 in itens[1] and NOME_2 in itens[2]
+    assert "•••" + _DOC_TITULAR[-3:] in itens[0]
+    assert _DOC_TITULAR not in html and DADOS["documento"] not in html
+
+
+def test_o_card_de_uma_pessoa_mostra_so_o_titular(aplicacao, hospede, conta,
+                                                  chale):
+    with aplicacao.app_context():
+        identificador = pedido.pedir(conta, _escolha(chale, pessoas=1))
+
+    html = hospede.get("/reservas/minhas").data.decode()
+    card = html[html.index(f'id="reserva-{identificador}"'):]
+    card = card[:card.index("</article>")]
+    assert "Quem vai" in card and DADOS["nome"] in card
+
+
+def test_o_card_nao_mostra_telefone_nem_email_do_titular(aplicacao, hospede,
+                                                         conta, chale):
+    with aplicacao.app_context():
+        identificador = pedido.pedir(conta, _familia(chale))
+    html = hospede.get("/reservas/minhas").data.decode()
+    card = html[html.index(f'id="reserva-{identificador}"'):]
+    card = card[:card.index("</article>")]
+    assert DADOS["telefone"] not in card and DADOS["email"] not in card
+
+
+def test_a_mascara_ignora_a_pontuacao():
+    """O documento do titular vem do cadastro como foi digitado."""
+    assert pedido.mascarar_documento("529.982.247-25") == "•••725"
+    assert pedido.mascarar_documento("12.345.678-x") == "•••78X"
+    assert pedido.mascarar_documento("..--") == ""
+
+
+def test_cadastro_ilegivel_do_titular_nao_derruba_o_card(aplicacao, hospede,
+                                                         conta, chale,
+                                                         conexao_banco):
+    """A tag do nome adulterada: a página abre, com "Você" no lugar do nome.
+
+    (Trocar o bloco do nome pelo do documento não serviria: no `hospede`,
+    a etiqueta da cifra não inclui o campo — limitação que o acompanhante
+    já não tem — e a troca decifraria normalmente.)"""
+    with aplicacao.app_context():
+        identificador = pedido.pedir(conta, _escolha(chale, pessoas=1))
+    _cru(conexao_banco,
+         "UPDATE hospede SET nome_tag = REPEAT('x', 16) WHERE id = %s",
+         (conta["hospede_id"],))
+
+    resposta = hospede.get("/reservas/minhas")
+    assert resposta.status_code == 200
+    card = resposta.data.decode()
+    card = card[card.index(f'id="reserva-{identificador}"'):]
+    card = card[:card.index("</article>")]
+    assert "Você" in card and "titular" in card

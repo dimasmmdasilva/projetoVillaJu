@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block titulo %}Controle de pagamentos — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Controle de pagamentos</h1>
+
+{# Etapa 5, Bloco 8c. Só do administrador. O ano e o mês vão na URL, sem
+   JavaScript. O total do mês é a soma dos lançamentos conferidos pela
+   equipe — entradas menos devoluções. Sem comparação com o ano
+   anterior (decisão de 13/11). #}
+
+<form method="get" action="{{ url_for('pagamentos.controle') }}" class="seletor-de-ano">
+  <label for="ano">Ano</label>
+  <select id="ano" name="ano">
+    {% for ano in controle.anos %}
+    <option value="{{ ano }}" {{ 'selected' if ano == controle.ano }}>{{ ano }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Ver</button>
+</form>
+
+<p class="total-do-ano">
+  Total recebido em {{ controle.ano }}:
+  <strong>{{ controle.total_do_ano|reais }}</strong>
+</p>
+
+<ul class="grade-de-meses">
+  {% for mes in controle.meses %}
+  <li class="{{ 'escolhido' if mes.numero == controle.mes }}">
+    <a href="{{ url_for('pagamentos.controle', ano=controle.ano, mes=mes.numero) }}">
+      <span class="mes-nome">{{ mes.nome }}</span>
+      <strong>{{ mes.total|reais }}</strong>
+      <span class="mes-quantidade">{{ mes.lancamentos }} lançamento{{ 's' if mes.lancamentos != 1 }}</span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+
+{% if controle.mes %}
+<h2>Lançamentos de {{ controle.mes_nome }} de {{ controle.ano }}</h2>
+{% if controle.lancamentos %}
+<table>
+  <thead>
+    <tr>
+      <th>Data</th>
+      <th>Reserva</th>
+      <th>Hóspede</th>
+      <th>Chalé</th>
+      <th>Tipo</th>
+      <th>Valor</th>
+      <th>Conferido por</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in controle.lancamentos %}
+    <tr>
+      <td>{{ item.registrado_em.strftime('%d/%m/%Y %Hh%M') }}</td>
+      <td>{{ item.reserva_id }}</td>
+      <td>{{ item.hospede_nome or 'cadastro ilegível' }}</td>
+      <td>{{ item.chale_nome }}</td>
+      <td>{{ item.tipo }}</td>
+      <td>{{ item.valor|reais }}</td>
+      <td>{{ item.conferido_por }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Nenhum lançamento neste mês.</p>
+{% endif %}
+{% endif %}
+{% endblock %}

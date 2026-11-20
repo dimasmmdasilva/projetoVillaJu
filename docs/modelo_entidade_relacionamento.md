@@ -1,7 +1,7 @@
 # Modelo Entidade-Relacionamento — VillaJu
 
 Documentação do modelo de dados implementado em `banco/01_schema.sql`.
-Atualizado em 13/11/2026, com a Etapa 5 até o Bloco 15.
+Atualizado em 20/11/2026, com a Etapa 5 até os Blocos 8, 9 e 15b.
 
 O diagrama abaixo é escrito em Mermaid, que o GitHub renderiza
 automaticamente. Por ser texto, ele vai ao controle de versão como código:
@@ -304,11 +304,25 @@ a FNRH, que registra **todos** os hóspedes, e não só quem reservou.
 
 `hospede` e `contato` amarram a cifra ao `id` da linha, que só existe
 depois do `INSERT` — e por isso gravam em duas fases, com um `UPDATE`.
-O acompanhante não pode: a aplicação tem só `SELECT` e `INSERT` nesta
-tabela. A etiqueta é `acompanhante:<reserva>:<ordem>:<campo>`, conhecida
-antes, e a unicidade de `(reserva_id, ordem)` garante que não se repete.
-O nome do campo entra também: trocar o bloco do documento pelo do nome,
-na mesma linha, faz a verificação falhar.
+O acompanhante nasceu com só `SELECT` e `INSERT` (Bloco 15), e a etiqueta
+é `acompanhante:<reserva>:<ordem>:<campo>`, conhecida antes, com a
+unicidade de `(reserva_id, ordem)` garantindo que não se repete. O nome
+do campo entra também: trocar o bloco do documento pelo do nome, na mesma
+linha, faz a verificação falhar.
+
+**Bloco 15b (20/11): o administrador edita a lista.** Decisão do Dimas em
+13/11. A aplicação ganhou `UPDATE` e `DELETE` nesta tabela, e "só o
+administrador" passa a ser garantido pela aplicação, porque o banco não
+sabe quem está conectado. A etiqueta sobreviveu à mudança: uma correção
+cifra de novo com a mesma reserva, ordem e campo, e nonce novo. Para isso,
+`trg_acompanhante_antes_alterar` recusa mudar `reserva_id` ou `ordem`. A
+ordem de quem é removido nunca é reaproveitada.
+
+**Limitação conhecida, achada no Bloco 15.9:** em `hospede`, a etiqueta
+não inclui o campo, e os blocos de nome e documento de uma mesma linha
+podem ser trocados entre si sem que a verificação reclame. Corrigir exige
+cifrar de novo todos os cadastros, e fica registrado em vez de feito às
+pressas.
 
 ### Por que a quantidade de acompanhantes mora no banco
 

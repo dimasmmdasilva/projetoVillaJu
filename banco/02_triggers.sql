@@ -646,4 +646,21 @@ BEGIN
     SET NEW.criado_em = NOW();
 END$$
 
+-- Bloco 15b: o administrador corrige nome, documento e "menor de idade".
+-- Reserva e ordem fazem parte da etiqueta da cifra: mudá-las tornaria a
+-- linha indecifrável, ou — pior — a faria pertencer a outra reserva. A
+-- data de criação também não muda.
+DROP TRIGGER IF EXISTS trg_acompanhante_antes_alterar$$
+CREATE TRIGGER trg_acompanhante_antes_alterar
+BEFORE UPDATE ON acompanhante
+FOR EACH ROW
+BEGIN
+    IF NEW.reserva_id <> OLD.reserva_id OR NEW.ordem <> OLD.ordem THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Reserva e ordem do acompanhante fazem parte da etiqueta da cifra e não mudam.';
+    END IF;
+
+    SET NEW.criado_em = OLD.criado_em;
+END$$
+
 DELIMITER ;

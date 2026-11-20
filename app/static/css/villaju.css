@@ -905,4 +905,69 @@ fieldset.acompanhante legend { font-weight: 700; padding: 0 0.25rem; }
 
 .lista-de-hospedes { margin: 0.25rem 0 0; padding-left: 1.25rem; }
 .cartao-reserva__hospedes { margin: 0.5rem 0; }
-.cartao-reserva__hospedes ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
+.cartao-reserva__hospedes ol { margin: 0.25rem 0 0; padding-left: 1.5rem; }
+
+/* --- Etapa 5, Bloco 8: os cards da equipe e o controle do ano ---------- */
+
+.cartao-equipe--urgencia-1 { border-left: 6px solid #c58b2b; }
+.cartao-equipe--urgencia-2 { border-left: 6px solid #7a2520; }
+
+.seletor-de-ano {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.seletor-de-ano label { margin: 0; }
+
+.total-do-ano { font-size: 1.1rem; }
+
+.grade-de-meses {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+.grade-de-meses a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d6dcd4;
+  border-radius: 0.4rem;
+  text-decoration: none;
+  color: #2f3e34;
+  background: #fff;
+}
+.grade-de-meses .escolhido a { border-color: #2f3e34; border-width: 2px; }
+.mes-nome { text-transform: capitalize; }
+.mes-quantidade { font-size: 0.85rem; color: #5b6a60; }
+
+/* Bloco 8b: a linha do tempo do pagamento no card do hóspede. */
+.linha-do-tempo {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0.25rem;
+  border-left: 3px solid #d6dcd4;
+}
+.linha-do-tempo li {
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem 0 0.5rem 0.9rem;
+  position: relative;
+}
+.linha-do-tempo li::before {
+  content: "";
+  position: absolute;
+  left: -0.5rem;
+  top: 0.5rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #8a958d;
+}
+.linha-do-tempo li.feito::before { background: #2f3e34; border-color: #2f3e34; }
+.linha-do-tempo span { font-size: 0.9rem; color: #5b6a60; }

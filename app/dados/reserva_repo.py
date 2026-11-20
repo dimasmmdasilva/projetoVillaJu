@@ -674,6 +674,25 @@ _SQL_DESISTIR = (
     "  AND pix_informado_em IS NULL"
 )
 
+# Etapa 5, Bloco 9: o hóspede cancela uma reserva CONFIRMADA — a equipe já
+# conferiu o Pix, e a devolução, se houver, se baseia no que foi conferido.
+# Com um Pix do restante declarado e ainda não conferido, espera-se a
+# conferência: devolver com base numa declaração seria devolver o que
+# ninguém viu no extrato. A condição inteira está no UPDATE, com o dono.
+_SQL_CANCELAR_PELO_HOSPEDE = (
+    "UPDATE reserva "
+    "SET situacao = 'cancelada', cancelado_em = NOW(), "
+    "    motivo_cancelamento = 'pedido_do_hospede' "
+    "WHERE id = %s AND hospede_id = %s "
+    "  AND situacao = 'confirmada' "
+    "  AND modalidade IS NOT NULL "
+    "  AND data_entrada > CURDATE() "
+    "  AND (restante_informado_em IS NULL "
+    "       OR EXISTS (SELECT 1 FROM pagamento p "
+    "                  WHERE p.reserva_id = reserva.id "
+    "                    AND p.tipo = 'restante'))"
+)
+
 PRIMEIRO = "primeiro"
 RESTANTE = "restante"
 
@@ -806,6 +825,23 @@ def desistir(identificador, hospede_id, usuario_id=None) -> bool:
         cursor = conexao.cursor()
         try:
             executar(cursor, _SQL_DESISTIR, (identificador, hospede_id))
+            return cursor.rowcount == 1
+        finally:
+            cursor.close()
+
+
+def cancelar_pelo_hospede(identificador, hospede_id, usuario_id=None) -> bool:
+    """O hóspede cancela uma reserva confirmada (Bloco 9). Devolve se valeu.
+
+    `False` para todo caso de recusa, sem distinguir — reserva alheia,
+    inexistente, já cancelada, com a entrada hoje ou passada, com Pix em
+    conferência —, como em `desistir`.
+    """
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            executar(cursor, _SQL_CANCELAR_PELO_HOSPEDE,
+                     (identificador, hospede_id))
             return cursor.rowcount == 1
         finally:
             cursor.close()

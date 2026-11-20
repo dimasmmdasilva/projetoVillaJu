@@ -173,7 +173,11 @@
     <dt>Quem vai</dt>
     <dd>
       <ul class="lista-de-hospedes">
-        <li>Você, titular da reserva</li>
+        <li>
+          {{ resumo.titular.nome or "Você" }}
+          {% if resumo.titular.documento %}— documento {{ resumo.titular.documento }}{% endif %}
+          — titular (você)
+        </li>
         {% for pessoa in resumo.acompanhantes %}
         <li>
           {{ pessoa.nome }}

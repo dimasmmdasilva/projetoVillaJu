@@ -134,10 +134,12 @@ PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
 SET @sql = CONCAT('GRANT SELECT, INSERT ON `', @banco, '`.pagamento TO ', @conta);
 PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
 
--- Acompanhante: leitura e acréscimo. Não há edição pelo site depois do
--- pedido, e a lista de quem se hospedou é histórico da reserva.
--- (Etapa 5, Bloco 15.)
-SET @sql = CONCAT('GRANT SELECT, INSERT ON `', @banco, '`.acompanhante TO ', @conta);
+-- Acompanhante (Etapa 5, Bloco 15). Nasceu com SELECT e INSERT. Desde o
+-- Bloco 15b o administrador edita a lista — acrescentar, remover,
+-- corrigir —, decisão do Dimas em 13/11: entram UPDATE e DELETE, e "só o
+-- administrador" passa a ser garantido pela aplicação, porque o banco não
+-- sabe quem está conectado. O gatilho impede mudar reserva e ordem.
+SET @sql = CONCAT('GRANT SELECT, INSERT, UPDATE, DELETE ON `', @banco, '`.acompanhante TO ', @conta);
 PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
 
 FLUSH PRIVILEGES;

@@ -42,6 +42,14 @@ SENHA_ALTERADA = "SENHA_ALTERADA"
 # o prazo, e por isso precisa de data e autor.
 PEDIDO_DE_RESERVA = "PEDIDO_DE_RESERVA"
 PIX_INFORMADO = "PIX_INFORMADO"
+# Etapa 5, Bloco 8: a equipe confere o extrato.
+PAGAMENTO_CONFIRMADO = "PAGAMENTO_CONFIRMADO"
+CANCELADA_SEM_PAGAMENTO = "CANCELADA_SEM_PAGAMENTO"
+# Etapa 5, Bloco 15b: o administrador edita a lista de quem vai.
+LISTA_DE_HOSPEDES_ALTERADA = "LISTA_DE_HOSPEDES_ALTERADA"
+# Etapa 5, Bloco 9: o hóspede cancela; a equipe devolve.
+CANCELADA_PELO_HOSPEDE = "CANCELADA_PELO_HOSPEDE"
+DEVOLUCAO_REGISTRADA = "DEVOLUCAO_REGISTRADA"
 
 # Teto da coluna `detalhe` no schema. Texto maior seria truncado pelo
 # banco ou rejeitado, dependendo do modo estrito em vigor.

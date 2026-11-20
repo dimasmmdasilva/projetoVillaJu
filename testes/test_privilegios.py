@@ -277,10 +277,11 @@ def test_aplicacao_nao_esvazia_o_livro_de_pagamentos(app):
     _recusado(app, "TRUNCATE TABLE pagamento")
 
 
-# Acompanhantes: leitura e acréscimo — Etapa 5, Bloco 15
+# Acompanhantes — Etapa 5, Blocos 15 e 15b
 # ---------------------------------------------------------------------------
-# Não há edição pelo site depois do pedido. A lista de quem se hospedou é
-# histórico da reserva; a aplicação comprometida não a reescreve.
+# O Bloco 15 deu só SELECT e INSERT. O 15b, por decisão do Dimas em 13/11,
+# deu UPDATE e DELETE: o administrador edita a lista. Os dois testes de
+# recusa viraram testes de permissão — provados pelo erro que NÃO é 1142.
 
 def test_aplicacao_le_acompanhantes(app):
     app.execute("SELECT COUNT(*) FROM acompanhante")
@@ -304,12 +305,30 @@ def test_aplicacao_grava_acompanhante(app):
     assert erro.value.errno == 1452
 
 
-def test_aplicacao_nao_altera_acompanhante(app):
-    _recusado(app, "UPDATE acompanhante SET menor_de_idade = TRUE WHERE id > 0")
+def test_aplicacao_altera_acompanhante(app):
+    """Sem linhas, o UPDATE não altera nada — mas é aceito, e não 1142."""
+    try:
+        app.execute("UPDATE acompanhante SET menor_de_idade = TRUE WHERE id < 0")
+    except mysql.connector.Error as erro:
+        assert erro.errno != ERRO_SEM_PRIVILEGIO, (
+            "a aplicação não tem UPDATE em acompanhante; rode, como root: "
+            "GRANT UPDATE, DELETE ON <banco>.acompanhante TO "
+            "'villaju_app'@'localhost'")
+        raise
 
 
-def test_aplicacao_nao_apaga_acompanhante(app):
-    _recusado(app, "DELETE FROM acompanhante WHERE id > 0")
+def test_aplicacao_apaga_acompanhante(app):
+    try:
+        app.execute("DELETE FROM acompanhante WHERE id < 0")
+    except mysql.connector.Error as erro:
+        assert erro.errno != ERRO_SEM_PRIVILEGIO, (
+            "a aplicação não tem DELETE em acompanhante")
+        raise
+
+
+def test_aplicacao_nao_esvazia_acompanhantes(app):
+    """DELETE linha a linha, sim; TRUNCATE, que exige DROP, não."""
+    _recusado(app, "TRUNCATE TABLE acompanhante")
 
 
 # ---------------------------------------------------------------------------

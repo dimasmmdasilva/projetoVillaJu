@@ -639,18 +639,19 @@ CREATE TABLE pagamento (
 --
 -- A diferença está no dado adicional autenticado. `hospede` e `contato`
 -- usam o identificador da linha, que só existe depois do INSERT — e por
--- isso gravam em duas fases, INSERT e depois UPDATE. Aqui a aplicação
--- tem só SELECT e INSERT, e a etiqueta é `acompanhante:<reserva>:<ordem>`,
--- conhecida ANTES do INSERT. A unicidade de (reserva_id, ordem) garante
+-- isso gravam em duas fases, INSERT e depois UPDATE. Aqui a etiqueta é
+-- `acompanhante:<reserva>:<ordem>:<campo>`, conhecida ANTES do INSERT. A unicidade de (reserva_id, ordem) garante
 -- que a etiqueta não se repete, e mover um bloco cifrado para outra
 -- linha faz a verificação de integridade falhar.
 --
 -- --------------------------------------------------------------------------
--- Só acréscimo
+-- Quem edita
 --
--- Não há edição pelo site depois do pedido. A conta da aplicação recebe
--- SELECT e INSERT; a correção de um nome digitado errado é feita pela
--- recepção no registro de chegada.
+-- O hóspede não edita a lista depois do pedido. O ADMINISTRADOR edita
+-- (Bloco 15b, decisão de 13/11): acrescentar, remover, corrigir. Por isso
+-- a conta da aplicação tem SELECT, INSERT, UPDATE e DELETE, e o gatilho
+-- `trg_acompanhante_antes_alterar` impede mudar reserva e ordem — que
+-- fazem parte da etiqueta da cifra.
 -- --------------------------------------------------------------------------
 
 CREATE TABLE acompanhante (
