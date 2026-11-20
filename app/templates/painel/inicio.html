@@ -7,9 +7,43 @@
 <p>Olá, {{ usuario.nome }}. Você está conectado como
    <strong>{{ usuario.perfil }}</strong>.</p>
 
+{# 20/11, a pedido do Dimas: um card por chalé ativo no topo do Painel,
+   e o card que cria a reserva fecha a grade (3 x 2 com os cinco chalés).
+   A EQUIPE vê a situação de hoje; o HÓSPEDE, não — "ocupado até 11/12"
+   diz quando outra pessoa estará na pousada (decisão do Bloco 7). O card
+   do hóspede abre o pedido com o chalé escolhido: link interno, sem
+   redirecionamento depois do login (decisão de 20/11). #}
+{% macro grade_de_chales(chales, equipe) %}
+<ul class="grade-de-chales">
+  {% for chale in chales %}
+  <li>
+    <a class="chale-painel"
+       href="{{ url_for('reservas.disponibilidade') if equipe else url_for('reservas.pedir', chale=chale.id) }}">
+      <span class="chale-painel__cor amostra--{{ chale.cor }}" aria-hidden="true"></span>
+      <span class="chale-painel__dados">
+        <strong>{{ chale.nome }}</strong>
+        <span>até {{ chale.capacidade }} pessoas · {{ chale.configuracao_camas }}</span>
+        {% if equipe %}
+        <span class="chale-painel__hoje chale-painel__hoje--{{ chale.hoje.estado }}">{{ chale.hoje.texto }}</span>
+        {% else %}
+        <span class="chale-painel__hoje">Reservar este chalé</span>
+        {% endif %}
+      </span>
+    </a>
+  </li>
+  {% endfor %}
+  <li>
+    <a class="chale-painel chale-painel--novo"
+       href="{{ url_for('reservas.nova') if equipe else url_for('reservas.pedir') }}">
+      <span class="chale-painel__mais" aria-hidden="true">+</span>
+      <strong>{{ 'Registrar reserva' if equipe else 'Fazer uma reserva' }}</strong>
+    </a>
+  </li>
+</ul>
+{% endmacro %}
+
 {% if tem_perfil('hospede') %}
-{# O hóspede não vê contagens da hospedaria: quantas reservas existem e
-   quantos hóspedes estão cadastrados não é informação dele. #}
+{{ grade_de_chales(chales, false) }}
 <p><a href="{{ url_for('reservas.minhas') }}">Ver minhas reservas</a></p>
 
 {% else %}
@@ -18,24 +52,7 @@
    mesmo Painel. Cada card leva dois selos — pagamento e estadia —,
    porque são duas coisas que terminam em momentos diferentes. #}
 
-{% if resumo %}
-<p class="resumo-em-linha">
-  {% if tem_perfil('administrador') %}
-  <a href="{{ url_for('chales.listar') }}">{{ resumo.chales }} chalés ativos</a>
-  {% else %}{{ resumo.chales }} chalés ativos{% endif %}
-  · <a href="{{ url_for('hospedes.listar') }}">{{ resumo.hospedes }} hóspedes</a>
-  · {{ resumo.reservas_ativas }} reservas ativas
-  · <a href="{{ url_for('contatos.listar', situacao='novo') }}">{{ resumo.contatos_novos }} contatos novos</a>
-</p>
-{% else %}
-<p class="aviso aviso-erro">Não foi possível ler o resumo do banco de dados.</p>
-{% endif %}
-
-<p class="atalhos">
-  <a href="{{ url_for('reservas.nova') }}">Registrar reserva</a>
-  · <a href="{{ url_for('reservas.disponibilidade') }}">Consultar disponibilidade</a>
-  · <a href="{{ url_for('pagamentos.cards') }}">Pagamentos</a>
-</p>
+{{ grade_de_chales(chales, true) }}
 
 <form method="get" action="{{ url_for('painel.inicio') }}" class="seletor-de-ano">
   <label for="situacao">Filtrar por situação</label>

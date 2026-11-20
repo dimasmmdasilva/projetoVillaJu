@@ -17,12 +17,14 @@
    **Nenhum valor viaja no formulário.** O servidor recalcula o valor e
    revalida pessoas e acompanhantes no envio final. #}
 
+{% if passo != 0 %}
 <ol class="passos-do-pedido" aria-label="Passos do pedido">
   {% for rotulo in ["Chalé e datas", "Pessoas", "Quem vai", "Confirmar"] %}
   <li{{ ' aria-current="step"'|safe if loop.index == passo }}
       class="{{ 'feito' if loop.index < passo }}">{{ rotulo }}</li>
   {% endfor %}
 </ol>
+{% endif %}
 
 {% if erro %}
 <p class="aviso aviso-erro">{{ erro }}</p>
@@ -43,7 +45,13 @@
   — {{ resumo.noites }} noite{{ 's' if resumo.noites != 1 }}
 {% endmacro %}
 
-{% if passo == 1 %}
+{% if passo == 0 %}
+{# 20/11: já existe um pedido em aberto. Nenhum passo é oferecido. #}
+<p>
+  <a class="botao" href="{{ url_for('reservas.minhas') }}">Ver o pedido em aberto</a>
+</p>
+
+{% elif passo == 1 %}
 {# ------------------------------------------------------------------ 1 #}
 <form method="get" action="{{ url_for('reservas.pedir') }}" class="formulario">
   <label for="chale">Chalé</label>

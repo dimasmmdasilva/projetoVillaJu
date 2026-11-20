@@ -143,6 +143,22 @@ def _inteiro(valor, mensagem: str) -> int:
         raise ErroDePedido(mensagem) from None
 
 
+AVISO_DE_PEDIDO_EM_ABERTO = (
+    "Você já tem um pedido aguardando pagamento ou a conferência da equipe. "
+    "Conclua ou desista dele antes de fazer outro."
+)
+
+
+def pode_pedir(usuario: dict) -> bool:
+    """O hóspede ainda cabe no limite de pedidos em aberto? (20/11)"""
+    hospede_id = usuario.get("hospede_id")
+    if not hospede_id:
+        return False
+    return reserva_repo.pedidos_em_aberto(
+        hospede_id, usuario_id=usuario.get("id")
+    ) < regulamento.LIMITE_DE_PEDIDOS_EM_ABERTO
+
+
 def simular(dados: dict, hoje: dt.date = None) -> dict:
     """Confere o pedido e calcula tudo, **sem gravar nada**.
 
@@ -927,6 +943,7 @@ __all__ = [
     "ler_acompanhantes",
     "mascarar_documento",
     "pedir",
+    "pode_pedir",
     "revisar",
     "titular",
     "validar_acompanhante",

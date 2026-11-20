@@ -32,7 +32,7 @@ import datetime as dt
 import logging
 import math
 
-from app.dados import hospede_repo, pagamento_repo, reserva_repo
+from app.dados import chale_repo, hospede_repo, pagamento_repo, reserva_repo
 from app.rotas.publico import cor_da_foto
 from app.seguranca import cripto
 from app.servicos import pagamentos, regulamento
@@ -194,7 +194,62 @@ def montar(usuario_id, situacao=None, pagina=1, hoje: dt.date = None) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Os chalés no topo do Painel — 20/11
+# ---------------------------------------------------------------------------
+#
+# Pedido do Dimas: no lugar das contagens e dos atalhos, um card por chalé
+# ativo, com a situação de hoje. **Só a equipe vê a ocupação**: "ocupado
+# até 11/12" diz quando outra pessoa estará na pousada, e o hóspede não
+# recebe isso (Bloco 7). O card do hóspede usa `chales_para_o_hospede`.
+
+_VIVAS = ("pendente", "confirmada")
+
+
+def situacao_de_hoje(chale_id, reservas, hoje: dt.date) -> dict:
+    """Ocupado agora, livre com próxima entrada, ou livre sem reservas."""
+    vivas = [
+        r for r in reservas
+        if r["chale_id"] == chale_id and r["situacao"] in _VIVAS
+        and r["data_saida"] > hoje
+    ]
+    agora = [r for r in vivas if r["data_entrada"] <= hoje]
+    if agora:
+        saida = max(r["data_saida"] for r in agora)
+        return {"estado": "ocupado", "texto": f"Ocupado até {saida:%d/%m}"}
+    futuras = sorted(r["data_entrada"] for r in vivas)
+    if futuras:
+        return {
+            "estado": "livre",
+            "texto": f"Livre hoje · próxima entrada {futuras[0]:%d/%m}",
+        }
+    return {"estado": "livre", "texto": "Livre, sem reservas marcadas"}
+
+
+def _cards_de_chale(usuario_id):
+    return [
+        {**chale, "cor": cor_da_foto(chale["id"], 1)}
+        for chale in chale_repo.listar(apenas_ativos=True, usuario_id=usuario_id)
+    ]
+
+
+def chales_para_a_equipe(usuario_id, hoje: dt.date = None) -> list:
+    """Os chalés ativos com a situação de hoje — só para a equipe."""
+    hoje = hoje or dt.date.today()
+    reservas = reserva_repo.listar(limite=1000, usuario_id=usuario_id)
+    return [
+        {**chale, "hoje": situacao_de_hoje(chale["id"], reservas, hoje)}
+        for chale in _cards_de_chale(usuario_id)
+    ]
+
+
+def chales_para_o_hospede(usuario_id) -> list:
+    """Os chalés ativos, SEM ocupação: nome, capacidade, camas e a cor."""
+    return _cards_de_chale(usuario_id)
+
+
 __all__ = [
     "ACAO", "HISTORICO", "POR_PAGINA", "PROXIMAS",
-    "autor", "grupo", "montar", "selo_estadia", "selo_pagamento",
+    "autor", "chales_para_a_equipe", "chales_para_o_hospede", "grupo",
+    "montar", "selo_estadia", "selo_pagamento", "situacao_de_hoje",
 ]

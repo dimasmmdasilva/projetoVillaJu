@@ -1125,3 +1125,86 @@ a.botao {
 .devolucao--aguardando { color: #8a5a00; }
 .devolucao--devolvida { color: #2f5e3e; }
 .devolucao--sem_direito { color: #7a2520; }
+
+/* --- 20/11: os chalés no topo do Painel -------------------------------
+ * Um card por chalé ativo e o card de criar reserva fechando a grade:
+ * 2 colunas, que com os cinco chalés de hoje dão 3 linhas de 2 — pedido
+ * do Dimas, para cards e imagem maiores. A equipe vê a situação de hoje;
+ * o hóspede, não. */
+.grade-de-chales {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 1.5rem;
+}
+
+/* Grade de duas colunas fixas, e não flex: o card não tem como quebrar a
+ * cor para cima do texto. Na primeira versão o quadradinho reusava a
+ * classe da foto da vitrine (`.foto-provisoria`), com regras de tamanho e
+ * de quebra próprias, e os cards ficaram desalinhados — o Dimas viu. */
+.chale-painel {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: center;
+  height: 100%;
+  min-height: 9rem;
+  box-sizing: border-box;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #d6dcd4;
+  border-radius: 0.4rem;
+  color: #2f3e34;
+  text-decoration: none;
+}
+.chale-painel:hover { border-color: #2f3e34; }
+/* Proporção 4:3, a das fotos: quando elas chegarem, entram sem recorte. */
+.chale-painel__cor {
+  display: block;
+  width: 10rem;
+  height: 7.5rem;
+  border-radius: 0.35rem;
+}
+.chale-painel__dados { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.chale-painel__dados strong { font-size: 1.2rem; }
+.chale-painel__dados span { font-size: 0.95rem; color: #5b6a60; }
+.chale-painel__dados .chale-painel__hoje { font-weight: 600; }
+.chale-painel__dados .chale-painel__hoje--ocupado { color: #7a2520; }
+.chale-painel__dados .chale-painel__hoje--livre { color: #2f5e3e; }
+.chale-painel--novo {
+  grid-template-columns: auto auto;
+  justify-content: center;
+  border-style: dashed;
+  border-color: #2f3e34;
+}
+.chale-painel--novo strong { font-size: 1.15rem; }
+.chale-painel__mais {
+  font-size: 2.2rem;
+  line-height: 1;
+  font-weight: 700;
+}
+
+@media (max-width: 48rem) {
+  .grade-de-chales { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 30rem) {
+  .chale-painel { grid-template-columns: 6rem minmax(0, 1fr); }
+  .chale-painel__cor { width: 6rem; height: 4.5rem; }
+}
+
+/* 20/11: a tabela encostava no formulário de busca (Hóspedes, e o mesmo
+ * padrão em Contatos). Toda tabela logo depois de um formulário ganha
+ * distância dele. */
+form + table { margin-top: 1.25rem; }
+
+/* 20/11: o convite para reservar na página do chalé — Entrar e Criar
+ * conta lado a lado; o segundo com cara de botão secundário. */
+.acao-chale { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+a.botao.botao--secundario {
+  background: #fff;
+  color: #2f3e34;
+  border: 1px solid #2f3e34;
+}
+.convite-para-reservar { font-weight: 600; margin-bottom: 0.25rem; }

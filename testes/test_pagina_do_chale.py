@@ -201,7 +201,9 @@ def test_a_pagina_traz_as_informacoes_e_a_chamada(aplicacao, visitante):
     assert "Dunas" in html
     assert "Capacidade" in html
     assert "Camas" in html
-    assert "Solicitar reserva" in html
+    # 20/11: o convite muda por perfil; para o visitante, Entrar e Criar
+    # conta, com a consulta de datas como link secundário.
+    assert "Para reservar, entre na sua conta" in html
     assert "/disponibilidade" in html
 
 
@@ -943,3 +945,52 @@ def test_as_duas_barras_tem_a_mesma_medida(interno, publico, propriedades):
         b = _valor_final(css, publico, propriedade)
         assert a is not None and a == b, (
             f"{propriedade}: {interno} = {a!r}, {publico} = {b!r}")
+
+
+# ---------------------------------------------------------------------------
+# 20/11: o convite para reservar, por perfil, e o login sem destino
+# ---------------------------------------------------------------------------
+
+def _acoes(html):
+    inicio = html.index('class="acoes-do-chale"')
+    return html[inicio:html.index("</section>", inicio)]
+
+
+def test_o_visitante_e_convidado_a_entrar_ou_criar_conta(visitante):
+    acoes = _acoes(visitante.get("/chale/asturias").data.decode())
+    assert 'href="/login"' in acoes and 'href="/cadastro"' in acoes
+    assert "Para reservar, entre na sua conta" in acoes
+
+
+def test_o_hospede_reserva_direto_da_pagina_do_chale(aplicacao):
+    html = _entrar_como(aplicacao, HOSPEDE).get("/chale/asturias").data.decode()
+    acoes = _acoes(html)
+    assert re.search(r'href="/reservas/pedir\?chale=\d+"', acoes)
+    assert 'href="/login"' not in acoes
+
+
+def test_a_equipe_registra_reserva_da_pagina_do_chale(aplicacao):
+    acoes = _acoes(_entrar_como(aplicacao, ADMIN).get("/chale/asturias").data.decode())
+    assert 'href="/reservas/nova"' in acoes
+
+
+@pytest.mark.parametrize("parametro", [
+    "next=https://site-falso.example",
+    "destino=//site-falso.example",
+    "next=/chale/asturias",
+    "destino=javascript:alert(1)",
+    "proximo=%5C%5Csite-falso.example",
+])
+def test_o_login_ignora_qualquer_destino(aplicacao, parametro):
+    """Decisão de 20/11: o login não aceita destino. Sem esse parâmetro não
+    há redirecionamento aberto — quem entra vai sempre ao Painel. Se um dia
+    alguém acrescentar, este teste avisa."""
+    cliente = aplicacao.test_client()
+    pagina = cliente.get(f"/login?{parametro}").data.decode()
+    dados = {"login": HOSPEDE[0], "senha": HOSPEDE[1]}
+    achado = re.search(r'name="csrf_token" value="([^"]+)"', pagina)
+    if achado:
+        dados["csrf_token"] = achado.group(1)
+    resposta = cliente.post(f"/login?{parametro}", data=dados)
+    assert resposta.status_code == 302
+    assert resposta.headers["Location"].endswith("/painel")

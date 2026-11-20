@@ -354,3 +354,122 @@ def test_os_dois_filtros_usam_a_linha_alinhada(aplicacao, rota):
     formulario = html[html.index('class="seletor-de-ano"'):]
     formulario = formulario[:formulario.index("</form>")]
     assert "<select" in formulario and "<button" in formulario
+
+
+# ===========================================================================
+# 20/11: os chalés no topo do Painel
+# ===========================================================================
+
+def _viva(chale_id, entrada, saida, situacao="confirmada"):
+    return {"chale_id": chale_id, "situacao": situacao,
+            "data_entrada": entrada, "data_saida": saida}
+
+
+@pytest.mark.parametrize("reservas,esperado", [
+    ([], ("livre", "Livre, sem reservas marcadas")),
+    ([_viva(1, dt.date(2026, 11, 18), dt.date(2026, 11, 25))],
+     ("ocupado", "Ocupado até 25/11")),
+    ([_viva(1, dt.date(2026, 12, 4), dt.date(2026, 12, 11))],
+     ("livre", "Livre hoje · próxima entrada 04/12")),
+    ([_viva(1, dt.date(2026, 11, 15), dt.date(2026, 11, 20))],
+     ("livre", "Livre, sem reservas marcadas")),
+    ([_viva(1, dt.date(2026, 11, 18), dt.date(2026, 11, 25), "cancelada")],
+     ("livre", "Livre, sem reservas marcadas")),
+    ([_viva(2, dt.date(2026, 11, 18), dt.date(2026, 11, 25))],
+     ("livre", "Livre, sem reservas marcadas")),
+    ([_viva(1, dt.date(2026, 12, 20), dt.date(2026, 12, 27)),
+      _viva(1, dt.date(2026, 12, 4), dt.date(2026, 12, 11), "pendente")],
+     ("livre", "Livre hoje · próxima entrada 04/12")),
+])
+def test_a_situacao_de_hoje(reservas, esperado):
+    """Saída hoje libera hoje; cancelada não ocupa; outro chalé não conta;
+    pendente segura o chalé, como no gatilho de sobreposição."""
+    estado = painel_equipe.situacao_de_hoje(1, reservas, HOJE)
+    assert (estado["estado"], estado["texto"]) == esperado
+
+
+def _grade(html):
+    inicio = html.index('class="grade-de-chales"')
+    return html[inicio:html.index("</ul>", inicio)]
+
+
+def test_a_equipe_ve_os_chales_com_a_situacao_e_o_registrar(aplicacao, conta,
+                                                            chale):
+    _pedir(aplicacao, conta, chale)
+    grade = _grade(_entrar(aplicacao, *RECEPCAO).get("/painel").data.decode())
+    assert grade.count('class="chale-painel"') == 5
+    assert "Livre hoje · próxima entrada" in grade
+    assert 'href="/reservas/nova"' in grade and "Registrar reserva" in grade
+
+
+def test_o_painel_da_equipe_perdeu_as_contagens_e_os_atalhos(aplicacao):
+    html = _entrar(aplicacao, *ADMIN).get("/painel").data.decode()
+    corpo = html[html.index("<main"):]
+    # Sem a barra de fechamento: o guarda de acento em caminho de arquivo
+    # confundiria "hóspedes</a>" com um caminho.
+    for sumiu in ("hóspedes<", "reservas ativas", "contatos novos",
+                  "Consultar disponibilidade"):
+        assert sumiu not in corpo, sumiu
+
+
+def test_o_hospede_ve_os_chales_sem_a_ocupacao(aplicacao, hospede, conta, chale):
+    """A ocupação diria quando OUTRA pessoa estará na pousada."""
+    _pedir(aplicacao, conta, chale)
+    _sql(aplicacao, "UPDATE reserva SET data_entrada = CURDATE() - INTERVAL 1 DAY"
+                    ", data_saida = CURDATE() + INTERVAL 3 DAY")
+    grade = _grade(hospede.get("/painel").data.decode())
+    assert grade.count('class="chale-painel"') == 5
+    for texto in ("Ocupado", "próxima entrada", "Livre"):
+        assert texto not in grade, texto
+    assert f'href="/reservas/pedir?chale={chale["id"]}"' in grade
+    assert 'href="/reservas/pedir"' in grade and "Fazer uma reserva" in grade
+
+
+def test_a_tabela_se_afasta_do_formulario_de_busca(aplicacao):
+    import pathlib
+    from test_pagina_do_chale import _valor_final
+
+    css = (pathlib.Path(__file__).resolve().parents[1]
+           / "app/static/css/villaju.css").read_text(encoding="utf-8")
+    assert _valor_final(css, "form + table", "margin-top") == "1.25rem"
+    html = _entrar(aplicacao, *ADMIN).get("/hospedes/").data.decode()
+    assert re.search(r"</form>\s*<table>", html), "a tabela vem logo após a busca"
+
+
+def test_o_card_de_chale_nao_usa_a_classe_da_foto_da_vitrine(aplicacao):
+    """A primeira versão reusou `.foto-provisoria`, com regras de tamanho e
+    de quebra da vitrine, e os cards desalinharam (prints do Dimas, 20/11).
+    O card é uma grade de duas colunas fixas."""
+    import pathlib
+    from test_pagina_do_chale import _valor_final
+
+    grade = _grade(_entrar(aplicacao, *ADMIN).get("/painel").data.decode())
+    assert "foto-provisoria" not in grade
+    css = (pathlib.Path(__file__).resolve().parents[1]
+           / "app/static/css/villaju.css").read_text(encoding="utf-8")
+    # O valor de tela larga: fora das media queries, que vêm por último.
+    fora = re.sub(r"@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}", "", css)
+    assert _valor_final(fora, ".grade-de-chales", "grid-template-columns") == (
+        "repeat(2, minmax(0, 1fr))")
+    assert _valor_final(fora, ".chale-painel", "display") == "grid"
+    assert _valor_final(fora, ".chale-painel", "grid-template-columns") == (
+        "10rem minmax(0, 1fr)")
+
+
+def test_o_card_do_painel_nao_mexe_no_card_da_vitrine(aplicacao):
+    """A primeira versão chamou o card do Painel de `.cartao-chale` — o nome
+    do card da VITRINE pública — e a regra nova encolheu as imagens de lá
+    (print do Dimas, 20/11). Os dois componentes têm nomes próprios, e a
+    regra final da vitrine continua a dela: flex, sem coluna fixa."""
+    import pathlib
+    from test_pagina_do_chale import _valor_final
+
+    css = (pathlib.Path(__file__).resolve().parents[1]
+           / "app/static/css/villaju.css").read_text(encoding="utf-8")
+    assert _valor_final(css, ".cartao-chale", "display") == "flex"
+    assert _valor_final(css, ".cartao-chale", "grid-template-columns") is None
+
+    painel = _entrar(aplicacao, *ADMIN).get("/painel").data.decode()
+    assert "cartao-chale" not in painel
+    vitrine = aplicacao.test_client().get("/").data.decode()
+    assert 'class="cartao-chale"' in vitrine and "chale-painel" not in vitrine

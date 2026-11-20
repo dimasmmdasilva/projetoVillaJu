@@ -711,6 +711,24 @@ def _cancelar_vencidos(cursor) -> int:
     return cursor.rowcount
 
 
+def pedidos_em_aberto(hospede_id, usuario_id=None) -> int:
+    """Quantos pedidos o hóspede tem em aberto — 20/11, a pedido do Dimas.
+
+    Para avisar logo na abertura do pedido, e não só no último passo. A
+    varredura roda ANTES da contagem, na mesma transação (a lição de ordem
+    do Bloco 4): um pedido que venceu há um minuto não pode bloquear o
+    novo. Quem decide de verdade continua sendo `criar_pedido`.
+    """
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            _cancelar_vencidos(cursor)
+            executar(cursor, _SQL_CONTAR_EM_ABERTO, (hospede_id,))
+            return cursor.fetchone()[0]
+        finally:
+            cursor.close()
+
+
 def cancelar_pedidos_vencidos(usuario_id=None) -> int:
     """A mesma varredura, por conta própria. Devolve quantos cancelou.
 

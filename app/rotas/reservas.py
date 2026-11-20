@@ -805,6 +805,14 @@ def pedir():
     """
     usuario = _hospede_conectado()
 
+    # 20/11, a pedido do Dimas: com um pedido em aberto, o aviso aparece
+    # logo na abertura, e não depois dos quatro passos. Vale também para o
+    # POST: o envio final de uma aba antiga cai no mesmo aviso. O banco
+    # continua decidindo na gravação.
+    if not pedido.pode_pedir(usuario):
+        return _tela_do_pedido(0, _escolha_da_url(),
+                               erro=pedido.AVISO_DE_PEDIDO_EM_ABERTO)
+
     if request.method == "POST":
         escolha = _escolha_do_formulario()
         try:
@@ -862,6 +870,8 @@ def revisar_pedido():
     """Passo 4: o resumo com a lista de quem vai. Nada é gravado."""
     usuario = _hospede_conectado()
     escolha = _escolha_do_formulario()
+    if not pedido.pode_pedir(usuario):
+        return _tela_do_pedido(0, escolha, erro=pedido.AVISO_DE_PEDIDO_EM_ABERTO)
 
     try:
         resumo = pedido.revisar(usuario, request.form)

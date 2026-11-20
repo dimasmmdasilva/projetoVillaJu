@@ -99,17 +99,33 @@
      a caso. O valor aparece depois do cadastro confirmado. #}
 </section>
 
+{# 20/11: o convite muda conforme quem está vendo. O login NÃO aceita
+   destino de volta para esta página — sem parâmetro de destino, não há
+   redirecionamento aberto para proteger. Quem entra cai no Painel, onde
+   os cards dos chalés abrem o pedido com o chalé já escolhido. #}
 <section class="acoes-do-chale">
+  {% if not sessao_usuario %}
+  <p class="convite-para-reservar">
+    Para reservar, entre na sua conta ou crie uma. É rápido, e o valor
+    aparece logo depois.
+  </p>
   <p class="acao-chale">
-    <a class="botao"
-       href="{{ url_for('publico.disponibilidade', chale=chale.id) }}">
-      Solicitar reserva
-    </a>
+    <a class="botao" href="{{ url_for('auth.login') }}">Entrar</a>
+    <a class="botao botao--secundario" href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
   </p>
   <p class="nota-campo">
-    Consulte as datas sem compromisso. Os valores aparecem depois do
-    cadastro.
+    Ou <a href="{{ url_for('publico.disponibilidade', chale=chale.id) }}">consulte as datas</a>
+    sem compromisso.
   </p>
+  {% elif tem_perfil('hospede') %}
+  <p class="acao-chale">
+    <a class="botao" href="{{ url_for('reservas.pedir', chale=chale.id) }}">Reservar este chalé</a>
+  </p>
+  {% else %}
+  <p class="acao-chale">
+    <a class="botao" href="{{ url_for('reservas.nova') }}">Registrar reserva</a>
+  </p>
+  {% endif %}
 </section>
 
 <p class="voltar">

@@ -147,15 +147,18 @@ def test_painel_mostra_o_usuario_conectado(cliente):
 
 
 def test_painel_mostra_resumo_sem_dado_pessoal(cliente):
-    """Contagens, não conteúdo: a tabela hospede é contada, não lida."""
+    """O topo do Painel: chalés, e nenhum dado de hóspede.
+
+    Desde 20/11 as contagens deram lugar a um card por chalé (pedido do
+    Dimas). O que este teste guarda continua: o topo não traz conteúdo de
+    hóspede — nem e-mail, nem documento.
+    """
     _entrar(cliente, ADMIN)
     corpo = cliente.get("/painel").data.decode()
-    # Bloco 16: o resumo virou uma linha acima dos cards.
-    resumo = corpo[corpo.index('class="resumo-em-linha"'):]
-    resumo = resumo[:resumo.index("</p>")]
-    assert "chalés ativos" in resumo
-    assert "hóspedes" in resumo
-    assert "@" not in resumo, "o resumo é contagem, não conteúdo"
+    topo = corpo[corpo.index('class="grade-de-chales"'):]
+    topo = topo[:topo.index("</ul>")]
+    assert "Registrar reserva" in topo
+    assert "@" not in topo, "o topo do painel não traz dado de hóspede"
 
 
 def test_sessao_guarda_o_identificador_e_so(cliente, aplicacao):

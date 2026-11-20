@@ -1104,3 +1104,41 @@ def test_o_pedido_e_limitado_por_taxa():
     corte = fonte.index("def pedir(")
     decoradores = fonte[:corte].rsplit("@reservas.route", 1)[-1]
     assert "@limiter.limit" in decoradores
+
+
+# ===========================================================================
+# 20/11: o aviso de pedido em aberto aparece na abertura
+# ===========================================================================
+
+def test_com_pedido_em_aberto_o_aviso_vem_na_abertura(aplicacao, hospede, conta,
+                                                      chale):
+    _pedir(aplicacao, conta, chale)
+    html = hospede.get("/reservas/pedir").data.decode()
+    assert pedido.AVISO_DE_PEDIDO_EM_ABERTO in html
+    assert 'name="chale"' not in html, "nenhum passo é oferecido"
+    assert 'href="/reservas/minhas"' in html
+
+
+def test_o_aviso_tambem_barra_a_revisao(aplicacao, hospede, conta, chale):
+    _pedir(aplicacao, conta, chale)
+    dados = _escolha(chale, entrada=40)
+    dados["csrf_token"] = _token(hospede, "/reservas/minhas")
+    html = hospede.post("/reservas/pedir/revisar", data=dados).data.decode()
+    assert pedido.AVISO_DE_PEDIDO_EM_ABERTO in html
+    assert "Confirmar pedido" not in html
+
+
+def test_pedido_vencido_nao_bloqueia_a_abertura(aplicacao, hospede, conta, chale):
+    """A varredura vem antes da contagem: o vencido é cancelado, e o pedido
+    novo é oferecido. Chamado sem requisição, para o gancho não ajudar."""
+    identificador = _pedir(aplicacao, conta, chale)
+    _vencer(aplicacao, identificador)
+    with aplicacao.app_context():
+        assert pedido.pode_pedir(conta)
+    assert _reserva(aplicacao, identificador)["situacao"] == "cancelada"
+
+
+def test_sem_pedido_em_aberto_os_passos_aparecem(aplicacao, hospede, conta):
+    html = hospede.get("/reservas/pedir").data.decode()
+    assert pedido.AVISO_DE_PEDIDO_EM_ABERTO not in html
+    assert 'name="chale"' in html
