@@ -219,10 +219,16 @@ def devolucoes(usuario_id) -> list:
     """
     lista = []
     for reserva in pagamento_repo.devolucoes_em_aberto(usuario_id=usuario_id):
-        if not regulamento.tem_devolucao(
-            reserva["data_entrada"], reserva["cancelado_em"].date()
+        if not regulamento.tem_direito_a_devolucao(
+            reserva["motivo_cancelamento"], reserva["data_entrada"],
+            reserva["cancelado_em"].date(),
         ):
             continue
+        quem = (
+            "A pousada cancelou"
+            if reserva["motivo_cancelamento"] == regulamento.PELA_POUSADA
+            else "O hóspede cancelou"
+        )
         pago = reserva["pago"]
         percentual = 100 if pago >= reserva["valor_total"] else (
             regulamento.PERCENTUAL_DO_SINAL)
@@ -234,7 +240,7 @@ def devolucoes(usuario_id) -> list:
             "acompanhantes_legiveis": legiveis,
             "rotulo": f"Pix {percentual}% retornado — {pedido.em_reais(pago)}",
             "texto": (
-                f"O hóspede cancelou em "
+                f"{quem} em "
                 f"{reserva['cancelado_em']:%d/%m/%Y às %Hh%M}, com direito à "
                 f"devolução. Faça o Pix de volta pelo banco e registre."
             ),
@@ -258,7 +264,8 @@ def executar(acao: str, reserva_id, usuario: dict) -> bool:
         evento = auditoria_repo.PAGAMENTO_CONFIRMADO
     elif acao == DEVOLVER:
         valeu = pagamento_repo.registrar_devolucao(
-            reserva_id, regulamento.tem_devolucao, usuario_id=usuario["id"]
+            reserva_id, regulamento.tem_direito_a_devolucao,
+            usuario_id=usuario["id"],
         )
         detalhe = "Equipe registrou a devolução do Pix ao hóspede"
         evento = auditoria_repo.DEVOLUCAO_REGISTRADA
@@ -280,6 +287,70 @@ def executar(acao: str, reserva_id, usuario: dict) -> bool:
             detalhe=detalhe,
         )
     return valeu
+
+
+# ---------------------------------------------------------------------------
+# Bloco 17e — a equipe cancela, dizendo o motivo
+# ---------------------------------------------------------------------------
+#
+# Até aqui o "Marcar como cancelada" só trocava a situação: a reserva paga
+# ficava sem devolução, fora de "Devoluções" e sem dizer ao hóspede quem
+# cancelou. Agora a equipe escolhe o motivo, e o motivo decide a devolução,
+# pela mesma regra do site (`regulamento.tem_direito_a_devolucao`).
+
+ROTULOS_DO_MOTIVO = {
+    regulamento.A_PEDIDO_DO_HOSPEDE: "a pedido do hóspede",
+    regulamento.PELA_POUSADA: "pela pousada",
+}
+
+
+def _pago(reserva_id, usuario_id) -> Decimal:
+    return sum(
+        (v for v in pagamento_repo.lancamentos_da_reserva(
+            reserva_id, usuario_id=usuario_id).values() if v > 0),
+        Decimal("0.00"),
+    )
+
+
+def previa_do_cancelamento(reserva: dict, usuario_id,
+                           hoje: dt.date = None) -> dict:
+    """Quanto voltaria ao hóspede se a equipe cancelasse hoje, por motivo.
+
+    É o que o detalhe da reserva mostra ao lado de cada botão: a equipe
+    decide sabendo o efeito.
+    """
+    hoje = hoje or dt.date.today()
+    pago = _pago(reserva["id"], usuario_id)
+    return {
+        motivo: (
+            pago if regulamento.tem_direito_a_devolucao(
+                motivo, reserva["data_entrada"], hoje) else Decimal("0.00")
+        )
+        for motivo in ROTULOS_DO_MOTIVO
+    }
+
+
+def cancelar_pela_equipe(usuario: dict, reserva: dict, motivo: str,
+                         hoje: dt.date = None):
+    """Cancela com o motivo e devolve o valor a devolver. Motivo fora dos
+    dois da equipe, ou reserva já encerrada, levanta `ErroDeReserva`, com a
+    frase para a tela."""
+    hoje = hoje or dt.date.today()
+    reserva_repo.mudar_situacao(
+        reserva["id"], "cancelada", usuario_id=usuario["id"], motivo=motivo
+    )
+    devolver = previa_do_cancelamento(reserva, usuario["id"], hoje)[motivo]
+    auditoria_repo.registrar(
+        auditoria_repo.CANCELADA_PELA_EQUIPE,
+        usuario_id=usuario["id"],
+        tabela="reserva",
+        registro_id=reserva["id"],
+        detalhe=(
+            f"Equipe cancelou a reserva {ROTULOS_DO_MOTIVO[motivo]}; "
+            + ("com devolução" if devolver > 0 else "sem devolução")
+        ),
+    )
+    return devolver
 
 
 # ---------------------------------------------------------------------------

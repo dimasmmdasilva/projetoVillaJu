@@ -189,7 +189,7 @@ def test_saida_no_dia_da_entrada_e_aceita(banco):
 def test_conflito_com_cancelada_e_aceito(banco):
     """CASO 7."""
     primeira = reserva_repo.criar(_reserva("2027-07-01", "2027-07-05"))
-    reserva_repo.mudar_situacao(primeira, "cancelada")
+    reserva_repo.mudar_situacao(primeira, "cancelada", motivo="equipe")
 
     segunda = reserva_repo.criar(_reserva("2027-07-01", "2027-07-05"))
     assert reserva_repo.buscar_por_id(segunda) is not None
@@ -255,7 +255,7 @@ def test_cancelar_libera_o_periodo(banco):
     with pytest.raises(ErroDeReserva):
         reserva_repo.criar(_reserva("2027-07-02", "2027-07-04"))
 
-    reserva_repo.mudar_situacao(primeira, "cancelada")
+    reserva_repo.mudar_situacao(primeira, "cancelada", motivo="equipe")
 
     segunda = reserva_repo.criar(_reserva("2027-07-02", "2027-07-04"))
     assert reserva_repo.buscar_por_id(segunda) is not None
@@ -345,7 +345,7 @@ def _concluir_pelo_banco(identificador):
 
 def test_pendente_vira_cancelada(banco):
     identificador = reserva_repo.criar(_reserva("2027-07-01", "2027-07-05"))
-    reserva_repo.mudar_situacao(identificador, "cancelada")
+    reserva_repo.mudar_situacao(identificador, "cancelada", motivo="equipe")
     assert reserva_repo.buscar_por_id(identificador)["situacao"] == "cancelada"
 
 
@@ -376,10 +376,14 @@ def test_transicao_proibida_e_recusada(banco, de, para):
     elif de == "confirmada":
         _confirmar_pelo_banco(banco, identificador)
     elif de == "cancelada":
-        reserva_repo.mudar_situacao(identificador, "cancelada")
+        reserva_repo.mudar_situacao(identificador, "cancelada", motivo="equipe")
 
     with pytest.raises(ErroDeReserva) as erro:
-        reserva_repo.mudar_situacao(identificador, para)
+        # Bloco 17e: cancelar exige motivo; com ele, quem recusa é o mapa.
+        reserva_repo.mudar_situacao(
+            identificador, para,
+            motivo="equipe" if para == "cancelada" else None,
+        )
 
     assert de in str(erro.value)
 
@@ -392,7 +396,7 @@ def test_situacao_invalida_e_recusada(banco):
 
 def test_reserva_cancelada_nao_pode_ser_editada(banco):
     identificador = reserva_repo.criar(_reserva("2027-07-01", "2027-07-05"))
-    reserva_repo.mudar_situacao(identificador, "cancelada")
+    reserva_repo.mudar_situacao(identificador, "cancelada", motivo="equipe")
 
     with pytest.raises(ErroDeReserva) as erro:
         reserva_repo.atualizar(identificador, _reserva("2027-08-01", "2027-08-05"))

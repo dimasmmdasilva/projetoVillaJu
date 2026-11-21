@@ -161,10 +161,11 @@ def test_os_botoes_que_desfazem_sao_destrutivos(arquivo, rotulo):
     assert re.search(r'class="secundario perigo">' + re.escape(rotulo), texto)
 
 
-def test_marcar_como_cancelada_e_destrutivo_e_concluida_nao():
+def test_os_dois_cancelamentos_da_equipe_sao_destrutivos():
+    """Bloco 17e: "Marcar como cancelada" virou dois botões, um por motivo."""
     texto = (pathlib.Path(__file__).resolve().parents[1]
              / "app/templates/painel/reserva_detalhe.html").read_text(encoding="utf-8")
-    assert "'secundario perigo' if destino == 'cancelada'" in texto
+    assert '<button type="submit" class="secundario perigo">Cancelar {{ rotulo }}</button>'         in texto
 
 
 # ===========================================================================
@@ -281,7 +282,7 @@ def test_marcar_como_cancelada_tem_o_tamanho_dos_botoes_da_pagina(aplicacao, con
     identificador = _pedir(aplicacao, conta, chale)
     pagina = _entrar(aplicacao, "admin", "Villa@Admin2026").get(
         f"/reservas/{identificador}").data.decode()
-    inicio = pagina.index("Marcar como cancelada")
+    inicio = pagina.index("Cancelar pela pousada")
     formulario = pagina[pagina.rindex("<form", 0, inicio):inicio]
     assert 'class="acao-da-situacao"' in formulario, "não é o .acao miúdo"
     # Sem regra de tamanho própria: vale o do `button`, o mesmo do

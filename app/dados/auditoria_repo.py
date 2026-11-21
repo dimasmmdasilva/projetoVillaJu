@@ -50,6 +50,8 @@ LISTA_DE_HOSPEDES_ALTERADA = "LISTA_DE_HOSPEDES_ALTERADA"
 # Etapa 5, Bloco 9: o hóspede cancela; a equipe devolve.
 CANCELADA_PELO_HOSPEDE = "CANCELADA_PELO_HOSPEDE"
 DEVOLUCAO_REGISTRADA = "DEVOLUCAO_REGISTRADA"
+# Etapa 5, Bloco 17e: a equipe cancela, a pedido do hóspede ou pela pousada.
+CANCELADA_PELA_EQUIPE = "CANCELADA_PELA_EQUIPE"
 # Etapa 5, Bloco 17: houve mensagem na conversa da reserva. O texto, nunca.
 MENSAGEM_ENVIADA = "MENSAGEM_ENVIADA"
 

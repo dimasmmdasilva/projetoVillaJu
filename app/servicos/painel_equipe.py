@@ -56,7 +56,7 @@ _MOTIVOS = {
     "prazo_do_pix": "Pix não informado no prazo",
     "falta_de_pagamento": "falta de pagamento",
     "pedido_do_hospede": "a pedido do hóspede",
-    "equipe": "pela equipe",
+    "equipe": "pela pousada",
 }
 
 

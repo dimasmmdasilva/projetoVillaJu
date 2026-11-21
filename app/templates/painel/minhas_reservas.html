@@ -190,7 +190,8 @@
       <td>{{ (reserva.data_saida - reserva.data_entrada).days }}</td>
       <td>{{ reserva.num_pessoas }}</td>
       <td>
-        <strong>{{ reserva.situacao }}</strong>
+        {# Bloco 17e: quem cancelou e por quê. #}
+        <strong>{{ rotulo_do_cancelamento(reserva) or reserva.situacao }}</strong>
         {# 20/11: quem cancelou acompanha a devolução. #}
         {% set devolucao = devolucoes.get(reserva.id) if devolucoes else none %}
         {% if devolucao %}

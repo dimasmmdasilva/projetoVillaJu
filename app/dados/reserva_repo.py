@@ -246,6 +246,20 @@ _SQL_ATUALIZAR = (
 
 _SQL_MUDAR_SITUACAO = "UPDATE reserva SET situacao = %s WHERE id = %s"
 
+# Etapa 5, Bloco 17e: o cancelamento pela equipe grava o motivo e a data.
+# Antes só trocava a situação, e a reserva paga ficava sem devolução, sem
+# aparecer para a equipe e sem dizer ao hóspede quem tinha cancelado.
+_SQL_CANCELAR_PELA_EQUIPE = (
+    "UPDATE reserva "
+    "SET situacao = 'cancelada', cancelado_em = NOW(), "
+    "    motivo_cancelamento = %s "
+    "WHERE id = %s AND situacao IN ('pendente', 'confirmada')"
+)
+
+# Os motivos que a equipe escolhe ao cancelar. Os outros dois do ENUM
+# (prazo do Pix, falta de pagamento) têm caminho próprio.
+MOTIVOS_DA_EQUIPE = ("pedido_do_hospede", "equipe")
+
 _SQL_POR_ID = (
     "SELECT r.id, r.chale_id, r.hospede_id, r.data_entrada, r.data_saida, "
     "       r.num_pessoas, r.situacao, r.valor_total, r.observacoes, "
@@ -560,7 +574,8 @@ def atualizar(identificador, dados: dict, usuario_id=None) -> None:
             cursor.close()
 
 
-def mudar_situacao(identificador, nova: str, usuario_id=None) -> None:
+def mudar_situacao(identificador, nova: str, usuario_id=None,
+                   motivo=None) -> None:
     """Move a reserva no ciclo de vida, respeitando as transições.
 
     Desde o Bloco 16b não confirma (a confirmação é da conferência do Pix),
@@ -573,6 +588,11 @@ def mudar_situacao(identificador, nova: str, usuario_id=None) -> None:
     nova = (nova or "").strip()
     if nova not in SITUACOES:
         raise ErroDeReserva("Situação de reserva inválida.")
+    # Bloco 17e: cancelar exige o motivo — é ele que decide a devolução.
+    if nova == "cancelada" and motivo not in MOTIVOS_DA_EQUIPE:
+        raise ErroDeReserva(
+            "Informe se o cancelamento é a pedido do hóspede ou pela pousada."
+        )
 
     with obter_conexao(usuario_id=usuario_id) as conexao:
         cursor = conexao.cursor()
@@ -587,7 +607,9 @@ def mudar_situacao(identificador, nova: str, usuario_id=None) -> None:
 
             atual = linha[0]
 
-            if nova == atual:
+            # Cancelar de novo uma cancelada não é "nada a fazer": a tela
+            # anunciaria um cancelamento e uma devolução que não houve.
+            if nova == atual and nova != "cancelada":
                 return
 
             if nova not in TRANSICOES[atual]:
@@ -601,7 +623,16 @@ def mudar_situacao(identificador, nova: str, usuario_id=None) -> None:
                     f"Uma reserva {atual} só pode passar para {destino}."
                 )
 
-            executar(cursor, _SQL_MUDAR_SITUACAO, (nova, identificador))
+            if nova == "cancelada":
+                executar(cursor, _SQL_CANCELAR_PELA_EQUIPE,
+                         (motivo, identificador))
+                # A condição está no UPDATE: se outra requisição encerrou a
+                # reserva entre a leitura e aqui, nada foi gravado — e quem
+                # chama não pode dizer que cancelou.
+                if cursor.rowcount != 1:
+                    raise ErroDeReserva("A reserva já não pode ser cancelada.")
+            else:
+                executar(cursor, _SQL_MUDAR_SITUACAO, (nova, identificador))
         finally:
             cursor.close()
 

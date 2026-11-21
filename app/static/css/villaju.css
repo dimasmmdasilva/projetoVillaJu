@@ -1409,3 +1409,9 @@ a.botao:focus-visible {
 /* No login, o aviso tem a largura do botão Entrar e dos três caminhos —
  * fora daqui ele continua do tamanho do próprio texto (`fit-content`). */
 .cartao-entrada .avisos .aviso { width: 100%; }
+
+/* Bloco 17e: os dois cancelamentos da equipe, lado a lado, cada um com a
+ * nota de quanto volta ao hóspede logo abaixo do botão. */
+.cancelamento-pela-equipe { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+.cancelamento-pela-equipe .acao-da-situacao { margin: 0; }
+.cancelamento-pela-equipe .nota-campo { margin: 0.35rem 0 0; }

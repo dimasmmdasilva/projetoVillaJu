@@ -102,6 +102,29 @@ def tem_devolucao(entrada: dt.date, hoje: dt.date) -> bool:
     return hoje <= ultimo_dia_com_devolucao(entrada)
 
 
+# Etapa 5, Bloco 17e: quem cancelou decide a devolução. Os motivos são os do
+# ENUM `reserva.motivo_cancelamento`.
+A_PEDIDO_DO_HOSPEDE = "pedido_do_hospede"
+PELA_POUSADA = "equipe"
+
+
+def tem_direito_a_devolucao(motivo, entrada: dt.date,
+                            dia_do_cancelamento: dt.date) -> bool:
+    """A regra única da devolução, para todo cancelamento (Bloco 17e).
+
+    - **pela pousada**: devolve tudo, sempre — decisão do Dimas em 21/11. O
+      hóspede não perde dinheiro por uma decisão da pousada;
+    - **a pedido do hóspede**, pelo site ou pela recepção: a regra dos 7
+      dias (`tem_devolucao`), contados do dia do cancelamento;
+    - prazo do Pix vencido e falta de pagamento: não há o que devolver.
+    """
+    if motivo == PELA_POUSADA:
+        return True
+    if motivo == A_PEDIDO_DO_HOSPEDE:
+        return tem_devolucao(entrada, dia_do_cancelamento)
+    return False
+
+
 # ---------------------------------------------------------------------------
 # O texto
 # ---------------------------------------------------------------------------
@@ -178,6 +201,13 @@ def regras() -> list:
             ),
         },
         {
+            "titulo": "Cancelamento pela pousada",
+            "texto": (
+                "Se a pousada precisar cancelar a sua reserva, todo o valor "
+                "pago é devolvido, qualquer que seja a data."
+            ),
+        },
+        {
             "titulo": "Um pedido por vez",
             "texto": (
                 "Enquanto um pedido aguarda pagamento ou a conferência da "
@@ -197,6 +227,9 @@ __all__ = [
     "MINUTOS_PARA_O_PIX",
     "PERCENTUAL_DO_SINAL",
     "SINAL",
+    "A_PEDIDO_DO_HOSPEDE",
+    "PELA_POUSADA",
+    "tem_direito_a_devolucao",
     "modalidade_para",
     "prazo_do_restante",
     "regras",

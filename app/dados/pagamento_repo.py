@@ -103,19 +103,21 @@ _SQL_LANCAMENTOS_DA_RESERVA = (
 
 # --- Bloco 9: as devoluções ------------------------------------------------
 
-# Canceladas pelo hóspede, com entrada conferida e sem devolução lançada. O
-# direito à devolução (7 dias antes da entrada) é decidido em Python, pela
-# mesma função do regulamento que o hóspede leu.
+# Canceladas a pedido do hóspede ou pela pousada (Bloco 17e), com entrada
+# conferida e sem devolução lançada. O direito à devolução é decidido em
+# Python, por `regulamento.tem_direito_a_devolucao`, a mesma regra que o
+# hóspede leu.
 _SQL_DEVOLUCOES_EM_ABERTO = (
     "SELECT r.id, r.hospede_id, r.data_entrada, r.data_saida, "
     "       r.num_pessoas, r.valor_total, r.modalidade, r.cancelado_em, "
+    "       r.motivo_cancelamento, "
     "       c.nome AS chale_nome, "
     "       (SELECT SUM(p.valor) FROM pagamento p "
     "        WHERE p.reserva_id = r.id AND p.valor > 0) AS pago "
     "FROM reserva r "
     "JOIN chale c ON c.id = r.chale_id "
     "WHERE r.situacao = 'cancelada' "
-    "  AND r.motivo_cancelamento = 'pedido_do_hospede' "
+    "  AND r.motivo_cancelamento IN ('pedido_do_hospede', 'equipe') "
     "  AND EXISTS (SELECT 1 FROM pagamento p "
     "              WHERE p.reserva_id = r.id AND p.valor > 0) "
     "  AND NOT EXISTS (SELECT 1 FROM pagamento p "
@@ -268,13 +270,13 @@ def cancelar_por_falta_de_pagamento(reserva_id, usuario_id) -> bool:
             cursor.close()
 
 
-def registrar_devolucao(reserva_id, tem_devolucao, usuario_id) -> bool:
+def registrar_devolucao(reserva_id, tem_direito, usuario_id) -> bool:
     """"Pix 50% retornado" ou "Pix 100% retornado" (Bloco 9).
 
     O valor é o que entrou — a soma dos lançamentos, lida com a reserva
     travada — e vai com sinal negativo, no mês em que a equipe devolve.
-    `tem_devolucao(entrada, dia_do_cancelamento)` é a regra do
-    regulamento, passada por quem chama.
+    `tem_direito(motivo, entrada, dia_do_cancelamento)` é a regra do
+    regulamento, passada por quem chama (Bloco 17e: o motivo decide).
     """
     with obter_conexao(usuario_id=usuario_id) as conexao:
         cursor = conexao.cursor()
@@ -284,9 +286,8 @@ def registrar_devolucao(reserva_id, tem_devolucao, usuario_id) -> bool:
             if (
                 linha is None
                 or linha[0] != "cancelada"
-                or linha[1] != "pedido_do_hospede"
                 or linha[3] is None
-                or not tem_devolucao(linha[2], linha[3].date())
+                or not tem_direito(linha[1], linha[2], linha[3].date())
             ):
                 return False
 

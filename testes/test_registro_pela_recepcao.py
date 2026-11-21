@@ -192,7 +192,7 @@ def test_o_detalhe_nao_oferece_confirmar(aplicacao, conta, chale, recepcao):
     identificador = _numero(_registrar(recepcao, _formulario(conta, chale)))
     pagina = recepcao.get(f"/reservas/{identificador}").data.decode()
     assert "Marcar como confirmada" not in pagina
-    assert "Marcar como cancelada" in pagina
+    assert "Cancelar pela pousada" in pagina and "Cancelar a pedido do hóspede" in pagina
     assert 'href="/pagamentos"' in pagina
 
 

@@ -180,7 +180,7 @@ def test_o_detalhe_nao_oferece_concluir(aplicacao, conta, chale, recepcao):
     _conferir(aplicacao, pagamentos.PRIMEIRO, identificador, recepcao)
     pagina = _entrar(aplicacao, *ADMIN).get(f"/reservas/{identificador}").data.decode()
     assert "Marcar como concluida" not in pagina
-    assert "Marcar como cancelada" in pagina
+    assert "Cancelar pela pousada" in pagina and "Cancelar a pedido do hóspede" in pagina
     assert "concluída automaticamente" in pagina
 
 

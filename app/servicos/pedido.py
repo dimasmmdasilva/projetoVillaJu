@@ -627,17 +627,40 @@ def cancelar(usuario: dict, identificador, hoje: dt.date = None):
     return pago if devolve else Decimal("0.00")
 
 
+# Bloco 17e: o Histórico do hóspede diz quem cancelou e por quê.
+ROTULOS_DO_CANCELAMENTO = {
+    "pedido_do_hospede": "Cancelada a seu pedido",
+    "equipe": "Cancelada pela pousada",
+    "prazo_do_pix": "Cancelada: o Pix não foi informado no prazo",
+    "falta_de_pagamento": "Cancelada: o pagamento não foi identificado",
+}
+
+
+def rotulo_do_cancelamento(reserva: dict):
+    """A frase do Histórico para uma reserva cancelada; `None` se não é."""
+    if reserva.get("situacao") != "cancelada":
+        return None
+    return ROTULOS_DO_CANCELAMENTO.get(
+        reserva.get("motivo_cancelamento"), "Cancelada"
+    )
+
+
 def situacao_da_devolucao(reserva: dict, lancamentos: dict,
                           devolvida_em=None):
     """O que o Histórico do hóspede diz sobre a devolução (20/11).
 
     Pedido do Dimas: quem cancelou precisa acompanhar o dinheiro de volta.
     `None` quando não há o que dizer — reserva viva, nada pago, ou
-    cancelada pela equipe.
+    cancelada por prazo do Pix ou falta de pagamento.
+
+    Bloco 17e: vale também para o cancelamento pela pousada, que devolve
+    tudo, e para o pedido do hóspede registrado pela recepção.
     """
+    motivo = reserva.get("motivo_cancelamento")
     if (
         reserva["situacao"] != "cancelada"
-        or reserva.get("motivo_cancelamento") != "pedido_do_hospede"
+        or motivo not in (regulamento.A_PEDIDO_DO_HOSPEDE,
+                          regulamento.PELA_POUSADA)
     ):
         return None
     pago = sum((v for v in lancamentos.values() if v > 0), Decimal("0.00"))
@@ -655,8 +678,8 @@ def situacao_da_devolucao(reserva: dict, lancamentos: dict,
         }
 
     cancelada = reserva.get("cancelado_em")
-    if cancelada and regulamento.tem_devolucao(
-        reserva["data_entrada"], cancelada.date()
+    if cancelada and regulamento.tem_direito_a_devolucao(
+        motivo, reserva["data_entrada"], cancelada.date()
     ):
         return {
             "etapa": "aguardando",
@@ -683,7 +706,7 @@ _MOTIVOS = {
     "prazo_do_pix": "o Pix não foi informado dentro do prazo",
     "falta_de_pagamento": "o pagamento não foi identificado",
     "pedido_do_hospede": "você cancelou o pedido",
-    "equipe": "cancelada pela equipe da pousada",
+    "equipe": "cancelada pela pousada",
 }
 
 

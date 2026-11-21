@@ -38,7 +38,13 @@ from app.seguranca.autorizacao import (
 )
 from app.extensoes import limiter
 from app.seguranca.cripto import FalhaDeAutenticacao
-from app.servicos import conversa, pedido, registro_pela_recepcao, regulamento
+from app.servicos import (
+    conversa,
+    pagamentos,
+    pedido,
+    registro_pela_recepcao,
+    regulamento,
+)
 
 # A exigência de tamanho da senha vive em `app/servicos/cadastro.py`, que
 # é onde a política foi escrita. Importada e não repetida: uma política
@@ -213,6 +219,13 @@ def detalhe(identificador):
         acompanhantes=_acompanhantes_da_reserva(reserva),
         conta=_conta_da_reserva(reserva),
         mensagens=conversa.conversa_da_equipe(usuario_atual(), identificador),
+        # Bloco 17e: quanto voltaria ao hóspede em cada motivo, hoje.
+        previa=(
+            pagamentos.previa_do_cancelamento(reserva, _quem())
+            if "cancelada" in reserva_repo.TRANSICOES[reserva["situacao"]]
+            else None
+        ),
+        rotulos_do_motivo=pagamentos.ROTULOS_DO_MOTIVO,
         limite_da_mensagem=conversa.LIMITE_DO_TEXTO,
     )
 
@@ -284,19 +297,39 @@ def mudar_situacao(identificador):
     Bloco 16b — é a conferência do Pix, em Pagamentos; um envio forjado
     com `situacao=confirmada` é recusado pelo mapa de transições.
     """
-    if reserva_repo.buscar_por_id(identificador, usuario_id=_quem()) is None:
+    reserva = reserva_repo.buscar_por_id(identificador, usuario_id=_quem())
+    if reserva is None:
         abort(404)
 
     nova_situacao = (request.form.get("situacao") or "").strip()
+    motivo = (request.form.get("motivo") or "").strip() or None
 
     try:
-        reserva_repo.mudar_situacao(
-            identificador, nova_situacao, usuario_id=_quem()
-        )
+        if nova_situacao == "cancelada":
+            # Bloco 17e: o cancelamento diz o motivo, e o motivo decide a
+            # devolução, pela mesma regra do site.
+            devolver = pagamentos.cancelar_pela_equipe(
+                usuario_atual(), reserva, motivo
+            )
+        else:
+            reserva_repo.mudar_situacao(
+                identificador, nova_situacao, usuario_id=_quem()
+            )
     except ErroDeDados as erro:
         flash(str(erro), "erro")
     else:
-        flash(f"Reserva marcada como {nova_situacao}.", "sucesso")
+        if nova_situacao == "cancelada":
+            flash(
+                f"Reserva cancelada {pagamentos.ROTULOS_DO_MOTIVO[motivo]}. "
+                + (
+                    f"Devolva {pedido.em_reais(devolver)} ao hóspede pelo "
+                    f"Pix e registre em Pagamentos, em Devoluções."
+                    if devolver > 0 else "Não há devolução."
+                ),
+                "sucesso",
+            )
+        else:
+            flash(f"Reserva marcada como {nova_situacao}.", "sucesso")
 
     return redirect(url_for("reservas.detalhe", identificador=identificador))
 
@@ -474,6 +507,7 @@ def minhas():
         },
         acompanhantes=acompanhantes,
         devolucoes=devolucoes,
+        rotulo_do_cancelamento=pedido.rotulo_do_cancelamento,
         # Ajuste 15.9: o titular no topo da lista de quem vai.
         titular=pedido.titular(usuario["hospede_id"], usuario_id=usuario["id"]),
         chave_pix=getattr(current_app.villaju, "PIX_CHAVE", ""),

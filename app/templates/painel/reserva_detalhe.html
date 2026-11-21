@@ -148,14 +148,24 @@
 {# Cada transição é um POST próprio, com token CSRF. A situação não vem do
    formulário de edição: de `cancelada` não se volta, e misturar as duas
    coisas permitiria reabilitar uma reserva por um campo oculto. #}
-{% for destino in transicoes %}
-<form method="post" class="acao-da-situacao"
-      action="{{ url_for('reservas.mudar_situacao', identificador=reserva.id) }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <input type="hidden" name="situacao" value="{{ destino }}">
-  <button type="submit" class="{{ 'secundario perigo' if destino == 'cancelada' }}">Marcar como {{ destino }}</button>
-</form>
-{% endfor %}
+{# Bloco 17e: cancelar diz o motivo, e o motivo decide a devolução — a
+   mesma regra do site. Cada botão mostra, antes do clique, quanto volta
+   ao hóspede se o cancelamento for hoje. #}
+<p>Cancelar a reserva:</p>
+<div class="cancelamento-pela-equipe">
+  {% for motivo, rotulo in rotulos_do_motivo.items() %}
+  <form method="post" class="acao-da-situacao"
+        action="{{ url_for('reservas.mudar_situacao', identificador=reserva.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="situacao" value="cancelada">
+    <input type="hidden" name="motivo" value="{{ motivo }}">
+    <button type="submit" class="secundario perigo">Cancelar {{ rotulo }}</button>
+    <p class="nota-campo">
+      {% if previa[motivo] > 0 %}Devolve {{ previa[motivo]|reais }} ao hóspede.{% else %}Sem devolução.{% endif %}
+    </p>
+  </form>
+  {% endfor %}
+</div>
 {% else %}
 <p>Uma reserva {{ reserva.situacao }} não muda mais de situação.</p>
 {% endif %}
