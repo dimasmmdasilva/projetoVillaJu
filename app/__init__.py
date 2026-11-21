@@ -249,6 +249,7 @@ def _registrar_rotas(app: Flask) -> None:
     from app.rotas.hospedes import hospedes
     from app.rotas.painel import painel
     from app.rotas.publico import publico
+    from app.rotas.relatorios import relatorios
     from app.rotas.reservas import reservas
 
     # A face pública vem primeiro na leitura por ser a única alcançável
@@ -263,6 +264,7 @@ def _registrar_rotas(app: Flask) -> None:
     app.register_blueprint(reservas)
     app.register_blueprint(pagamentos)
     app.register_blueprint(quem_vai)
+    app.register_blueprint(relatorios)
 
     @app.route("/saude")
     def saude():

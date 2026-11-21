@@ -1415,3 +1415,27 @@ a.botao:focus-visible {
 .cancelamento-pela-equipe { display: flex; flex-wrap: wrap; gap: 1.5rem; }
 .cancelamento-pela-equipe .acao-da-situacao { margin: 0; }
 .cancelamento-pela-equipe .nota-campo { margin: 0.35rem 0 0; }
+
+/* Bloco 18a: o período dos relatórios, na mesma linha do "Ver", como o
+ * seletor de ano do Controle (e pelo mesmo motivo, sem a margem do botão). */
+.seletor-de-periodo {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.seletor-de-periodo label { margin: 0; }
+.seletor-de-periodo button,
+.seletor-de-periodo input {
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Os números alinhados à direita, para comparar de olho. */
+.relatorio-ocupacao td:not(:first-child),
+.relatorio-ocupacao th:not(:first-child),
+.relatorio-reservas td:last-child,
+.relatorio-reservas th:last-child,
+.relatorio-mensagens td:last-child { text-align: right; }
+.relatorio-reservas,
+.relatorio-mensagens { max-width: 32rem; }

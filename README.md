@@ -435,6 +435,7 @@ afrouxar a política.
 | 17c | Botões em três tipos (principal, secundário, destrutivo) com efeito de mouse, clique e teclado; terceiro botão nos cards; links soltos viram botões | concluído |
 | 17d | A reserva se conclui sozinha quando a saída chega com o pagamento quitado; sai o "Marcar como concluída" | concluído |
 | 17e | A equipe cancela dizendo o motivo: a pedido do hóspede (regra dos 7 dias) ou pela pousada (devolve tudo); o hóspede vê quem cancelou | concluído |
+| 18a | Relatórios de ocupação por chalé, reservas por situação e volume de mensagens, por período (RF06 e RF12) | concluído |
 
 Falta só o **12** (mensagem em HTML), opcional.
 

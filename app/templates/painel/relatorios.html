@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block titulo %}Relatórios — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Relatórios</h1>
+
+{# Etapa 5, Bloco 18a. Administrador e recepção. Só números: o relatório
+   diz quanto, nunca quem — nenhum nome de hóspede, nenhum texto de
+   mensagem. O período vai na URL, sem JavaScript. #}
+
+<form method="get" action="{{ url_for('relatorios.ver') }}" class="seletor-de-periodo">
+  <label for="de">De</label>
+  <input type="date" id="de" name="de" value="{{ de }}" required>
+  <label for="ate">Até</label>
+  <input type="date" id="ate" name="ate" value="{{ ate }}" required>
+  <button type="submit">Ver</button>
+</form>
+
+{% if erro %}
+<p class="aviso aviso-erro">{{ erro }}</p>
+{% endif %}
+
+{% if relatorio %}
+<p class="nota-campo">
+  De {{ relatorio.de.strftime('%d/%m/%Y') }} a {{ relatorio.ate.strftime('%d/%m/%Y') }}
+  ({{ relatorio.dias }} noite{{ 's' if relatorio.dias != 1 }} por chalé), as duas datas incluídas.
+</p>
+
+<h2>Ocupação por chalé</h2>
+<p class="nota-campo">Noites de reservas confirmadas ou concluídas. A reserva
+   que atravessa o início ou o fim do período conta só as noites dentro dele.</p>
+<table class="relatorio-ocupacao">
+  <thead>
+    <tr><th>Chalé</th><th>Noites ocupadas</th><th>Noites no período</th><th>Ocupação</th></tr>
+  </thead>
+  <tbody>
+    {% for chale in relatorio.chales %}
+    <tr>
+      <td>{{ chale.nome }}</td>
+      <td>{{ chale.noites }}</td>
+      <td>{{ chale.possiveis }}</td>
+      <td>{{ chale.taxa|string|replace('.', ',') }}%</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <th>Pousada</th>
+      <th>{{ relatorio.total.noites }}</th>
+      <th>{{ relatorio.total.possiveis }}</th>
+      <th>{{ relatorio.total.taxa|string|replace('.', ',') }}%</th>
+    </tr>
+  </tfoot>
+</table>
+
+<h2>Reservas no período</h2>
+<p class="nota-campo">Reservas cuja estadia cai, ao menos em parte, no período.</p>
+<table class="relatorio-reservas">
+  <tbody>
+    {% for linha in relatorio.reservas %}
+    <tr><td>{{ linha.rotulo }}</td><td>{{ linha.total }}</td></tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><th>Total</th><th>{{ relatorio.total_de_reservas }}</th></tr>
+  </tfoot>
+</table>
+
+<h2>Mensagens no período</h2>
+<p class="nota-campo">A conversa das reservas: quantas mensagens, sem o texto.</p>
+<table class="relatorio-mensagens">
+  <tbody>
+    <tr><td>Enviadas pelos hóspedes</td><td>{{ relatorio.mensagens.dos_hospedes }}</td></tr>
+    <tr><td>Respondidas pela equipe</td><td>{{ relatorio.mensagens.da_equipe }}</td></tr>
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}
