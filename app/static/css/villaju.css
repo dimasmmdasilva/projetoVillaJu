@@ -1439,3 +1439,13 @@ a.botao:focus-visible {
 .relatorio-mensagens td:last-child { text-align: right; }
 .relatorio-reservas,
 .relatorio-mensagens { max-width: 32rem; }
+
+/* Bloco 18b: o índice da página "Como usar", em colunas que se ajustam à
+ * largura, e cada tarefa com o mesmo respiro. */
+.indice-como-usar ul {
+  columns: 2 16rem;
+  margin: 0.5rem 0 1.5rem;
+  padding-left: 1.2rem;
+}
+.indice-como-usar li { margin-bottom: 0.3rem; }
+.tarefa + .tarefa { margin-top: 1.75rem; }

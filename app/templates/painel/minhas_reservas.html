@@ -81,7 +81,7 @@
   {% if estado.total %}
   <p class="cartao-reserva__total">
     Valor total: <strong>{{ estado.total|reais }}</strong>
-    {% if estado.modalidade == 'sinal' %}— sinal de 50% e restante
+    {% if estado.modalidade == 'sinal' %}— sinal de {{ estado.percentual_do_sinal }}% e restante
     {% elif estado.modalidade == 'integral' %}— pagamento integral{% endif %}
   </p>
   {% endif %}

@@ -57,9 +57,11 @@ CANCELAR = "cancelar"
 DEVOLVER = "devolver"
 ACOES = (PRIMEIRO, RESTANTE, CANCELAR, DEVOLVER)
 
+# Os percentuais saem do regulamento, como todo número que a tela mostra:
+# o teste do "Como usar" (18b) achou o 50 escrito à mão aqui e nos botões.
 ROTULOS_DO_TIPO = {
-    "sinal": "sinal (50%)",
-    "restante": "restante (50%)",
+    "sinal": f"sinal ({regulamento.PERCENTUAL_DO_SINAL}%)",
+    "restante": f"restante ({100 - regulamento.PERCENTUAL_DO_SINAL}%)",
     "integral": "integral (100%)",
     "devolucao": "devolução",
 }
@@ -122,7 +124,7 @@ def avaliar(reserva: dict, lancamentos: dict, agora: dt.datetime) -> dict:
         "pode_cancelar": False,
     }
     rotulo_primeiro = (
-        f"Pagou 50% Pix — {pedido.em_reais(primeiro)}"
+        f"Pagou {regulamento.PERCENTUAL_DO_SINAL}% Pix — {pedido.em_reais(primeiro)}"
         if modalidade == regulamento.SINAL
         else f"Pagou 100% Pix — {pedido.em_reais(primeiro)}"
     )

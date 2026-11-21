@@ -240,6 +240,7 @@ def _registrar_paginas_de_erro(app: Flask) -> None:
 
 def _registrar_rotas(app: Flask) -> None:
     """Registra os blueprints e as rotas soltas da aplicação."""
+    from app.rotas.ajuda import ajuda
     from app.rotas.auth import auth
     from app.rotas.chales import chales
     from app.rotas.conversa import conversa
@@ -265,6 +266,7 @@ def _registrar_rotas(app: Flask) -> None:
     app.register_blueprint(pagamentos)
     app.register_blueprint(quem_vai)
     app.register_blueprint(relatorios)
+    app.register_blueprint(ajuda)
 
     @app.route("/saude")
     def saude():

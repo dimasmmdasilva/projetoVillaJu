@@ -736,6 +736,7 @@ def cartao(reserva: dict, agora: dt.datetime = None) -> dict:
         "pode_desistir": False,
         "atualizar": False,
         "modalidade": modalidade,
+        "percentual_do_sinal": regulamento.PERCENTUAL_DO_SINAL,
         "total": total,
         "linha_do_tempo": [],
         "valor_pago": None,
@@ -800,7 +801,7 @@ def cartao(reserva: dict, agora: dt.datetime = None) -> dict:
         rotulo = (
             f"Fiz o Pix 100% — {em_reais(primeiro)}"
             if integral
-            else f"Fiz o Pix 50% — {em_reais(primeiro)}"
+            else f"Fiz o Pix {regulamento.PERCENTUAL_DO_SINAL}% — {em_reais(primeiro)}"
         )
         estado.update(
             etapa="aguardando_pix",
@@ -845,7 +846,9 @@ def cartao(reserva: dict, agora: dt.datetime = None) -> dict:
         estado.update(
             etapa="aguardando_restante",
             texto=(
-                f"Pix 50% confirmado. Falta {em_reais(restante)}, até 48 "
+                f"Pix {regulamento.PERCENTUAL_DO_SINAL}% confirmado. Falta "
+                f"{em_reais(restante)}, até "
+                f"{regulamento.DIAS_ANTES_DA_ENTRADA_PARA_O_RESTANTE * 24} "
                 f"horas antes da entrada."
             ),
             a_pagar=restante,
@@ -928,7 +931,8 @@ def _linha_do_tempo(reserva, primeiro, restante, lancamentos, agora) -> list:
         prazo = prazo_por_extenso(reserva["prazo_pagamento"], agora)
 
     passos = [_passo(
-        "Pix 100%" if integral else "Pix 50% (sinal)",
+        "Pix 100%" if integral
+        else f"Pix {regulamento.PERCENTUAL_DO_SINAL}% (sinal)",
         primeiro, situacao, feito, prazo,
     )]
     if integral:

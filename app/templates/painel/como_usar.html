@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block titulo %}Como usar — VillaJu{% endblock %}
+
+{% block conteudo %}
+<h1>Como usar o sistema</h1>
+
+{# Etapa 5, Bloco 18b (21/11, pedido do Dimas). O roteiro de uso da
+   equipe, dentro do sistema, em linguagem de quem atende — organizado por
+   tarefa, e não por tela. A recepção vê só o que pode fazer; o
+   administrador vê também o que é só dele.
+
+   Os prazos e percentuais saem das constantes do regulamento (`r.`):
+   mudou a regra, muda o texto. #}
+
+<p class="subtitulo">
+  Cada tarefa do dia a dia, passo a passo. O que o sistema faz sozinho está
+  marcado — não é preciso lembrar disso.
+</p>
+
+<nav class="indice-como-usar" aria-label="Tarefas">
+  <ul>
+    <li><a href="#painel">O Painel</a></li>
+    <li><a href="#reserva-por-telefone">Um hóspede ligou para reservar</a></li>
+    <li><a href="#pix">Chegou um Pix</a></li>
+    <li><a href="#cancelar">Cancelar uma reserva</a></li>
+    <li><a href="#mensagens">Tem mensagem nova</a></li>
+    <li><a href="#relatorios">Ver a ocupação do mês</a></li>
+    <li><a href="#sozinho">O que o sistema faz sozinho</a></li>
+    <li><a href="#cuidados">Cuidados</a></li>
+    {% if tem_perfil('administrador') %}
+    <li><a href="#administrador">Só do administrador</a></li>
+    {% endif %}
+  </ul>
+</nav>
+
+<section class="tarefa" id="painel">
+  <h2>O Painel</h2>
+  <p>É a primeira tela depois de entrar. No alto, os chalés e como está cada
+     um hoje. Embaixo, as reservas em três grupos:</p>
+  <ul>
+    <li><strong>Precisa de ação</strong> — Pix para conferir, restante vencendo,
+        devolução para fazer ou mensagem do hóspede sem resposta. Comece o dia
+        por aqui.</li>
+    <li><strong>Próximas estadias</strong> — da chegada mais próxima à mais distante.</li>
+    <li><strong>Histórico</strong> — o que já passou ou foi cancelado.</li>
+  </ul>
+  <p>Cada reserva tem dois selos: o do <strong>pagamento</strong> e o da
+     <strong>estadia</strong>. Um pagamento "concluído" não quer dizer que o
+     hóspede já veio — quem diz isso é o selo da estadia.</p>
+</section>
+
+<section class="tarefa" id="reserva-por-telefone">
+  <h2>Um hóspede ligou para reservar</h2>
+  <ol>
+    <li>O hóspede precisa ter cadastro. Se ainda não tem, peça que crie a conta
+        pelo site, em "Criar conta" — os dados pessoais são digitados por ele
+        mesmo.</li>
+    <li>No Painel, clique em <strong>Registrar reserva</strong>.</li>
+    <li>Escolha o chalé, o hóspede, as datas e quantas pessoas vão.</li>
+    <li>Leia para o hóspede as regras do regulamento (pagamento, prazos,
+        cancelamento) e marque a caixa que diz que você leu.</li>
+    <li>Envie a ele a chave Pix e o valor. Ele tem
+        <strong>{{ r.HORAS_PARA_O_PIX_PELA_RECEPCAO }} horas</strong> para pagar.</li>
+  </ol>
+  <p>Com {{ r.ANTECEDENCIA_PARA_SINAL_DIAS }} dias ou mais até a chegada, o
+     hóspede paga um sinal de {{ r.PERCENTUAL_DO_SINAL }}% agora e o restante
+     até {{ r.DIAS_ANTES_DA_ENTRADA_PARA_O_RESTANTE * 24 }} horas antes da
+     entrada. Com menos, paga tudo de uma vez.</p>
+</section>
+
+<section class="tarefa" id="pix">
+  <h2>Chegou um Pix</h2>
+  <ol>
+    <li>Abra <strong>Pagamentos</strong>.</li>
+    <li>Confira o valor <strong>no extrato do banco</strong>. O aviso "o hóspede
+        informou o Pix" não é pagamento: só o extrato é.</li>
+    <li>Clique no botão do valor que entrou ("Pagou {{ r.PERCENTUAL_DO_SINAL }}% Pix" ou "Pagou 100% Pix").
+        O sistema confirma a reserva e guarda quem conferiu.</li>
+  </ol>
+  <p>Se o Pix não aparecer no extrato e o prazo já passou, use
+     <strong>Cancelar reserva por falta de pagamento</strong>, no mesmo cartão.</p>
+</section>
+
+<section class="tarefa" id="cancelar">
+  <h2>Cancelar uma reserva</h2>
+  <p>Abra a reserva (botão <strong>Ver reserva</strong>) e escolha o motivo:</p>
+  <ul>
+    <li><strong>Cancelar a pedido do hóspede</strong> — quando ele pede por
+        telefone ou mensagem. Vale a mesma regra do site: com
+        {{ r.DIAS_ANTES_DA_ENTRADA_PARA_DEVOLUCAO }} dias ou mais até a chegada,
+        devolve-se tudo o que ele pagou; com menos, nada.</li>
+    <li><strong>Cancelar pela pousada</strong> — quando a decisão é da pousada
+        (um problema no chalé, por exemplo). Devolve-se <strong>tudo</strong>,
+        sempre.</li>
+  </ul>
+  <p>Cada botão mostra, antes do clique, quanto volta ao hóspede. Havendo
+     devolução, ela aparece em <strong>Pagamentos</strong>, em "Devoluções
+     pendentes": faça o Pix de volta pelo banco e clique no botão para
+     registrar.</p>
+</section>
+
+<section class="tarefa" id="mensagens">
+  <h2>Tem mensagem nova</h2>
+  <p>A reserva vai para "Precisa de ação" com o botão
+     <strong>Responder mensagem</strong>. Ele abre a conversa, no fim da página
+     da reserva. Responder marca a mensagem como lida; se não for preciso
+     responder, use <strong>Marcar como lidas</strong>.</p>
+  <p>O hóspede vê a resposta como vinda da "Pousada VillaJu" e recebe um aviso
+     no painel dele.</p>
+</section>
+
+<section class="tarefa" id="relatorios">
+  <h2>Ver a ocupação do mês</h2>
+  <p>Em <strong>Relatórios</strong>, escolha o período. Aparecem a ocupação de
+     cada chalé (noites ocupadas e a porcentagem), as reservas por situação e
+     quantas mensagens houve. O relatório mostra números, nunca nomes.</p>
+</section>
+
+<section class="tarefa" id="sozinho">
+  <h2>O que o sistema faz sozinho</h2>
+  <ul>
+    <li>Cancela o pedido cujo Pix não foi informado no prazo
+        ({{ r.MINUTOS_PARA_O_PIX }} minutos pelo site,
+        {{ r.HORAS_PARA_O_PIX_PELA_RECEPCAO }} horas pela recepção) — e o chalé
+        volta a ficar livre.</li>
+    <li>Conclui a reserva quando a estadia termina com o pagamento quitado.</li>
+    <li>Avisa em "Precisa de ação" quando o restante está para vencer.</li>
+    <li>Impede duas reservas no mesmo chalé nas mesmas noites, e mais pessoas
+        do que o chalé comporta.</li>
+  </ul>
+</section>
+
+<section class="tarefa" id="cuidados">
+  <h2>Cuidados</h2>
+  <ul>
+    <li>No campo <strong>Observações</strong> da reserva, nunca escreva
+        documento, telefone ou e-mail: esse campo não é protegido como o
+        cadastro.</li>
+    <li>A senha é pessoal. Cada pessoa da equipe entra com a sua — o sistema
+        registra quem fez cada coisa.</li>
+    <li>Ao terminar, clique em <strong>Sair</strong>, principalmente em
+        computador compartilhado.</li>
+  </ul>
+</section>
+
+{% if tem_perfil('administrador') %}
+<section class="tarefa" id="administrador">
+  <h2>Só do administrador</h2>
+  <ul>
+    <li><strong>Chalés e tarifas</strong> — cadastrar a diária de cada temporada.
+        Sem tarifa para o período, a reserva não é registrada.</li>
+    <li><strong>Quem vai</strong> — corrigir a lista de pessoas de uma reserva,
+        na página dela.</li>
+    <li><strong>Controle</strong> — o dinheiro conferido em cada mês, com quem
+        conferiu.</li>
+    <li><strong>Auditoria</strong> — o registro de quem entrou e do que foi
+        feito.</li>
+  </ul>
+</section>
+{% endif %}
+{% endblock %}
