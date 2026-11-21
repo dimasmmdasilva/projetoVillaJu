@@ -1,0 +1,23 @@
+{# O mural da conversa (Bloco 17), para o hóspede e para a equipe. Quem
+   inclui passa `mensagens`, cada uma com `quem`, `texto`, `legivel` e
+   `criado_em`. #}
+{% if mensagens %}
+<ol class="mural">
+  {% for mensagem in mensagens %}
+  <li class="mural-mensagem {{ 'mural-mensagem--equipe' if mensagem.da_equipe else 'mural-mensagem--hospede' }}{{ ' mural-mensagem--nao-lida' if mensagem.nao_lida }}">
+    <p class="mural-autor">
+      <strong>{{ mensagem.quem }}</strong>
+      · {{ mensagem.criado_em.strftime('%d/%m/%Y às %Hh%M') }}
+      {% if mensagem.nao_lida %}· <span class="selo-nao-lida">não lida</span>{% endif %}
+    </p>
+    {% if mensagem.legivel %}
+    <p class="mural-texto">{{ mensagem.texto }}</p>
+    {% else %}
+    <p class="mural-texto nota-campo">Mensagem ilegível: não passou na verificação de integridade.</p>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="nota-campo">Nenhuma mensagem ainda.</p>
+{% endif %}

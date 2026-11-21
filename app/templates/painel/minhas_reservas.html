@@ -153,6 +153,11 @@
     {% endif %}
   </div>
   {% endif %}
+
+  {# Bloco 17: a conversa com a pousada, presa a esta reserva. #}
+  <p class="cartao-reserva__conversa">
+    <a href="{{ url_for('conversa.do_hospede', identificador=reserva.id) }}">Conversa com a pousada</a>
+  </p>
 </article>
 {% endmacro %}
 

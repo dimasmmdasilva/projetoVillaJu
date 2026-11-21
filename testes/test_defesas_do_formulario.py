@@ -1,7 +1,9 @@
-"""As três defesas do formulário público.
+"""As três defesas do formulário público — hoje, o cadastro.
 
-É o único ponto do sistema que aceita escrita de um desconhecido, e por
-isso recebe três proteções de naturezas diferentes:
+Nasceram no formulário de contato (Etapa 4), que saiu no Bloco 17. O
+cadastro já tinha as mesmas três; desde então é o único ponto do sistema
+que aceita escrita de um desconhecido, e este arquivo passou a
+exercitá-las nele. Três proteções de naturezas diferentes:
 
 | Defesa          | Contra o quê                                      |
 |-----------------|---------------------------------------------------|
@@ -18,22 +20,45 @@ obrigatório "formulário sem token CSRF é rejeitado" registrado como NÃO
 COBERTO, exatamente por isso.
 """
 
+import itertools
 import re
+import tempfile
 
 import pytest
 
 from app import create_app
 from app.config import Configuracao
-from app.dados import conexao, contato_repo
+from app.dados import conexao, hospede_repo
 
 pytestmark = pytest.mark.banco
 
-PEDIDO = {
-    "nome": "Helena Queirós",
-    "email": "helena@exemplo.test",
-    "telefone": "12 97777-3333",
-    "mensagem": "Gostaria de saber a disponibilidade em julho.",
-}
+SENHA = "jureia-praia-2026"
+_SEQUENCIA = itertools.count(100)
+
+
+def _cpf(base: int) -> str:
+    """Um CPF de dígito verificador válido, diferente a cada chamada."""
+    digitos = [int(c) for c in f"{base:09d}"]
+    for tamanho in (9, 10):
+        soma = sum(d * (tamanho + 1 - i) for i, d in enumerate(digitos))
+        resto = (soma * 10) % 11
+        digitos.append(0 if resto == 10 else resto)
+    texto = "".join(map(str, digitos))
+    return f"{texto[:3]}.{texto[3:6]}.{texto[6:9]}-{texto[9:]}"
+
+
+def _pedido() -> dict:
+    """Um cadastro novo a cada chamada: e-mail e documento não se repetem,
+    para que cada envio aceito crie exatamente um cadastro."""
+    numero = next(_SEQUENCIA)
+    return {
+        "nome": "Helena Queirós",
+        "documento": _cpf(200000000 + numero * 7),
+        "email": f"helena.{numero}@exemplo.test",
+        "telefone": "12 97777-3333",
+        "senha": SENHA,
+        "senha_confirmacao": SENHA,
+    }
 
 
 @pytest.fixture
@@ -59,7 +84,12 @@ def banco(conexao_banco):
 
 
 def _aplicacao(**ajustes):
-    app = create_app(Configuracao(modo_teste=True))
+    configuracao = Configuracao(modo_teste=True)
+    configuracao.EMAIL_MODO = "arquivo"
+    configuracao.EMAIL_PASTA = tempfile.mkdtemp(prefix="villaju-emails-")
+    configuracao.EMAIL_BASE_URL = "https://localhost:5000"
+    app = create_app(configuracao)
+    app.villaju = configuracao
     app.config["SESSION_COOKIE_SECURE"] = False
     app.config.update(ajustes)
     return app
@@ -70,17 +100,15 @@ def visitante(banco):
     return _aplicacao().test_client()
 
 
-def _token(cliente, rota="/contato") -> str:
+def _token(cliente, rota="/cadastro") -> str:
     html = cliente.get(rota).data.decode()
     achado = re.search(r'name="csrf_token" value="([^"]+)"', html)
     assert achado, "a página precisa trazer o token"
     return achado.group(1)
 
 
-def _quantos_contatos() -> int:
-    with conexao.obter_cursor() as cursor:
-        cursor.execute("SELECT COUNT(*) FROM contato")
-        return cursor.fetchone()[0]
+def _quantos_cadastros() -> int:
+    return hospede_repo.contar()
 
 
 # ---------------------------------------------------------------------------
@@ -113,29 +141,29 @@ def com_csrf(banco):
 
 
 def test_o_formulario_traz_o_token(com_csrf):
-    assert "csrf_token" in com_csrf.get("/contato").data.decode()
+    assert "csrf_token" in com_csrf.get("/cadastro").data.decode()
 
 
 def test_envio_sem_token_e_rejeitado(com_csrf):
     """O caso obrigatório que ficou descoberto na Etapa 2."""
-    antes = _quantos_contatos()
-    resposta = com_csrf.post("/contato", data=PEDIDO)
+    antes = _quantos_cadastros()
+    resposta = com_csrf.post("/cadastro", data=_pedido())
 
     assert resposta.status_code == 400
-    assert _quantos_contatos() == antes, "nada pode ter sido gravado"
+    assert _quantos_cadastros() == antes, "nada pode ter sido gravado"
 
 
 def test_envio_com_token_adulterado_e_rejeitado(com_csrf):
     token = _token(com_csrf)
     adulterado = token[:-4] + ("aaaa" if not token.endswith("aaaa") else "bbbb")
 
-    antes = _quantos_contatos()
+    antes = _quantos_cadastros()
     resposta = com_csrf.post(
-        "/contato", data=dict(PEDIDO, csrf_token=adulterado)
+        "/cadastro", data=dict(_pedido(), csrf_token=adulterado)
     )
 
     assert resposta.status_code == 400
-    assert _quantos_contatos() == antes
+    assert _quantos_cadastros() == antes
 
 
 def test_envio_com_token_de_outra_sessao_e_rejeitado(com_csrf, banco):
@@ -148,13 +176,13 @@ def test_envio_com_token_de_outra_sessao_e_rejeitado(com_csrf, banco):
     outra = _aplicacao(WTF_CSRF_ENABLED=True)
     token_alheio = _token(outra.test_client())
 
-    antes = _quantos_contatos()
+    antes = _quantos_cadastros()
     resposta = com_csrf.post(
-        "/contato", data=dict(PEDIDO, csrf_token=token_alheio)
+        "/cadastro", data=dict(_pedido(), csrf_token=token_alheio)
     )
 
     assert resposta.status_code == 400
-    assert _quantos_contatos() == antes
+    assert _quantos_cadastros() == antes
 
 
 def test_envio_com_o_proprio_token_passa(com_csrf):
@@ -162,13 +190,13 @@ def test_envio_com_o_proprio_token_passa(com_csrf):
 
     Sem ele, uma rota que recusasse tudo passaria nos três anteriores.
     """
-    antes = _quantos_contatos()
+    antes = _quantos_cadastros()
     resposta = com_csrf.post(
-        "/contato", data=dict(PEDIDO, csrf_token=_token(com_csrf))
+        "/cadastro", data=dict(_pedido(), csrf_token=_token(com_csrf))
     )
 
     assert resposta.status_code == 302
-    assert _quantos_contatos() == antes + 1
+    assert _quantos_cadastros() == antes + 1
 
 
 # ---------------------------------------------------------------------------
@@ -201,7 +229,7 @@ def com_limite(banco):
 
 def test_envios_demais_da_mesma_origem_sao_barrados(com_limite):
     codigos = [
-        com_limite.post("/contato", data=PEDIDO).status_code
+        com_limite.post("/cadastro", data=_pedido()).status_code
         for _ in range(4)
     ]
 
@@ -210,14 +238,14 @@ def test_envios_demais_da_mesma_origem_sao_barrados(com_limite):
 
 
 def test_o_que_foi_barrado_nao_chega_ao_banco(com_limite):
-    # Pela diferença, não pelo total: a massa fictícia já traz quatro
-    # pedidos de contato.
-    antes = _quantos_contatos()
+    # Pela diferença, não pelo total: a massa fictícia já traz cinco
+    # hóspedes.
+    antes = _quantos_cadastros()
 
     for _ in range(4):
-        com_limite.post("/contato", data=PEDIDO)
+        com_limite.post("/cadastro", data=_pedido())
 
-    assert _quantos_contatos() - antes == 2, (
+    assert _quantos_cadastros() - antes == 2, (
         "apenas os dois envios aceitos podem ter sido gravados"
     )
 
@@ -231,10 +259,10 @@ def test_origem_diferente_nao_herda_o_bloqueio(com_limite):
     defesa.
     """
     for _ in range(3):
-        com_limite.post("/contato", data=PEDIDO)
+        com_limite.post("/cadastro", data=_pedido())
 
     outra_origem = com_limite.post(
-        "/contato", data=PEDIDO, environ_base={"REMOTE_ADDR": "203.0.113.77"}
+        "/cadastro", data=_pedido(), environ_base={"REMOTE_ADDR": "203.0.113.77"}
     )
 
     assert outra_origem.status_code == 302
@@ -247,15 +275,16 @@ def test_a_consulta_da_vitrine_nao_e_barrada(com_limite):
     conteria robô algum — ler a vitrine não custa nada à hospedaria.
     """
     for _ in range(4):
-        com_limite.post("/contato", data=PEDIDO)
+        com_limite.post("/cadastro", data=_pedido())
 
     assert com_limite.get("/").status_code == 200
-    assert com_limite.get("/contato").status_code == 200
+    assert com_limite.get("/cadastro").status_code == 200
+    assert com_limite.get("/fale-com-a-pousada").status_code == 200
 
 
 def test_a_resposta_ao_limite_e_pagina_e_nao_erro_cru(com_limite):
     for _ in range(3):
-        resposta = com_limite.post("/contato", data=PEDIDO)
+        resposta = com_limite.post("/cadastro", data=_pedido())
 
     html = resposta.data.decode()
     assert resposta.status_code == 429
@@ -266,7 +295,7 @@ def test_a_resposta_ao_limite_e_pagina_e_nao_erro_cru(com_limite):
 def test_a_resposta_ao_limite_nao_revela_o_teto(com_limite):
     """Dizer "2 por minuto" entrega a medida a quem está sondando."""
     for _ in range(3):
-        resposta = com_limite.post("/contato", data=PEDIDO)
+        resposta = com_limite.post("/cadastro", data=_pedido())
 
     html = resposta.data.decode()
     for revelador in ("2 per minute", "per minute", "2 por minuto"):
@@ -278,7 +307,7 @@ def test_a_resposta_ao_limite_nao_revela_o_teto(com_limite):
 # ---------------------------------------------------------------------------
 
 def test_o_campo_existe_no_formulario(visitante):
-    html = visitante.get("/contato").data.decode()
+    html = visitante.get("/cadastro").data.decode()
     assert 'name="assunto"' in html
 
 
@@ -289,7 +318,7 @@ def test_o_campo_e_inalcancavel_por_quem_nao_ve_a_tela(visitante):
     por leitor de tela ou por teclado — e descartar em silêncio o pedido
     de uma pessoa cega seria pior do que não ter armadilha alguma.
     """
-    html = visitante.get("/contato").data.decode()
+    html = visitante.get("/cadastro").data.decode()
 
     bloco = re.search(
         r'<div class="armadilha".*?</div>', html, re.S
@@ -306,7 +335,7 @@ def test_o_campo_esta_escondido_por_classe_e_nao_por_estilo(visitante):
     """A política de conteúdo bloqueia `style=`; a lição do Bloco 1."""
     import pathlib
 
-    html = visitante.get("/contato").data.decode()
+    html = visitante.get("/cadastro").data.decode()
     assert 'class="armadilha"' in html
 
     css = (
@@ -319,10 +348,10 @@ def test_o_campo_esta_escondido_por_classe_e_nao_por_estilo(visitante):
 
 
 def test_envio_com_a_armadilha_preenchida_nao_grava(visitante):
-    antes = _quantos_contatos()
-    visitante.post("/contato", data=dict(PEDIDO, assunto="comprar seguidores"))
+    antes = _quantos_cadastros()
+    visitante.post("/cadastro", data=dict(_pedido(), assunto="comprar seguidores"))
 
-    assert _quantos_contatos() == antes
+    assert _quantos_cadastros() == antes
 
 
 def test_o_descarte_e_indistinguivel_de_um_envio_aceito(visitante):
@@ -332,16 +361,16 @@ def test_o_descarte_e_indistinguivel_de_um_envio_aceito(visitante):
     informação de que ele precisa para ajustá-lo. Vendo a confirmação,
     ele conclui que funcionou e vai embora.
     """
-    legitimo = visitante.post("/contato", data=PEDIDO)
+    legitimo = visitante.post("/cadastro", data=_pedido())
     robo = visitante.post(
-        "/contato", data=dict(PEDIDO, assunto="comprar seguidores")
+        "/cadastro", data=dict(_pedido(), assunto="comprar seguidores")
     )
 
     assert robo.status_code == legitimo.status_code
     assert robo.headers["Location"] == legitimo.headers["Location"]
 
     pagina_robo = visitante.get(robo.headers["Location"]).data.decode()
-    assert "Pedido enviado" in pagina_robo
+    assert "Confira o seu e-mail" in pagina_robo
     for revelador in ("robô", "robo", "automat", "descart", "spam", "bloque"):
         assert revelador not in pagina_robo.lower()
 
@@ -361,7 +390,7 @@ def test_o_descarte_nao_enfileira_mensagem_na_sessao(visitante):
 
     Verificar a sessão, e não a tela, é o que alcança isso.
     """
-    visitante.post("/contato", data=dict(PEDIDO, assunto="comprar seguidores"))
+    visitante.post("/cadastro", data=dict(_pedido(), assunto="comprar seguidores"))
 
     with visitante.session_transaction() as sessao:
         assert not dict(sessao), (
@@ -371,30 +400,34 @@ def test_o_descarte_nao_enfileira_mensagem_na_sessao(visitante):
 
 def test_a_armadilha_vazia_nao_atrapalha_o_envio_legitimo(visitante):
     """O navegador envia o campo vazio; isso não pode barrar ninguém."""
-    antes = _quantos_contatos()
-    resposta = visitante.post("/contato", data=dict(PEDIDO, assunto=""))
+    antes = _quantos_cadastros()
+    resposta = visitante.post("/cadastro", data=dict(_pedido(), assunto=""))
 
     assert resposta.status_code == 302
-    assert _quantos_contatos() == antes + 1
+    assert _quantos_cadastros() == antes + 1
 
 
 def test_a_armadilha_so_com_espacos_tambem_e_descartada(visitante):
-    antes = _quantos_contatos()
-    visitante.post("/contato", data=dict(PEDIDO, assunto="   "))
+    antes = _quantos_cadastros()
+    visitante.post("/cadastro", data=dict(_pedido(), assunto="   "))
 
-    assert _quantos_contatos() == antes
+    assert _quantos_cadastros() == antes
 
 
 def test_a_armadilha_nao_guarda_o_que_o_robo_escreveu(visitante):
     """Descartar é descartar: nada do envio entra no banco."""
     visitante.post(
-        "/contato",
-        data=dict(PEDIDO, assunto="https://sitio-hostil.exemplo/x"),
+        "/cadastro",
+        data=dict(_pedido(), assunto="https://sitio-hostil.exemplo/x"),
     )
 
-    for contato in contato_repo.listar():
-        assert "sitio-hostil" not in str(contato.get("mensagem") or "")
-        assert "sitio-hostil" not in str(contato.get("nome") or "")
+    with conexao.obter_cursor() as cursor:
+        cursor.execute("SELECT * FROM hospede")
+        linhas = cursor.fetchall()
+    assert not any(b"sitio-hostil" in bytes(v) for linha in linhas
+                   for v in linha if isinstance(v, (bytes, bytearray)))
+    assert not any("sitio-hostil" in v for linha in linhas
+                   for v in linha if isinstance(v, str))
 
 
 # ---------------------------------------------------------------------------

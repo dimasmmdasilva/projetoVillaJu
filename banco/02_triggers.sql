@@ -663,4 +663,35 @@ BEGIN
     SET NEW.criado_em = OLD.criado_em;
 END$$
 
+
+-- ---------------------------------------------------------------------------
+-- Mensagem (Etapa 5, Bloco 17): só a leitura muda, e só num sentido.
+-- ---------------------------------------------------------------------------
+-- A aplicação já não tem UPDATE em outra coluna (privilégio por coluna); o
+-- gatilho é a segunda camada, e vale também para quem tiver mais
+-- privilégio que ela. O que foi dito não se reescreve.
+DROP TRIGGER IF EXISTS trg_mensagem_antes_alterar$$
+CREATE TRIGGER trg_mensagem_antes_alterar
+BEFORE UPDATE ON mensagem
+FOR EACH ROW
+BEGIN
+    IF NEW.reserva_id <> OLD.reserva_id
+       OR NEW.ordem <> OLD.ordem
+       OR NEW.autor_id <> OLD.autor_id
+       OR NEW.da_equipe <> OLD.da_equipe
+       OR NEW.texto_cif <> OLD.texto_cif
+       OR NEW.texto_nonce <> OLD.texto_nonce
+       OR NEW.texto_tag <> OLD.texto_tag
+       OR NEW.cripto_versao <> OLD.cripto_versao
+       OR NEW.criado_em <> OLD.criado_em THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Uma mensagem enviada não muda; só pode ser marcada como lida.';
+    END IF;
+
+    IF OLD.lida_pela_equipe = TRUE AND NEW.lida_pela_equipe = FALSE THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Uma mensagem lida não volta a ser não lida.';
+    END IF;
+END$$
+
 DELIMITER ;

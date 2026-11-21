@@ -53,6 +53,8 @@ TABELAS = [
     "pagamento",
     # Etapa 5, Bloco 15: quem vai se hospedar junto com o titular.
     "acompanhante",
+    # Etapa 5, Bloco 17: a conversa da reserva.
+    "mensagem",
 ]
 
 

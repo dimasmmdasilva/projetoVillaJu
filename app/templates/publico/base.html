@@ -43,14 +43,16 @@
        está em botão no corpo da página inicial, e repetir a mesma ação
        duas vezes na mesma tela divide a atenção sem oferecer nada.
 
-       "Localização" é o ÚLTIMO, e isso também mudou no Bloco 13. Ela é
-       âncora para o rodapé desta mesma página, não destino — vinha antes
-       de links que levam a outras telas, o que invertia a importância. #}
+       "Localização" foi o último no Bloco 13: âncora para o rodapé, não
+       destino. Desde o Bloco 17, "Fale com a pousada" vem DEPOIS dela —
+       decisão do Dimas em 20/11: é por onde termina a visita de quem
+       ainda tem dúvida. Ele substitui "Falar com a recepção", que levava
+       ao formulário público de contato, removido. #}
     <nav>
-      <a href="{{ url_for('publico.contato') }}">Falar com a recepção</a>
       <a href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
       <a href="{{ url_for('publico.regulamento') }}">Regulamento</a>
       <a href="#localizacao">Localização</a>
+      <a href="{{ url_for('publico.fale_com_a_pousada') }}">Fale com a pousada</a>
     </nav>
 
     {# "Entrar", e não mais "Área da equipe".

@@ -1,0 +1,37 @@
+{% extends "publico/base.html" %}
+{% block titulo %}Fale com a pousada — {{ hospedaria.nome }}{% endblock %}
+
+{% block conteudo %}
+<h1>Fale com a pousada</h1>
+
+{# Etapa 5, Bloco 17. Só os contatos, em texto, sem formulário: o pedido
+   de informação de quem ainda não tem conta vai por telefone, WhatsApp ou
+   e-mail, e quem tem reserva conversa com a pousada pelo painel.
+
+   Os contatos são PROVISÓRIOS e fictícios até a responsável passar os
+   verdadeiros — decisão do Dimas em 20/11. Ficam num lugar só,
+   `HOSPEDARIA["contatos"]` em app/rotas/publico.py. #}
+
+<p class="aviso aviso-provisorio">
+  Contatos provisórios, ainda não são os da pousada.
+</p>
+
+<dl class="contatos-da-pousada">
+  {% for contato in hospedaria.contatos %}
+  <dt>{{ contato.rotulo }}</dt>
+  <dd>{{ contato.valor }}</dd>
+  {% endfor %}
+</dl>
+
+<section>
+  <h2>Já tem uma reserva?</h2>
+  <p>
+    Entre na sua conta e abra a reserva em <strong>Minhas reservas</strong>:
+    a conversa com a pousada fica ali, junto da reserva.
+  </p>
+  <p>
+    <a class="botao" href="{{ url_for('auth.login') }}">Entrar</a>
+    · <a href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
+  </p>
+</section>
+{% endblock %}

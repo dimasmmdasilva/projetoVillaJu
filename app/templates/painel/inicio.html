@@ -93,6 +93,9 @@
       {% if card.botao %}
       <a class="botao" href="{{ url_for('pagamentos.cards') }}#{{ card.botao.ancora }}">{{ card.botao.rotulo }}</a>
       {% endif %}
+      {% if card.mensagem_nao_lida %}
+      <a class="botao" href="{{ url_for('reservas.detalhe', identificador=reserva.id) }}#conversa">Responder mensagem</a>
+      {% endif %}
       <a href="{{ url_for('reservas.detalhe', identificador=reserva.id) }}">Ver reserva</a>
     </p>
   </div>

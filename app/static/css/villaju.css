@@ -1208,3 +1208,51 @@ a.botao.botao--secundario {
   border: 1px solid #2f3e34;
 }
 .convite-para-reservar { font-weight: 600; margin-bottom: 0.25rem; }
+
+/* =====================================================================
+ * Bloco 17 — a conversa da reserva e "Fale com a pousada".
+ * O mural é uma lista ordenada, sem JavaScript. O texto mantém as
+ * quebras de linha de quem escreveu (pre-wrap), e uma palavra comprida
+ * não estoura a coluna (overflow-wrap).
+ * ===================================================================== */
+.mural {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.mural-mensagem {
+  border: 1px solid #d8d2c4;
+  border-radius: 3px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.6rem;
+  max-width: 40rem;
+}
+
+.mural-mensagem--hospede { background: #ffffff; }
+.mural-mensagem--equipe { background: #f3efe6; margin-left: 2rem; }
+.mural-mensagem--nao-lida { border-color: #c99a2e; border-width: 2px; }
+
+.mural-autor { margin: 0 0 0.3rem; font-size: 0.9rem; }
+
+.mural-texto {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.selo-nao-lida { color: #8a5a00; font-weight: bold; }
+
+.cartao-reserva__conversa { margin: 0.8rem 0 0; }
+
+.aviso-provisorio { background: #fff7e0; border-color: #e6cf8f; color: #6b4e00; }
+
+.contatos-da-pousada {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.4rem 1.2rem;
+  margin: 1.25rem 0;
+}
+
+.contatos-da-pousada dt { font-weight: bold; }
+.contatos-da-pousada dd { margin: 0; }

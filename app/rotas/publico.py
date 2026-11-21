@@ -6,6 +6,10 @@ Esta é a única parte do sistema que um desconhecido alcança. Por isso ela
     a face pública não compartilha sessão com a área autenticada e não
     acessa nenhuma tabela além de `chale` (leitura) e `contato` (escrita).
 
+(Desde o Bloco 17 nem `contato`: o formulário público de contato saiu, e
+a pousada passou a mostrar só os contatos em texto, em "Fale com a
+pousada".)
+
 **A regra foi estreitada na Etapa 5, não abandonada.** Esta face alcança
 exatamente **dois módulos de porta**, e cada um tem uma direção só:
 
@@ -57,7 +61,7 @@ from flask import (
     url_for,
 )
 
-from app.dados import chale_repo, contato_repo, vitrine
+from app.dados import chale_repo, vitrine
 from app.extensoes import limiter
 from app.servicos import cadastro
 
@@ -93,6 +97,15 @@ HOSPEDARIA = {
     "regiao": (
         "No litoral norte paulista, entre Boiçucanga e Maresias. "
         "Cerca de três horas de carro da capital pela Rio–Santos."
+    ),
+    # Bloco 17: PROVISÓRIOS e fictícios até a responsável passar os
+    # verdadeiros (decisão do Dimas em 20/11). Formatos que não chegam a
+    # ninguém: o domínio `.exemplo` não existe, e os números são de
+    # preenchimento. Trocar aqui troca na página.
+    "contatos": (
+        {"rotulo": "Telefone", "valor": "(12) 3333-0000"},
+        {"rotulo": "WhatsApp", "valor": "(12) 90000-0000"},
+        {"rotulo": "E-mail", "valor": "contato@villaju.exemplo"},
     ),
 }
 
@@ -227,14 +240,15 @@ def regulamento_da_pousada():
 
 
 # ---------------------------------------------------------------------------
-# Pedido de contato
+# As defesas do formulário público
 # ---------------------------------------------------------------------------
 
 # Nome do campo-armadilha.
 #
 # Escolhido para parecer plausível a um preenchedor automático e não
-# significar nada para a aplicação. "assunto" é campo comum em formulário
-# de contato, então um robô que preencha tudo o que encontra vai cair nele.
+# significar nada para a aplicação. "assunto" é campo comum em formulário,
+# então um robô que preencha tudo o que encontra vai cair nele. Nasceu no
+# formulário de contato, que saiu no Bloco 17; vale hoje para o cadastro.
 CAMPO_ARMADILHA = "assunto"
 
 
@@ -250,126 +264,19 @@ def _limite_publico():
     return current_app.config.get("LIMITE_PUBLICO", "3 per minute")
 
 
-@publico.route("/contato", methods=["GET", "POST"])
-@limiter.limit(_limite_publico, methods=["POST"])
-def contato():
-    """O formulário de pedido de contato, e o seu envio.
+@publico.route("/fale-com-a-pousada")
+def fale_com_a_pousada():
+    """Os contatos da pousada, em texto — Etapa 5, Bloco 17.
 
-    **É o único ponto do sistema que aceita escrita de um desconhecido.**
-    Por isso recebe três defesas, que entram no Bloco 3: token CSRF,
-    limitação de taxa por origem e campo-armadilha. O token já está aqui,
-    porque sem ele o formulário não funcionaria fora do modo de teste.
-
-    **O que o formulário NÃO faz.** Não cria reserva e não cadastra
-    hóspede. Grava em `contato`, que é tabela de quarentena: o que chega
-    de fora entra nela e só sai pelas mãos da recepção. O raciocínio está
-    na Etapa 4 de `docs/contexto.md` — em resumo, escrita anônima em
-    `reserva` deixaria o log de auditoria sem autor, e em `hospede`
-    transformaria o índice de busca num oráculo de enumeração.
-
-    **A validação é no servidor.** `required` e `maxlength` no HTML são
-    conveniência para quem preenche; não existem para quem envia a
-    requisição por fora do navegador, que é o que um robô faz.
+    Substitui o formulário público de contato. Ele aceitava texto e e-mail
+    de qualquer pessoa, sem verificar nada, e prometia que "a recepção
+    fecha a reserva" — o que deixou de ser verdade com o caminho único.
+    Quem ainda não tem conta liga, manda WhatsApp ou e-mail; quem tem
+    reserva conversa com a pousada pelo painel, na própria reserva.
     """
-    chales = _chales_para_selecao()
-
-    if request.method == "GET":
-        # A vitrine encaminha para cá com o chalé já escolhido, para que
-        # o visitante não precise procurá-lo de novo numa lista.
-        return render_template(
-            "publico/contato.html",
-            hospedaria=HOSPEDARIA,
-            chales=chales,
-            hoje=dt.date.today().isoformat(),
-            dados={"chale_interesse_id": request.args.get("chale", type=int)},
-        )
-
-    dados = {
-        campo: request.form.get(campo)
-        for campo in (
-            "nome",
-            "email",
-            "telefone",
-            "mensagem",
-            "data_entrada_desejada",
-            "data_saida_desejada",
-        )
-    }
-
-    # Como inteiro, e não como texto. O template marca o chalé escolhido
-    # comparando com o identificador, que é inteiro, e em Jinja2 "5" == 5
-    # é falso — num envio recusado, a escolha do visitante se perdia e ele
-    # precisava procurar o chalé outra vez na lista.
-    dados["chale_interesse_id"] = request.form.get("chale_interesse_id", type=int)
-
-    # ----------------------------------------------------------------
-    # Campo-armadilha
-    #
-    # Um campo que pessoa alguma vê e que todo preenchedor automático
-    # encontra, porque robô lê o HTML e não a tela. Vindo preenchido, o
-    # envio é descartado **em silêncio**: a resposta é a mesma da de um
-    # envio bem-sucedido.
-    #
-    # O silêncio é a parte que importa. Responder "você parece um robô"
-    # entrega ao autor do robô exatamente a informação de que ele precisa
-    # para ajustá-lo e tentar de novo. Devolvendo a página de confirmação,
-    # ele conclui que funcionou e vai embora.
-    #
-    # Fica o registro em log, sem o conteúdo: interessa contar quantos
-    # envios automatizados foram barrados, não guardar o que eles
-    # escreveram.
-    # ----------------------------------------------------------------
-    # Sem `strip()`: descarta qualquer conteúdo, inclusive só espaços.
-    # Um navegador envia o campo vazio, e nenhuma pessoa legítima digita
-    # nele — nem espaço. Aparar o valor antes de testar deixaria passar um
-    # preenchedor que escreve espaços, que é um caso real.
-    if request.form.get(CAMPO_ARMADILHA):
-        _registrador.info(
-            "envio descartado pelo campo-armadilha, origem %s",
-            request.remote_addr,
-        )
-        return redirect(url_for("publico.contato_enviado"))
-
-    try:
-        contato_repo.criar(dados, ip_origem=request.remote_addr)
-    except contato_repo.ErroDeContato as erro:
-        # A mensagem destas exceções é escrita pelo próprio repositório e
-        # fala de campo e formato, nunca de banco ou de biblioteca.
-        flash(str(erro), "erro")
-        return render_template(
-            "publico/contato.html",
-            hospedaria=HOSPEDARIA,
-            chales=chales,
-            hoje=dt.date.today().isoformat(),
-            dados=dados,
-        ), 400
-    except Exception:  # noqa: BLE001
-        _registrador.exception("falha ao gravar pedido de contato")
-        flash(
-            "Não foi possível enviar o seu pedido agora. "
-            "Tente novamente em alguns minutos.",
-            "erro",
-        )
-        return render_template(
-            "publico/contato.html",
-            hospedaria=HOSPEDARIA,
-            chales=chales,
-            hoje=dt.date.today().isoformat(),
-            dados=dados,
-        ), 503
-
-    return redirect(url_for("publico.contato_enviado"))
-
-
-@publico.route("/contato/enviado")
-def contato_enviado():
-    """Confirmação, em página própria.
-
-    Rota separada, alcançada por redirecionamento, para que recarregar a
-    página não reenvie o formulário — e para que o visitante não fique
-    com um POST no histórico do navegador.
-    """
-    return render_template("publico/contato_enviado.html", hospedaria=HOSPEDARIA)
+    return render_template(
+        "publico/fale_com_a_pousada.html", hospedaria=HOSPEDARIA
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -562,8 +469,8 @@ def disponibilidade():
 def criar_conta():
     """O formulário de cadastro, e o seu envio.
 
-    **As mesmas três defesas do formulário de contato**, porque é o mesmo
-    tipo de porta: token CSRF, limitação de taxa por origem e
+    **As três defesas que nasceram no formulário de contato** (que saiu no
+    Bloco 17) — hoje esta é a única porta pública de escrita: token CSRF, limitação de taxa por origem e
     campo-armadilha. A diferença é que esta porta cria conta, o que a
     torna mais atraente para abuso, não menos.
 
@@ -596,7 +503,7 @@ def criar_conta():
     dados["senha"] = request.form.get("senha")
     dados["senha_confirmacao"] = request.form.get("senha_confirmacao")
 
-    # Campo-armadilha, com a mesma lógica da rota de contato: descarte em
+    # Campo-armadilha: descarte em
     # silêncio, resposta idêntica à de um envio bem-sucedido, registro em
     # log sem o conteúdo.
     if request.form.get(CAMPO_ARMADILHA):
@@ -681,9 +588,8 @@ def confirmar_conta(token):
 def _chales_para_selecao() -> list:
     """Apenas id e nome, para o campo de seleção.
 
-    Falha de banco devolve lista vazia em vez de derrubar a página: o
-    visitante ainda consegue enviar o pedido sem indicar chalé, e um
-    pedido sem chalé é melhor do que pedido nenhum.
+    Falha de banco devolve lista vazia em vez de derrubar a página: a
+    consulta ainda abre, e o visitante vê o aviso em vez de um erro.
     """
     try:
         return [
@@ -691,7 +597,7 @@ def _chales_para_selecao() -> list:
             for chale in chale_repo.listar(apenas_ativos=True)
         ]
     except Exception:  # noqa: BLE001
-        _registrador.warning("formulário de contato servido sem a lista de chalés")
+        _registrador.warning("consulta pública servida sem a lista de chalés")
         return []
 
 

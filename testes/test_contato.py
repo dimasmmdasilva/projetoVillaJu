@@ -1,4 +1,7 @@
-"""Pedidos de contato: a única escrita que um desconhecido faz no sistema.
+"""Pedidos de contato: a tabela que o formulário público gravava.
+
+Desde o Bloco 17 o formulário não existe mais; a tabela e o repositório
+ficam, com os pedidos já gravados. O que segue continua valendo para eles.
 
 Dois assuntos, que o arquivo separa:
 
@@ -17,11 +20,9 @@ campo-armadilha — são o assunto do Bloco 3 e têm arquivo próprio.
 """
 
 import datetime as dt
-import re
 
 import pytest
 
-from app import create_app
 from app.config import Configuracao
 from app.dados import conexao, contato_repo
 from app.dados.contato_repo import ErroDeContato
@@ -62,20 +63,6 @@ def banco(conexao_banco):
     conexao.iniciar_pool(Configuracao(modo_teste=True))
     yield cursor
     conexao.encerrar_pool()
-
-
-@pytest.fixture
-def visitante(banco):
-    aplicacao = create_app(Configuracao(modo_teste=True))
-    aplicacao.config["SESSION_COOKIE_SECURE"] = False
-    return aplicacao.test_client()
-
-
-def _aviso(resposta) -> str:
-    achados = re.findall(
-        r'<p class="aviso aviso-\w+">(.*?)</p>', resposta.data.decode(), re.S
-    )
-    return achados[0].strip() if achados else ""
 
 
 def _bytes_da_linha(identificador) -> bytes:
@@ -260,130 +247,14 @@ def test_endereco_malformado_nao_derruba_o_pedido(banco):
 
 
 # ---------------------------------------------------------------------------
-# A tela pública
+# A tela pública saiu no Bloco 17
 # ---------------------------------------------------------------------------
-
-def test_o_formulario_abre(visitante):
-    resposta = visitante.get("/contato")
-    assert resposta.status_code == 200
-    assert "Solicitar reserva" in resposta.data.decode()
-
-
-def test_o_formulario_aceita_o_chale_pelo_endereco(visitante):
-    """Quem chega com o chalé no endereço encontra-o já escolhido.
-
-    **Mudou de alvo no Bloco 13.** A verificação começava na vitrine,
-    conferindo que o botão de cada chalé levava a `/contato?chale=N`. Esse
-    botão não existe mais: a imagem do cartão passou a levar à página do
-    chalé, e de lá se consulta a disponibilidade.
-
-    O que o teste guardava continua valendo e continua importando — a
-    rota lê o parâmetro e marca a opção —, e é por isso que ele mudou de
-    alvo em vez de ser removido. Qualquer link que venha a apontar para
-    cá com `?chale=N` depende disto, e o defeito que ele prende é real:
-    `request.args.get("chale")` devolve texto, o template compara com o
-    identificador inteiro, e em Jinja2 `"1" == 1` é falso. Sem o
-    `type=int` na rota, a escolha se perderia em silêncio.
-    """
-    formulario = visitante.get(f"/contato?chale={DUNAS}").data.decode()
-    achado = re.search(
-        rf'<option value="{DUNAS}"\s*\n?\s*selected', formulario
-    )
-    assert achado, "o chalé precisa chegar pré-selecionado"
-
-
-def test_envio_valido_grava_e_confirma(visitante):
-    resposta = visitante.post(
-        "/contato", data=PEDIDO, follow_redirects=True
-    )
-
-    assert resposta.status_code == 200
-    assert "Pedido enviado" in resposta.data.decode()
-
-    pedidos = contato_repo.listar()
-    assert any(c["email"] == PEDIDO["email"] for c in pedidos)
-
-
-def test_envio_valido_redireciona_em_vez_de_responder_ao_post(visitante):
-    """Recarregar a confirmação não pode reenviar o pedido."""
-    resposta = visitante.post("/contato", data=PEDIDO)
-
-    assert resposta.status_code == 302
-    assert "/contato/enviado" in resposta.headers["Location"]
-
-
-def test_envio_invalido_devolve_400_e_preserva_o_preenchido(visitante):
-    resposta = visitante.post("/contato", data=dict(PEDIDO, email="errado"))
-
-    assert resposta.status_code == 400
-    assert "e-mail válido" in _aviso(resposta)
-    # O que já foi digitado continua na tela: perder tudo por causa de um
-    # campo é o modo mais rápido de perder o pedido junto.
-    assert "Helena Queirós" in resposta.data.decode()
-
-
-def test_a_tela_nao_vaza_erro_tecnico(visitante):
-    resposta = visitante.post("/contato", data=dict(PEDIDO, email="errado"))
-    texto = resposta.data.decode()
-
-    for termo in ("Traceback", "mysql", "SELECT", "INSERT", "1452", "45000"):
-        assert termo not in texto
-
-
-# ---------------------------------------------------------------------------
-# Isolamento: o que o formulário não alcança
-# ---------------------------------------------------------------------------
-
-def test_o_envio_nao_cria_reserva(visitante):
-    from app.dados import reserva_repo
-
-    antes = len(reserva_repo.listar())
-    visitante.post("/contato", data=PEDIDO, follow_redirects=True)
-
-    assert len(reserva_repo.listar()) == antes
-
-
-def test_o_envio_nao_cria_hospede(visitante):
-    """A diferença entre lead e hóspede, verificada.
-
-    Se o formulário público escrevesse em `hospede`, o índice HMAC único
-    viraria oráculo de enumeração: enviar um e-mail já cadastrado
-    revelaria que a pessoa é hóspede da hospedaria.
-    """
-    from app.dados import hospede_repo
-
-    antes = hospede_repo.contar()
-    visitante.post("/contato", data=PEDIDO, follow_redirects=True)
-
-    assert hospede_repo.contar() == antes
-
-
-def test_o_pedido_nasce_sem_vinculo_com_hospede(visitante):
-    visitante.post("/contato", data=PEDIDO, follow_redirects=True)
-
-    novo = contato_repo.listar(situacao="novo")[0]
-    assert novo["hospede_id"] is None
-
-
-def test_o_formulario_nao_pede_documento(visitante):
-    """Não se pede o CPF de quem ainda está perguntando o preço.
-
-    É o fato que decidiu a separação entre `contato` e `hospede`:
-    `hospede.documento_cif` é NOT NULL, e um formulário público não tem
-    como preenchê-lo sem coletar dado sensível de um desconhecido.
-    """
-    html = visitante.get("/contato").data.decode()
-
-    for termo in ("documento", "CPF", "cpf"):
-        assert termo not in html
-
-
-def test_o_envio_nao_cria_sessao(visitante):
-    visitante.post("/contato", data=PEDIDO, follow_redirects=True)
-
-    with visitante.session_transaction() as sessao:
-        assert not dict(sessao)
-
+# O formulário público de contato e a tela "Contatos" da equipe foram
+# removidos (decisão do Dimas em 20/11): quem tem reserva conversa com a
+# pousada pelo painel, e quem não tem vê os contatos em "Fale com a
+# pousada". A tabela e este repositório ficam — os pedidos já gravados não
+# se apagam, e `scripts/regerar_dados_pessoais.py` ainda os regrava. Os
+# testes de que as rotas sumiram estão em `test_conversa.py`.
 
 # ---------------------------------------------------------------------------
 # Ciclo de vida
@@ -475,24 +346,3 @@ def test_o_carimbo_de_tempo_vem_da_trigger(banco):
 
     assert isinstance(criado, dt.datetime)
     assert abs((dt.datetime.now() - criado).total_seconds()) < 60
-
-
-def test_pedido_recusado_preserva_o_chale_escolhido(visitante):
-    """O mesmo defeito de tipo da tela interna, na face pública.
-
-    O visitante clicou no chalé que queria, preencheu o formulário, errou
-    o e-mail — e perdia a escolha, tendo de procurar o chalé outra vez na
-    lista. Encontrado em teste prático da interface.
-    """
-    resposta = visitante.post(
-        "/contato",
-        data=dict(PEDIDO, email="errado-sem-arroba"),
-    )
-    html = resposta.data.decode()
-
-    assert resposta.status_code == 400
-    assert re.search(rf'<option value="{DUNAS}"\s*\n?\s*selected', html), (
-        "o chalé escolhido se perdeu no envio recusado"
-    )
-    assert "Helena Queirós" in html
-    assert PEDIDO["data_entrada_desejada"] in html

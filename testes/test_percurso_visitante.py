@@ -107,10 +107,13 @@ def test_percurso_do_visitante_ao_acesso_proprio(aplicacao):
     completando o documento obtido por telefone. Esse caminho foi
     removido: dado pessoal é digitado por quem responde por ele.
 
-    O percurso agora é o do autoatendimento inteiro — pedido de contato
-    sem documento, autocadastro com documento, confirmação por e-mail,
-    entrada com o próprio e-mail — e termina com a recepção **ligando** o
-    pedido ao cadastro que a pessoa fez, sem ter digitado nada dela.
+    O percurso agora é o do autoatendimento inteiro — os contatos da
+    pousada sem dar documento, autocadastro com documento, confirmação por
+    e-mail, entrada com o próprio e-mail.
+
+    **Revisto no Bloco 17.** O pedido de contato pelo formulário público e
+    a recepção ligando o pedido ao cadastro saíram: quem ainda pergunta vê
+    os contatos da pousada, e quem tem reserva conversa por ela.
     """
     from app.dados import usuario_repo
     from app.servicos import correio
@@ -134,34 +137,15 @@ def test_percurso_do_visitante_ao_acesso_proprio(aplicacao):
     assert "R$" not in pagina
 
     # --- 2. Pergunta primeiro, sem dar documento ---------------------
-    formulario = visitante.get(f"/contato?chale={DUNAS}")
-    assert formulario.status_code == 200
-
-    html = formulario.data.decode()
-    assert re.search(rf'<option value="{DUNAS}"\s*\n?\s*selected', html), (
-        "o chalé escolhido precisa chegar pré-selecionado"
-    )
-    assert "csrf_token" in html
-    assert 'name="assunto"' in html, "o campo-armadilha precisa estar lá"
-    assert "documento" not in html, (
+    # Bloco 17: os contatos da pousada, em texto, sem formulário.
+    contatos = visitante.get("/fale-com-a-pousada")
+    assert contatos.status_code == 200
+    html = contatos.data.decode()
+    corpo = html.split("<main", 1)[1]
+    assert "<textarea" not in corpo and 'method="post"' not in corpo
+    assert "documento" not in corpo, (
         "não se pede o CPF de quem ainda está perguntando o preço"
     )
-
-    envio = visitante.post(
-        "/contato",
-        data=dict(VISITANTE, chale_interesse_id=str(DUNAS)),
-    )
-    assert envio.status_code == 302
-    confirmacao = visitante.get(envio.headers["Location"]).data.decode()
-    assert "Pedido enviado" in confirmacao
-    assert "Nada foi reservado ainda" in confirmacao
-
-    pedido = next(
-        c for c in contato_repo.listar() if c["email"] == VISITANTE["email"]
-    )
-    assert pedido["situacao"] == "novo"
-    assert pedido["hospede_id"] is None
-    assert pedido["chale_interesse_id"] == DUNAS
 
     # O visitante continua anônimo: a sessão guarda o token CSRF e nada
     # mais. Ver CHAVES_PERMITIDAS, mais abaixo.
@@ -260,8 +244,6 @@ def test_percurso_do_visitante_ao_acesso_proprio(aplicacao):
 
     with conexao.obter_conexao() as ligacao:
         cursor = ligacao.cursor()
-        cursor.execute("SELECT * FROM contato WHERE id = %s", (pedido["id"],))
-        linha_contato = cursor.fetchone()
         cursor.execute("SELECT * FROM hospede WHERE id = %s", (hospede["id"],))
         linha_hospede = cursor.fetchone()
         cursor.execute("SELECT * FROM usuario WHERE id = %s", (conta["id"],))
@@ -275,7 +257,7 @@ def test_percurso_do_visitante_ao_acesso_proprio(aplicacao):
             if v is not None
         )
 
-    gravado = _bytes(linha_contato) + _bytes(linha_hospede)
+    gravado = _bytes(linha_hospede)
     for claro in (b"Helena", b"Queir", b"helena@", b"97777", b"321.654"):
         assert claro not in gravado, f"{claro!r} ficou legível no banco"
 
@@ -290,7 +272,7 @@ def test_percurso_do_visitante_ao_acesso_proprio(aplicacao):
     )
     assert SENHA.encode("utf-8") not in bruto_usuario
 
-    # --- 8. A recepção entra e liga o pedido ao cadastro -------------
+    # --- 8. A recepção entra, e não há pedido anônimo a atender -----
     recepcao = aplicacao.test_client()
     pagina_login = recepcao.get("/login").data.decode()
     dados = {"login": RECEPCAO[0], "senha": RECEPCAO[1]}
@@ -299,40 +281,15 @@ def test_percurso_do_visitante_ao_acesso_proprio(aplicacao):
         dados["csrf_token"] = achado.group(1)
     recepcao.post("/login", data=dados)
 
-    lista = recepcao.get("/contatos/?situacao=novo").data.decode()
-    assert "Helena Queirós" in lista
-    assert "Dunas" in lista
-
-    detalhe = recepcao.get(f"/contatos/{pedido['id']}")
-    assert detalhe.status_code == 200
-
-    html = detalhe.data.decode()
-    assert "helena@exemplo.test" in html
-    assert "O Dunas está livre em julho?" in html
-    assert "Converter em hóspede" not in html, (
-        "a conversão saiu no Bloco 4: a equipe não digita documento alheio"
-    )
-
-    # O pedido é LIGADO ao cadastro que a pessoa fez — não convertido.
-    achado = re.search(r'name="csrf_token" value="([^"]+)"', html)
-    recepcao.post(
-        f"/contatos/{pedido['id']}/ligar",
-        data={
-            "hospede_id": hospede["id"],
-            "csrf_token": achado.group(1) if achado else "",
-        },
-        follow_redirects=True,
-    )
-
-    ligado = contato_repo.buscar_por_id(pedido["id"])
-    assert ligado["hospede_id"] == hospede["id"], (
-        "o relatório de origem dos contatos depende desta ligação"
-    )
+    # A tela "Contatos" saiu no Bloco 17: a recepção não recebe mais
+    # pedido anônimo para atender.
+    assert recepcao.get("/contatos/").status_code == 404
+    assert ">Contatos<" not in recepcao.get("/painel").data.decode()
 
     # --- 9. A recepção sai, e a vitrine continua de pé ---------------
     recepcao.post("/logout", follow_redirects=True)
 
-    assert recepcao.get("/contatos/", follow_redirects=False).status_code == 302
+    assert recepcao.get("/painel", follow_redirects=False).status_code == 302
     assert recepcao.get("/").status_code == 200
 
 
@@ -552,9 +509,11 @@ def test_o_alcance_cobre_mais_de_um_nivel():
     """
     alcancaveis = _alcance("app/rotas/publico.py")
 
-    assert "app/dados/contato_repo.py" in alcancaveis, "primeiro nível"
+    # Desde o Bloco 17 a face pública não importa `contato_repo`; o
+    # primeiro nível é a vitrine, e o segundo, a conexão que ela usa.
+    assert "app/dados/vitrine.py" in alcancaveis, "primeiro nível"
     assert "app/dados/conexao.py" in alcancaveis, (
-        "segundo nível: contato_repo importa conexao"
+        "segundo nível: vitrine importa conexao"
     )
     assert len(alcancaveis) > 3
 
@@ -598,7 +557,7 @@ def test_a_face_publica_nao_guarda_identidade_na_sessao(aplicacao):
     """
     visitante = aplicacao.test_client()
 
-    for rota in ("/", "/contato", "/contato/enviado"):
+    for rota in ("/", "/fale-com-a-pousada", "/cadastro"):
         visitante.get(rota)
 
     visitante.post("/contato", data=dict(VISITANTE, chale_interesse_id="5"))
@@ -618,10 +577,10 @@ def test_a_face_publica_nao_guarda_identidade_na_sessao(aplicacao):
 def test_a_sessao_do_visitante_nao_abre_a_area_interna(aplicacao):
     """A prova de que o token de visitante não vira credencial."""
     visitante = aplicacao.test_client()
-    visitante.get("/contato")
-    visitante.post("/contato", data=dict(VISITANTE, chale_interesse_id="5"))
+    visitante.get("/cadastro")
+    visitante.get("/fale-com-a-pousada")
 
-    for rota in ("/painel", "/contatos/", "/reservas/", "/hospedes/"):
+    for rota in ("/painel", "/pagamentos", "/reservas/", "/hospedes/"):
         resposta = visitante.get(rota, follow_redirects=False)
         assert resposta.status_code in (302, 401, 403), (
             f"{rota} respondeu {resposta.status_code} a um visitante"

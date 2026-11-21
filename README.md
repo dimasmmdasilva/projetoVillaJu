@@ -40,7 +40,8 @@ segurança, não de organização.
 | **Vitrine** | os cinco chalés, com comodidades e localização |
 | **Consultar disponibilidade** | diz se um chalé está livre num período, sem cadastro |
 | **Criar conta** | autocadastro do hóspede, confirmado por e-mail |
-| **Falar com a recepção** | pedido de contato, sem exigir documento |
+| **Regulamento** | as regras de pagamento, prazo e cancelamento |
+| **Fale com a pousada** | os contatos da pousada, em texto, sem formulário (provisórios) |
 
 **Nenhuma delas mostra preço.** O valor aparece depois do cadastro
 confirmado, na tela de reserva, onde a pessoa já está identificada.
@@ -51,7 +52,7 @@ caso.
 
 Cadastro de chalés e tarifas, consulta de disponibilidade, criação e
 gestão de reservas com valor calculado noite a noite — inclusive na
-virada de temporada —, atendimento dos pedidos de contato, caixa de
+virada de temporada —, conversa com o hóspede em cada reserva, caixa de
 saída de e-mail e log de auditoria.
 
 **Nenhuma tela da face interna cria hóspede.** Quem informa os dados
@@ -429,8 +430,16 @@ afrouxar a política.
 | 15b | Edição da lista de quem vai, só pelo administrador | concluído |
 | 16 | Painel da equipe em cards, com os selos de pagamento e de estadia | concluído |
 | 16b | Reserva registrada pela recepção no mesmo controle do Pix, com prazo de 24 horas | concluído |
+| 17 | Conversa da reserva entre hóspede logado e equipe, cifrada; sai o formulário público de contato | concluído |
 
-Falta só o **12** (mensagem em HTML), opcional. O inventário 8d foi
+Falta só o **12** (mensagem em HTML), opcional.
+
+> **Alteração de escopo declarada no Bloco 17 (21/11).** O RF11 (receber
+> pedidos de contato e registrá-los para atendimento) passa a ser atendido
+> pela conversa da reserva, com usuário verificado por e-mail, e pelos
+> contatos da pousada em texto — o formulário anônimo saiu, por aceitar
+> dado pessoal sem verificação nenhuma. O RF12 (relatório da origem e do
+> volume dos contatos) vira, na Etapa 6, o volume de mensagens por período. O inventário 8d foi
 fechado com os prints de 20/11.
 
 > **O Bloco 11 — contas da equipe — saiu do escopo em 13/11.** Contas de

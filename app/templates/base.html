@@ -45,7 +45,6 @@
     <a href="{{ url_for('pagamentos.cards') }}">Pagamentos</a>
     <a href="{{ url_for('reservas.disponibilidade') }}">Disponibilidade</a>
     <a href="{{ url_for('hospedes.listar') }}">Hóspedes</a>
-    <a href="{{ url_for('contatos.listar') }}">Contatos</a>
     {% endif %}
     {% if tem_perfil('administrador') %}
     <a href="{{ url_for('chales.listar') }}">Chalés</a>

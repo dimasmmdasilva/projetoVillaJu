@@ -38,7 +38,7 @@ from app.seguranca.autorizacao import (
 )
 from app.extensoes import limiter
 from app.seguranca.cripto import FalhaDeAutenticacao
-from app.servicos import pedido, registro_pela_recepcao, regulamento
+from app.servicos import conversa, pedido, registro_pela_recepcao, regulamento
 
 # A exigência de tamanho da senha vive em `app/servicos/cadastro.py`, que
 # é onde a política foi escrita. Importada e não repetida: uma política
@@ -212,6 +212,8 @@ def detalhe(identificador):
         hospede=_hospede_da_reserva(reserva),
         acompanhantes=_acompanhantes_da_reserva(reserva),
         conta=_conta_da_reserva(reserva),
+        mensagens=conversa.conversa_da_equipe(usuario_atual(), identificador),
+        limite_da_mensagem=conversa.LIMITE_DO_TEXTO,
     )
 
 

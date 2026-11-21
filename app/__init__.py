@@ -233,7 +233,7 @@ def _registrar_rotas(app: Flask) -> None:
     """Registra os blueprints e as rotas soltas da aplicação."""
     from app.rotas.auth import auth
     from app.rotas.chales import chales
-    from app.rotas.contatos import contatos
+    from app.rotas.conversa import conversa
     from app.rotas.mensagens import mensagens
     from app.rotas.pagamentos import pagamentos
     from app.rotas.quem_vai import quem_vai
@@ -249,7 +249,7 @@ def _registrar_rotas(app: Flask) -> None:
     app.register_blueprint(painel)
     app.register_blueprint(hospedes)
     app.register_blueprint(chales)
-    app.register_blueprint(contatos)
+    app.register_blueprint(conversa)
     app.register_blueprint(mensagens)
     app.register_blueprint(reservas)
     app.register_blueprint(pagamentos)

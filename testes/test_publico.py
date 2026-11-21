@@ -584,7 +584,7 @@ def test_os_titulos_de_aba_distinguem_as_duas_faces(visitante):
 # 20/11: localização no rodapé, regulamento em página própria
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("rota", ["/", "/regulamento", "/disponibilidade", "/contato"])
+@pytest.mark.parametrize("rota", ["/", "/regulamento", "/disponibilidade", "/fale-com-a-pousada"])
 def test_a_ancora_da_localizacao_existe_em_toda_pagina_publica(visitante, rota):
     """O link "Localização" é `#localizacao`, e o alvo é o rodapé — que
     está em toda página pública. Antes, só a inicial tinha o alvo."""

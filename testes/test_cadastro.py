@@ -157,18 +157,20 @@ def test_a_tela_de_cadastro_e_publica(visitante):
     assert "Criar conta" in resposta.data.decode()
 
 
-def test_a_tela_pede_documento_e_a_de_contato_nao(visitante):
-    """As duas portas da face pública, e a diferença entre elas.
-
-    Quem só quer perguntar o preço não dá CPF; quem cria conta para
-    reservar, dá. A decisão está na Etapa 5 e este teste a prende: se um
-    dia o campo sair daqui, ou entrar lá, a verificação acusa.
+def test_a_tela_pede_documento_e_fale_com_a_pousada_nao(visitante):
+    """Quem só quer perguntar o preço não dá CPF; quem cria conta para
+    reservar, dá. Desde o Bloco 17 quem pergunta vê os contatos da pousada,
+    sem formulário nenhum. A página precisa responder 200: comparar com uma
+    página que não existe passaria sem verificar nada — foi o que aconteceu
+    com a versão anterior deste teste, que olhava o `/contato` removido.
     """
-    cadastro_html = visitante.get("/cadastro").data.decode()
-    contato_html = visitante.get("/contato").data.decode()
+    cadastro = visitante.get("/cadastro")
+    contatos = visitante.get("/fale-com-a-pousada")
 
-    assert 'name="documento"' in cadastro_html
-    assert 'name="documento"' not in contato_html
+    assert cadastro.status_code == 200 and contatos.status_code == 200
+    assert 'name="documento"' in cadastro.data.decode()
+    corpo = contatos.data.decode().split("<main", 1)[1]
+    assert "<input" not in corpo and "<textarea" not in corpo
 
 
 def test_a_tela_tem_as_tres_defesas_do_formulario_publico(visitante):

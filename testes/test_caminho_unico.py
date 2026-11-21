@@ -214,10 +214,10 @@ def test_nenhuma_rota_registrada_cria_hospede(aplicacao):
     # mapa vazio — por erro de registro de blueprint — passaria.
     assert "hospedes.listar" in nomes
     assert "hospedes.editar" in nomes
-    assert "contatos.ligar" in nomes, (
-        "ligar sobrevive: a recepção associa o pedido a um cadastro que a "
-        "pessoa fez, sem digitar documento de ninguém"
-    )
+    # "contatos.ligar" saiu com a tela "Contatos" no Bloco 17: não há mais
+    # pedido de contato chegando, e o relatório de origem dos contatos deu
+    # lugar ao volume de mensagens da conversa (RF12, alteração declarada).
+    assert not any(nome.startswith("contatos.") for nome in nomes)
     assert "publico.criar_conta" in nomes
 
 
@@ -284,56 +284,6 @@ def test_o_painel_nao_oferece_o_atalho_de_cadastrar_hospede(aplicacao):
     html = sessao.get("/painel/").data.decode()
 
     assert "Cadastrar hóspede" not in html
-
-
-def test_o_pedido_de_contato_ainda_pode_ser_ligado_a_um_cadastro(aplicacao):
-    """O que sobreviveu, e por que precisava sobreviver.
-
-    `contato.hospede_id` e o estado `convertido` existem para o relatório
-    de origem dos contatos, previsto na Etapa 6. Remover a conversão sem
-    deixar nenhum caminho de ligação mataria o relatório e deixaria uma
-    coluna e um valor de ENUM inalcançáveis no esquema.
-
-    A diferença entre as duas é o ponto do bloco: **ligar associa, não
-    cria.** O cadastro é o que a pessoa fez.
-    """
-    with aplicacao.app_context():
-        hospede_id, _ = _criar_hospede_com_conta(
-            True, "pessoa-cadastrada", "pessoa@exemplo.com", DOCUMENTO
-        )
-
-    visitante = aplicacao.test_client()
-    visitante.post("/contato", data={
-        "nome": "Pessoa Cadastrada",
-        "email": "pessoa@exemplo.com",
-        "mensagem": "Tem vaga em dezembro?",
-    })
-
-    sessao = _entrar(aplicacao, RECEPCAO)
-
-    with aplicacao.app_context():
-        from app.dados import contato_repo
-
-        pedidos = contato_repo.listar()
-        pedido_id = pedidos[0]["id"]
-
-    pagina = sessao.get(f"/contatos/{pedido_id}").data.decode()
-    achado = re.search(r'name="csrf_token" value="([^"]+)"', pagina)
-
-    resposta = sessao.post(
-        f"/contatos/{pedido_id}/ligar",
-        data={
-            "hospede_id": hospede_id,
-            "csrf_token": achado.group(1) if achado else "",
-        },
-    )
-
-    assert resposta.status_code == 302
-
-    with aplicacao.app_context():
-        depois = contato_repo.buscar_por_id(pedido_id)
-
-    assert depois["hospede_id"] == hospede_id
 
 
 # ---------------------------------------------------------------------------

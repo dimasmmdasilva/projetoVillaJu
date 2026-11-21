@@ -706,3 +706,69 @@ CREATE TABLE acompanhante (
         CHECK ((documento_cif IS NULL) = (documento_nonce IS NULL)
            AND (documento_cif IS NULL) = (documento_tag IS NULL))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ===========================================================================
+-- MENSAGEM — Etapa 5, Bloco 17
+-- ===========================================================================
+-- A conversa da reserva: um mural entre o hóspede que tem conta e a equipe.
+-- Substitui o formulário público de contato.
+--
+-- O texto é dado pessoal e vai cifrado (AES-256-GCM). A etiqueta da cifra
+-- é `mensagem:<reserva>:<ordem>:<autor>` — conhecida antes do INSERT, e
+-- única por `uq_mensagem_reserva_ordem`.
+--
+-- Só acréscimo: a aplicação tem SELECT, INSERT e UPDATE apenas na coluna
+-- `lida_pela_equipe`; o gatilho `trg_mensagem_antes_alterar` recusa mudar
+-- qualquer outra coisa, e a volta de lida para não lida.
+CREATE TABLE mensagem (
+    id                  INT UNSIGNED NOT NULL AUTO_INCREMENT,
+
+    reserva_id          INT UNSIGNED NOT NULL,
+
+    -- Posição na conversa, de 1 em diante. Decidida com a reserva travada.
+    ordem               SMALLINT UNSIGNED NOT NULL,
+
+    -- Quem escreveu: a conta do hóspede ou a de alguém da equipe.
+    autor_id            INT UNSIGNED NOT NULL,
+
+    -- Gravado junto, para que "não lida" não dependa de ler o perfil do
+    -- autor, que pode mudar depois.
+    da_equipe           BOOLEAN NOT NULL,
+
+    -- Até 1000 caracteres na aplicação: 4000 bytes no pior caso de UTF-8.
+    texto_cif           VARBINARY(4096) NOT NULL,
+    texto_nonce         VARBINARY(12) NOT NULL,
+    texto_tag           VARBINARY(16) NOT NULL,
+
+    cripto_versao       TINYINT UNSIGNED NOT NULL DEFAULT 1,
+
+    -- Só faz sentido para a mensagem do hóspede; a da equipe nasce lida.
+    lida_pela_equipe    BOOLEAN NOT NULL DEFAULT FALSE,
+
+    criado_em           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+
+    UNIQUE KEY uq_mensagem_reserva_ordem (reserva_id, ordem),
+
+    -- O Painel procura as não lidas.
+    KEY ix_mensagem_nao_lida (lida_pela_equipe, da_equipe),
+
+    -- RESTRICT, como `pagamento` e `acompanhante`: a conversa é parte do
+    -- histórico da reserva.
+    CONSTRAINT fk_mensagem_reserva
+        FOREIGN KEY (reserva_id) REFERENCES reserva (id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+
+    CONSTRAINT fk_mensagem_autor
+        FOREIGN KEY (autor_id) REFERENCES usuario (id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+
+    CONSTRAINT ck_mensagem_ordem
+        CHECK (ordem >= 1),
+
+    -- A mensagem da equipe não aguarda leitura da equipe.
+    CONSTRAINT ck_mensagem_da_equipe_nasce_lida
+        CHECK (da_equipe = FALSE OR lida_pela_equipe = TRUE)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

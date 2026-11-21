@@ -34,6 +34,8 @@ erDiagram
     RESERVA ||--o{ PAGAMENTO : "tem lançamentos"
     USUARIO ||--o{ PAGAMENTO : "conferiu no extrato"
     RESERVA ||--o{ ACOMPANHANTE : "leva, além do titular"
+    RESERVA ||--o{ MENSAGEM : "tem a conversa"
+    USUARIO ||--o{ MENSAGEM : "escreveu"
 
     CHALE {
         int id PK
@@ -176,6 +178,20 @@ erDiagram
         tinyint cripto_versao
         datetime criado_em "preenchido pelo gatilho"
     }
+
+    MENSAGEM {
+        int id PK
+        int reserva_id FK
+        smallint ordem "posição na conversa; única na reserva"
+        int autor_id FK "conta do hóspede ou da equipe"
+        boolean da_equipe
+        varbinary texto_cif "AES-256-GCM"
+        varbinary texto_nonce "12 bytes"
+        varbinary texto_tag "16 bytes"
+        tinyint cripto_versao
+        boolean lida_pela_equipe "a única coluna que muda"
+        datetime criado_em
+    }
 ```
 
 ---
@@ -196,6 +212,8 @@ erDiagram
 | `pagamento` | `reserva` | N:1 | **RESTRICT** | Não se apaga reserva com lançamento |
 | `pagamento` | `usuario` | N:1 | **RESTRICT** | O autor é a parte do lançamento que lhe dá valor; conta de equipe se desativa |
 | `acompanhante` | `reserva` | N:1 | **RESTRICT** | Quem se hospedou é histórico da reserva; cascata alteraria a linha sem disparar gatilho |
+| `mensagem` | `reserva` | N:1 | **RESTRICT** | A conversa é histórico da reserva |
+| `mensagem` | `usuario` | N:1 | **RESTRICT** | O autor faz parte da etiqueta da cifra; conta se desativa, não se apaga |
 
 A escolha em `log_auditoria` é a mais importante de todas. Com `CASCADE`,
 bastaria apagar uma conta para fazer sumir o rastro de tudo o que ela fez —
@@ -220,6 +238,8 @@ exatamente o que alguém faria para encobrir uma ação indevida. Com
 | `pagamento` | `uq_pagamento_reserva_tipo` | `reserva_id`, `tipo` | **Único**: um clique duplo não conta o sinal duas vezes |
 | `pagamento` | `idx_pagamento_data` | `registrado_em` | A soma do mês no painel do administrador |
 | `acompanhante` | `uq_acompanhante_reserva_ordem` | `reserva_id`, `ordem` | **Único**: a etiqueta da cifra usa a posição, e ela não pode se repetir |
+| `mensagem` | `uq_mensagem_reserva_ordem` | `reserva_id`, `ordem` | **Único**: a etiqueta da cifra usa a posição; segunda camada da trava da reserva |
+| `mensagem` | `ix_mensagem_nao_lida` | `lida_pela_equipe`, `da_equipe` | As reservas com mensagem não lida, no Painel |
 
 A ordem das colunas em `idx_reserva_disponibilidade` não é arbitrária. Um
 índice composto só é aproveitado da esquerda para a direita: filtra-se
@@ -337,6 +357,28 @@ máximo N − 1 acompanhantes. Três camadas, como na sobreposição:
   titular mais os acompanhantes gravados — a recepção edita esse número.
 - **`CHECK`**: adulto tem documento (`documento_cif IS NOT NULL OR
   menor_de_idade`), e as três colunas do documento andam juntas.
+
+### Por que a conversa só cresce, e o que ela substituiu
+
+**Bloco 17 (21/11).** O formulário público de contato aceitava nome,
+e-mail e texto de qualquer pessoa, sem verificar nada, e prometia que "a
+recepção fecha a reserva" — promessa desfeita pelo caminho único. Saiu,
+com a tela "Contatos" da equipe. No lugar, cada reserva tem uma conversa
+entre o hóspede **logado** e a equipe. A tabela `contato` fica, com os
+pedidos já gravados, sem tela.
+
+O texto é cifrado com a etiqueta `mensagem:<reserva>:<ordem>:<autor>`:
+copiado para outra reserva, trocado de posição ou atribuído a outra
+pessoa, deixa de se decifrar. A ordem é decidida com a linha da reserva
+travada (`FOR UPDATE`), e a unicidade `(reserva_id, ordem)` é a segunda
+camada.
+
+O que foi dito não muda, em duas camadas: a aplicação tem `SELECT`,
+`INSERT` e `UPDATE` **só na coluna** `lida_pela_equipe` (privilégio por
+coluna; tentar outra coluna devolve o erro 1143), e
+`trg_mensagem_antes_alterar` recusa qualquer outra mudança, e a volta de
+lida para não lida, mesmo para quem tiver mais privilégio. Sem `DELETE`.
+A mensagem da equipe nasce lida (`CHECK`).
 
 ### Por que o intervalo de reserva é semiaberto
 

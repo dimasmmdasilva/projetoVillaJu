@@ -183,6 +183,20 @@ def aad_acompanhante(reserva_id, ordem, campo: str) -> bytes:
     )
 
 
+def aad_mensagem(reserva_id, ordem, autor_id) -> bytes:
+    """A etiqueta de uma mensagem da conversa — Etapa 5, Bloco 17.
+
+    Como em `aad_acompanhante`, sem o identificador da linha, que só existe
+    depois do INSERT: a reserva e a posição na conversa, únicas pela
+    restrição `uq_mensagem_reserva_ordem`, e o autor. Com o autor na
+    etiqueta, uma mensagem atribuída a outra pessoa deixa de se decifrar
+    — não dá para pôr palavras na boca de ninguém trocando um número.
+    """
+    return f"mensagem:{int(reserva_id)}:{int(ordem)}:{int(autor_id)}".encode(
+        "utf-8"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Cifragem
 # ---------------------------------------------------------------------------

@@ -98,6 +98,30 @@
    sem valor; cadastre a tarifa e edite a reserva para calcular.</p>
 {% endif %}
 
+{# Bloco 17: a conversa com o hóspede. O texto é escapado pelo Jinja2. A
+   resposta marca as mensagens dele como lidas; "Marcar como lidas" serve
+   para quem leu e não precisa responder. #}
+<h2 id="conversa">Conversa com o hóspede</h2>
+{% include "painel/_mural.html" %}
+
+{% if mensagens|selectattr('nao_lida')|list %}
+<form method="post" class="acao"
+      action="{{ url_for('conversa.marcar_como_lidas', identificador=reserva.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit" class="secundario">Marcar como lidas</button>
+</form>
+{% endif %}
+
+<form method="post" class="formulario"
+      action="{{ url_for('conversa.enviar_da_equipe', identificador=reserva.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label for="texto">Responder</label>
+  <textarea id="texto" name="texto" rows="3" maxlength="{{ limite_da_mensagem }}" required></textarea>
+  <p class="nota-campo">O hóspede lê a conversa em Minhas reservas, se tiver
+     conta. Até {{ limite_da_mensagem }} caracteres.</p>
+  <button type="submit">Enviar resposta</button>
+</form>
+
 <h2>Situação</h2>
 
 {% if reserva.situacao == 'pendente' %}

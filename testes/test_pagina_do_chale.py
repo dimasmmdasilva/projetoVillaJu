@@ -406,12 +406,13 @@ def test_o_menu_nao_repete_a_consulta_de_disponibilidade(visitante):
     assert re.search(r'href="/disponibilidade"', corpo)
 
 
-def test_localizacao_e_o_ultimo_item_do_menu(visitante):
-    """O item 6.
+def test_localizacao_vem_logo_antes_de_fale_com_a_pousada(visitante):
+    """O item 6, revisto no Bloco 17.
 
-    "Localização" é âncora para o rodapé desta mesma página, não destino.
-    Vinha antes de links que levam a outras telas, o que invertia a
-    importância.
+    "Localização" é âncora para o rodapé desta mesma página, não destino,
+    e no Bloco 13 passou a ser o último item. Em 20/11 o Dimas decidiu que
+    "Fale com a pousada" vem DEPOIS dela, fechando o menu: a ordem
+    continua sendo decisão escrita, e este teste a prende.
     """
     html = visitante.get("/").data.decode()
     cabecalho = html.split("</header>")[0]
@@ -424,8 +425,8 @@ def test_localizacao_e_o_ultimo_item_do_menu(visitante):
     ]
 
     assert rotulos, "o menu ficou vazio"
-    assert rotulos[-1] == "Localização", (
-        f"Localização precisa ser o último do menu: {rotulos}"
+    assert rotulos[-2:] == ["Localização", "Fale com a pousada"], (
+        f"o menu termina em Localização e Fale com a pousada: {rotulos}"
     )
 
 
@@ -903,7 +904,7 @@ def test_o_hospede_continua_sem_alcancar_as_telas_da_equipe(aplicacao):
         "/reservas/nova",
         "/reservas/disponibilidade",
         "/hospedes/",
-        "/contatos/",
+        "/caixa-de-saida/" if False else "/mensagens/",
         "/chales/",
     ):
         assert cliente.get(rota).status_code == 403, rota

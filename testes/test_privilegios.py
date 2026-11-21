@@ -332,6 +332,77 @@ def test_aplicacao_nao_esvazia_acompanhantes(app):
 
 
 # ---------------------------------------------------------------------------
+# A conversa da reserva só cresce — Etapa 5, Bloco 17
+# ---------------------------------------------------------------------------
+# SELECT e INSERT na tabela; UPDATE só na coluna `lida_pela_equipe`.
+
+_GRANT_MENSAGEM = (
+    "rode, como root: GRANT SELECT, INSERT ON <banco>.mensagem TO "
+    "'villaju_app'@'localhost'; GRANT UPDATE (lida_pela_equipe) ON "
+    "<banco>.mensagem TO 'villaju_app'@'localhost'"
+)
+
+
+def test_aplicacao_le_mensagens(app):
+    try:
+        app.execute("SELECT COUNT(*) FROM mensagem")
+    except mysql.connector.Error as erro:
+        assert erro.errno != ERRO_SEM_PRIVILEGIO, _GRANT_MENSAGEM
+        raise
+    assert app.fetchone() is not None
+
+
+def test_aplicacao_grava_mensagem(app):
+    """Permitido — provado pelo erro que NÃO vem (1452, a reserva não
+    existe, em vez de 1142)."""
+    with pytest.raises(mysql.connector.Error) as erro:
+        app.execute(
+            "INSERT INTO mensagem (reserva_id, ordem, autor_id, da_equipe, "
+            "texto_cif, texto_nonce, texto_tag) "
+            "VALUES (999999, 1, 999999, FALSE, 'x', 'nnnnnnnnnnnn', "
+            "'tttttttttttttttt')"
+        )
+    assert erro.value.errno == 1452, _GRANT_MENSAGEM
+
+
+def test_aplicacao_marca_mensagem_como_lida(app):
+    try:
+        app.execute("UPDATE mensagem SET lida_pela_equipe = TRUE WHERE id < 0")
+    except mysql.connector.Error as erro:
+        assert erro.errno != ERRO_SEM_PRIVILEGIO, _GRANT_MENSAGEM
+        raise
+
+
+@pytest.mark.parametrize("coluna,valor", [
+    ("texto_cif", "'x'"),
+    ("autor_id", "1"),
+    ("reserva_id", "1"),
+    ("criado_em", "NOW()"),
+])
+def test_aplicacao_nao_reescreve_mensagem(app, coluna, valor):
+    """O privilégio é por coluna: só a leitura muda.
+
+    A recusa vem com 1143 ("UPDATE negado para a coluna"), e não com o
+    1142 de tabela: é a prova de que existe UPDATE na tabela, mas não
+    nesta coluna. Com 1142, o privilégio por coluna nem existiria.
+    """
+    with pytest.raises(mysql.connector.Error) as erro:
+        app.execute("UPDATE mensagem SET " + coluna + " = " + valor  # nosec B608 - lista fixa do teste
+                    + " WHERE id < 0")
+    assert erro.value.errno == 1143, (
+        f"esperada recusa por coluna (1143), veio {erro.value.errno}"
+    )
+
+
+def test_aplicacao_nao_apaga_mensagem(app):
+    _recusado(app, "DELETE FROM mensagem WHERE id < 0")
+
+
+def test_aplicacao_nao_esvazia_a_conversa(app):
+    _recusado(app, "TRUNCATE TABLE mensagem")
+
+
+# ---------------------------------------------------------------------------
 # A aplicação não altera a estrutura do banco
 # ---------------------------------------------------------------------------
 

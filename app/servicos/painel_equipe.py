@@ -23,7 +23,7 @@ calculada pela data, na tela, sem mudar o banco.
 ## Os três grupos
 
 1. **Precisa de ação** — Pix a conferir, restante vencido ou vencendo,
-   devolução pendente. São os cards com urgência 1 ou 2 em `pagamentos`.
+   devolução pendente, mensagem do hóspede não lida (Bloco 17). São os cards com urgência 1 ou 2 em `pagamentos`.
 2. **Próximas estadias** — vivas, da entrada mais próxima à mais
    distante.
 3. **Histórico** — o resto, do mais recente ao mais antigo, em páginas.
@@ -33,7 +33,13 @@ import datetime as dt
 import logging
 import math
 
-from app.dados import chale_repo, hospede_repo, pagamento_repo, reserva_repo
+from app.dados import (
+    chale_repo,
+    hospede_repo,
+    mensagem_repo,
+    pagamento_repo,
+    reserva_repo,
+)
 from app.rotas.publico import cor_da_foto
 from app.seguranca import cripto
 from app.servicos import pagamentos, regulamento
@@ -103,8 +109,13 @@ def autor(reserva: dict) -> str:
     return reserva.get("criado_por_login") or "—"
 
 
-def grupo(reserva: dict, hoje: dt.date, urgentes: set, devolucoes: set) -> str:
-    if reserva["id"] in urgentes or reserva["id"] in devolucoes:
+def grupo(reserva: dict, hoje: dt.date, urgentes: set, devolucoes: set,
+          nao_lidas: set = frozenset()) -> str:
+    if (
+        reserva["id"] in urgentes
+        or reserva["id"] in devolucoes
+        or reserva["id"] in nao_lidas
+    ):
         return ACAO
     if (
         reserva["situacao"] in ("pendente", "confirmada")
@@ -154,6 +165,9 @@ def montar(usuario_id, situacao=None, pagina=1, hoje: dt.date = None) -> dict:
     devolucoes = {
         d["reserva"]["id"] for d in pagamentos.devolucoes(usuario_id=usuario_id)
     }
+    # Bloco 17: mensagem do hóspede que a equipe ainda não leu. Só o
+    # número da reserva — o texto não é decifrado para o Painel.
+    nao_lidas = mensagem_repo.reservas_com_nao_lidas(usuario_id=usuario_id)
 
     reservas = reserva_repo.listar(
         situacao=situacao, limite=1000, usuario_id=usuario_id
@@ -162,7 +176,9 @@ def montar(usuario_id, situacao=None, pagina=1, hoje: dt.date = None) -> dict:
 
     grupos = {ACAO: [], PROXIMAS: [], HISTORICO: []}
     for reserva in reservas:
-        grupos[grupo(reserva, hoje, urgentes, devolucoes)].append(reserva)
+        grupos[grupo(reserva, hoje, urgentes, devolucoes, nao_lidas)].append(
+            reserva
+        )
 
     grupos[ACAO].sort(key=lambda r: (r["data_entrada"], r["id"]))
     grupos[PROXIMAS].sort(key=lambda r: (r["data_entrada"], r["id"]))
@@ -189,6 +205,7 @@ def montar(usuario_id, situacao=None, pagina=1, hoje: dt.date = None) -> dict:
             "autor": autor(reserva),
             "cor": cor_da_foto(reserva["chale_id"], 1),
             "botao": _botao(reserva["id"], urgentes, pendentes, devolucoes),
+            "mensagem_nao_lida": reserva["id"] in nao_lidas,
         }
 
     return {

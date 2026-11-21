@@ -131,6 +131,21 @@ COLUNAS = {
         "cripto_versao": ("tinyint", False),
         "criado_em": ("datetime", False),
     },
+    # Etapa 5, Bloco 17. Cifrada; só a leitura muda (gatilho e privilégio
+    # por coluna).
+    "mensagem": {
+        "id": ("int", False),
+        "reserva_id": ("int", False),
+        "ordem": ("smallint", False),
+        "autor_id": ("int", False),
+        "da_equipe": ("tinyint", False),
+        "texto_cif": ("varbinary", False),
+        "texto_nonce": ("varbinary", False),
+        "texto_tag": ("varbinary", False),
+        "cripto_versao": ("tinyint", False),
+        "lida_pela_equipe": ("tinyint", False),
+        "criado_em": ("datetime", False),
+    },
     "log_auditoria": {
         "id": ("bigint", False),
         "usuario_id": ("int", True),
@@ -185,6 +200,9 @@ CHAVES_ESTRANGEIRAS = {
     ("pagamento", "registrado_por"): ("usuario", "RESTRICT"),
     # RESTRICT: quem se hospedou é histórico da reserva.
     ("acompanhante", "reserva_id"): ("reserva", "RESTRICT"),
+    # RESTRICT: a conversa é histórico da reserva, e o autor não some.
+    ("mensagem", "reserva_id"): ("reserva", "RESTRICT"),
+    ("mensagem", "autor_id"): ("usuario", "RESTRICT"),
 }
 
 UNICIDADE = [
