@@ -189,7 +189,8 @@ erDiagram
         varbinary texto_nonce "12 bytes"
         varbinary texto_tag "16 bytes"
         tinyint cripto_versao
-        boolean lida_pela_equipe "a única coluna que muda"
+        boolean lida_pela_equipe "muda só de FALSE para TRUE"
+        boolean lida_pelo_hospede "Bloco 17b; idem"
         datetime criado_em
     }
 ```
@@ -374,11 +375,14 @@ travada (`FOR UPDATE`), e a unicidade `(reserva_id, ordem)` é a segunda
 camada.
 
 O que foi dito não muda, em duas camadas: a aplicação tem `SELECT`,
-`INSERT` e `UPDATE` **só na coluna** `lida_pela_equipe` (privilégio por
-coluna; tentar outra coluna devolve o erro 1143), e
+`INSERT` e `UPDATE` **só nas colunas** `lida_pela_equipe` e — desde o
+Bloco 17b, para o aviso de "nova resposta da pousada" —
+`lida_pelo_hospede` (privilégio por coluna; tentar outra coluna devolve o
+erro 1143), e
 `trg_mensagem_antes_alterar` recusa qualquer outra mudança, e a volta de
 lida para não lida, mesmo para quem tiver mais privilégio. Sem `DELETE`.
-A mensagem da equipe nasce lida (`CHECK`).
+Quem escreve leu: a mensagem da equipe nasce lida pela equipe, e a do
+hóspede, pelo hóspede (duas `CHECK`).
 
 ### Por que o intervalo de reserva é semiaberto
 

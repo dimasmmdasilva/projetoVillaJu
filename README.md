@@ -431,6 +431,7 @@ afrouxar a política.
 | 16 | Painel da equipe em cards, com os selos de pagamento e de estadia | concluído |
 | 16b | Reserva registrada pela recepção no mesmo controle do Pix, com prazo de 24 horas | concluído |
 | 17 | Conversa da reserva entre hóspede logado e equipe, cifrada; sai o formulário público de contato | concluído |
+| 17b | Aviso de "nova resposta da pousada" no Painel e no card do hóspede; campo da conversa com tamanho fixo | concluído |
 
 Falta só o **12** (mensagem em HTML), opcional.
 

@@ -1,0 +1,14 @@
+{# Bloco 17b: o aviso de "nova resposta da pousada" no Painel do hóspede.
+   Uma linha por reserva, com o link para a conversa — nunca o texto. Some
+   quando o hóspede abre a conversa. #}
+{% if respostas %}
+<div class="aviso aviso-resposta" role="status">
+  {% for resposta in respostas %}
+  <p>
+    <strong>Nova resposta da pousada</strong> na reserva nº {{ resposta.reserva_id }}
+    ({{ resposta.chale_nome }}).
+    <a href="{{ url_for('conversa.do_hospede', identificador=resposta.reserva_id) }}">Abrir a conversa</a>
+  </p>
+  {% endfor %}
+</div>
+{% endif %}

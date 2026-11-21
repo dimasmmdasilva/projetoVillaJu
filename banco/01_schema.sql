@@ -718,9 +718,10 @@ CREATE TABLE acompanhante (
 -- é `mensagem:<reserva>:<ordem>:<autor>` — conhecida antes do INSERT, e
 -- única por `uq_mensagem_reserva_ordem`.
 --
--- Só acréscimo: a aplicação tem SELECT, INSERT e UPDATE apenas na coluna
--- `lida_pela_equipe`; o gatilho `trg_mensagem_antes_alterar` recusa mudar
--- qualquer outra coisa, e a volta de lida para não lida.
+-- Só acréscimo: a aplicação tem SELECT, INSERT e UPDATE apenas nas colunas
+-- `lida_pela_equipe` e `lida_pelo_hospede` (Bloco 17b); o gatilho
+-- `trg_mensagem_antes_alterar` recusa mudar qualquer outra coisa, e a volta
+-- de lida para não lida.
 CREATE TABLE mensagem (
     id                  INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
@@ -746,6 +747,10 @@ CREATE TABLE mensagem (
     -- Só faz sentido para a mensagem do hóspede; a da equipe nasce lida.
     lida_pela_equipe    BOOLEAN NOT NULL DEFAULT FALSE,
 
+    -- Bloco 17b: o espelho, para o aviso de "nova resposta da pousada".
+    -- Só faz sentido para a mensagem da equipe; a do hóspede nasce lida.
+    lida_pelo_hospede   BOOLEAN NOT NULL DEFAULT FALSE,
+
     criado_em           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (id),
@@ -770,5 +775,9 @@ CREATE TABLE mensagem (
 
     -- A mensagem da equipe não aguarda leitura da equipe.
     CONSTRAINT ck_mensagem_da_equipe_nasce_lida
-        CHECK (da_equipe = FALSE OR lida_pela_equipe = TRUE)
+        CHECK (da_equipe = FALSE OR lida_pela_equipe = TRUE),
+
+    -- E a do hóspede não aguarda leitura do hóspede (Bloco 17b).
+    CONSTRAINT ck_mensagem_do_hospede_nasce_lida
+        CHECK (da_equipe = TRUE OR lida_pelo_hospede = TRUE)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

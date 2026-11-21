@@ -11,8 +11,8 @@ o texto à reserva, à posição na conversa e ao autor: mover o bloco para
 outra reserva, trocá-lo de lugar ou atribuí-lo a outra pessoa faz a
 verificação falhar.
 
-**Só acréscimo.** A aplicação tem SELECT e INSERT na tabela e UPDATE só na
-coluna `lida_pela_equipe` (privilégio por coluna, em
+**Só acréscimo.** A aplicação tem SELECT e INSERT na tabela e UPDATE só nas
+colunas `lida_pela_equipe` e `lida_pelo_hospede` (privilégio por coluna, em
 `banco/03_usuario_app.sql`); o gatilho `trg_mensagem_antes_alterar` recusa
 qualquer outra mudança e a volta de "lida" para "não lida". Ninguém edita
 nem apaga o que foi dito.
@@ -51,8 +51,8 @@ _SQL_PROXIMA_ORDEM = (
 _SQL_INSERIR = (
     "INSERT INTO mensagem "
     "(reserva_id, ordem, autor_id, da_equipe, texto_cif, texto_nonce, "
-    " texto_tag, cripto_versao, lida_pela_equipe) "
-    "VALUES (%s, %s, %s, %s, %s, %s, %s, 1, %s)"
+    " texto_tag, cripto_versao, lida_pela_equipe, lida_pelo_hospede) "
+    "VALUES (%s, %s, %s, %s, %s, %s, %s, 1, %s, %s)"
 )
 
 _SQL_LISTAR = (
@@ -68,7 +68,7 @@ _SQL_LISTAR = (
 _SQL_LISTAR_DO_HOSPEDE = (
     "SELECT m.reserva_id, m.ordem, m.autor_id, m.da_equipe, m.texto_cif, "
     "       m.texto_nonce, m.texto_tag, m.lida_pela_equipe, m.criado_em, "
-    "       NULL AS autor_login "
+    "       m.lida_pelo_hospede, NULL AS autor_login "
     "FROM mensagem m "
     "JOIN reserva r ON r.id = m.reserva_id "
     "WHERE m.reserva_id = %s AND r.hospede_id = %s "
@@ -86,11 +86,23 @@ _SQL_NAO_LIDAS = (
     "WHERE da_equipe = FALSE AND lida_pela_equipe = FALSE"
 )
 
-_SQL_QUANTAS_DO_HOSPEDE = (
-    "SELECT m.reserva_id, COUNT(*) FROM mensagem m "
+# Bloco 17b: o aviso de "nova resposta da pousada". O dono vai no WHERE das
+# duas consultas, pela junção com a reserva.
+_SQL_RESPOSTAS_NOVAS = (
+    "SELECT m.reserva_id, c.nome, COUNT(*) FROM mensagem m "
     "JOIN reserva r ON r.id = m.reserva_id "
-    "WHERE r.hospede_id = %s "
-    "GROUP BY m.reserva_id"
+    "JOIN chale c ON c.id = r.chale_id "
+    "WHERE r.hospede_id = %s AND m.da_equipe = TRUE "
+    "  AND m.lida_pelo_hospede = FALSE "
+    "GROUP BY m.reserva_id, c.nome "
+    "ORDER BY m.reserva_id"
+)
+
+_SQL_MARCAR_LIDAS_PELO_HOSPEDE = (
+    "UPDATE mensagem m JOIN reserva r ON r.id = m.reserva_id "
+    "SET m.lida_pelo_hospede = TRUE "
+    "WHERE m.reserva_id = %s AND r.hospede_id = %s "
+    "  AND m.da_equipe = TRUE AND m.lida_pelo_hospede = FALSE"
 )
 
 
@@ -112,11 +124,13 @@ def _gravar(cursor, reserva_id, autor_id, da_equipe, texto) -> int:
     cif, nonce, tag = cripto.cifrar(
         texto, cripto.aad_mensagem(reserva_id, ordem, autor_id)
     )
-    # A mensagem da equipe não espera leitura da equipe: nasce "lida".
+    # Quem escreve leu: a mensagem da equipe nasce lida pela equipe, e a
+    # do hóspede, pelo hóspede (Bloco 17b).
     executar(
         cursor,
         _SQL_INSERIR,
-        (reserva_id, ordem, autor_id, da_equipe, cif, nonce, tag, da_equipe),
+        (reserva_id, ordem, autor_id, da_equipe, cif, nonce, tag,
+         da_equipe, not da_equipe),
     )
     return ordem
 
@@ -185,6 +199,7 @@ def _decifrar(linha) -> dict:
         "ordem": linha["ordem"],
         "da_equipe": bool(linha["da_equipe"]),
         "lida_pela_equipe": bool(linha["lida_pela_equipe"]),
+        "lida_pelo_hospede": bool(linha.get("lida_pelo_hospede", True)),
         "criado_em": linha["criado_em"],
         "autor_login": linha["autor_login"],
         "texto": texto,
@@ -225,12 +240,32 @@ def reservas_com_nao_lidas(usuario_id=None) -> set:
             cursor.close()
 
 
-def quantas_por_reserva_do_hospede(hospede_id, usuario_id=None) -> dict:
-    """Quantas mensagens cada reserva do hóspede tem, para o card."""
+def respostas_novas(hospede_id, usuario_id=None) -> list:
+    """As reservas do hóspede com resposta da pousada que ele ainda não viu
+    (Bloco 17b): número da reserva, chalé e quantas. Nunca o texto."""
     with obter_conexao(usuario_id=usuario_id) as conexao:
         cursor = conexao.cursor()
         try:
-            executar(cursor, _SQL_QUANTAS_DO_HOSPEDE, (hospede_id,))
-            return {linha[0]: linha[1] for linha in cursor.fetchall()}
+            executar(cursor, _SQL_RESPOSTAS_NOVAS, (hospede_id,))
+            return [
+                {"reserva_id": linha[0], "chale_nome": linha[1],
+                 "quantas": linha[2]}
+                for linha in cursor.fetchall()
+            ]
+        finally:
+            cursor.close()
+
+
+def marcar_como_lidas_pelo_hospede(reserva_id, hospede_id,
+                                   usuario_id=None) -> int:
+    """O hóspede abriu a conversa: as respostas da pousada passam a lidas.
+    Só na reserva dele — o dono vai no WHERE."""
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            executar(
+                cursor, _SQL_MARCAR_LIDAS_PELO_HOSPEDE, (reserva_id, hospede_id)
+            )
+            return cursor.rowcount
         finally:
             cursor.close()

@@ -20,7 +20,7 @@
 <p class="aviso aviso-erro">{{ erro }}</p>
 {% endif %}
 
-<form method="post" class="formulario"
+<form method="post" class="formulario formulario--conversa"
       action="{{ url_for('conversa.enviar_do_hospede', identificador=reserva.id) }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="texto">Sua mensagem</label>

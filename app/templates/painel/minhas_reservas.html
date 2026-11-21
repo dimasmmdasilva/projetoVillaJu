@@ -154,8 +154,13 @@
   </div>
   {% endif %}
 
-  {# Bloco 17: a conversa com a pousada, presa a esta reserva. #}
+  {# Bloco 17: a conversa com a pousada, presa a esta reserva. Bloco 17b:
+     com resposta que o hóspede ainda não viu, o aviso aparece aqui também,
+     e some quando ele abre a conversa. #}
   <p class="cartao-reserva__conversa">
+    {% if reserva.id in respostas_novas %}
+    <span class="aviso aviso-resposta aviso-resposta--card"><strong>Nova resposta da pousada</strong></span>
+    {% endif %}
     <a href="{{ url_for('conversa.do_hospede', identificador=reserva.id) }}">Conversa com a pousada</a>
   </p>
 </article>

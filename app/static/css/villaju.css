@@ -1256,3 +1256,24 @@ a.botao.botao--secundario {
 
 .contatos-da-pousada dt { font-weight: bold; }
 .contatos-da-pousada dd { margin: 0; }
+
+/* Bloco 17b (21/11, pedido do Dimas): o campo da conversa tem a largura das
+ * caixas do mural e tamanho FIXO. Antes ele herdava os 22rem do formulário
+ * e podia ser esticado pela tela inteira com o canto. */
+.formulario--conversa { max-width: 40rem; }
+
+.formulario--conversa textarea {
+  width: 100%;
+  box-sizing: border-box;
+  height: 7.5rem;
+  resize: none;
+}
+
+/* O botão não acompanha os 40rem do campo. */
+.formulario--conversa button { align-self: flex-start; min-width: 12rem; }
+
+/* Bloco 17b: o aviso de "nova resposta da pousada", no Painel do hóspede e
+ * no card de Minhas reservas. Mesma cor do selo "não lida" da equipe. */
+.aviso-resposta { background: #fff7e0; border-color: #c99a2e; color: #5a4100; }
+.aviso-resposta p { margin: 0.2rem 0; }
+.aviso-resposta--card { display: inline-block; margin-right: 0.6rem; padding: 0.2rem 0.5rem; }

@@ -144,6 +144,7 @@ COLUNAS = {
         "texto_tag": ("varbinary", False),
         "cripto_versao": ("tinyint", False),
         "lida_pela_equipe": ("tinyint", False),
+        "lida_pelo_hospede": ("tinyint", False),
         "criado_em": ("datetime", False),
     },
     "log_auditoria": {

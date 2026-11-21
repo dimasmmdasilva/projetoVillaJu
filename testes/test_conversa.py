@@ -165,9 +165,11 @@ def test_copiado_para_outra_reserva_nao_se_decifra(aplicacao, hospede, conta,
     outra_reserva = _pedir(aplicacao, conta, chale, entrada=60)
     _sql(aplicacao,
          "INSERT INTO mensagem (reserva_id, ordem, autor_id, da_equipe, "
-         " texto_cif, texto_nonce, texto_tag, lida_pela_equipe) "
+         " texto_cif, texto_nonce, texto_tag, lida_pela_equipe, "
+         " lida_pelo_hospede) "
          "SELECT %s, ordem, autor_id, da_equipe, texto_cif, texto_nonce, "
-         "       texto_tag, lida_pela_equipe FROM mensagem WHERE reserva_id = %s",
+         "       texto_tag, lida_pela_equipe, lida_pelo_hospede "
+         "FROM mensagem WHERE reserva_id = %s",
          (outra_reserva, reserva))
     pagina = hospede.get(f"/reservas/{outra_reserva}/conversa")
     assert pagina.status_code == 200
@@ -382,3 +384,87 @@ def test_fale_com_a_pousada_e_o_ultimo_item_do_menu(aplicacao):
     itens = re.findall(r">([^<>]+)</a>", menu)
     assert itens[-2:] == ["Localização", "Fale com a pousada"]
     assert "Falar com a recepção" not in html
+
+
+# ===========================================================================
+# 7. Bloco 17b — o aviso de "nova resposta da pousada" e o campo fixo
+# ===========================================================================
+
+AVISO = "Nova resposta da pousada"
+
+
+def _abrir_painel(cliente):
+    return cliente.get("/painel").data.decode()
+
+
+def _abrir_minhas(cliente):
+    return cliente.get("/reservas/minhas").data.decode()
+
+
+def test_a_resposta_avisa_no_painel_e_no_card(aplicacao, hospede, reserva):
+    _escrever(hospede, reserva, SEGREDO)
+    assert AVISO not in _abrir_painel(hospede), "a própria mensagem não avisa"
+    assert AVISO not in _abrir_minhas(hospede)
+
+    _responder(_entrar(aplicacao, *RECEPCAO), reserva, "Resposta reservada")
+
+    painel = _abrir_painel(hospede)
+    assert AVISO in painel
+    assert f'href="/reservas/{reserva}/conversa"' in painel
+    assert "Resposta reservada" not in painel, "o aviso não mostra o texto"
+    assert AVISO in _abrir_minhas(hospede)
+
+
+def test_abrir_a_conversa_apaga_os_dois_avisos(aplicacao, hospede, reserva):
+    _responder(_entrar(aplicacao, *ADMIN), reserva, "Bem-vindos!")
+
+    primeira = hospede.get(f"/reservas/{reserva}/conversa").data.decode()
+    assert ">nova<" in primeira, "na visita em que chega, a resposta é destacada"
+
+    assert AVISO not in _abrir_painel(hospede)
+    assert AVISO not in _abrir_minhas(hospede)
+    segunda = hospede.get(f"/reservas/{reserva}/conversa").data.decode()
+    assert ">nova<" not in segunda
+
+
+def test_so_o_dono_apaga_o_aviso(aplicacao, conta, outra, reserva):
+    with aplicacao.app_context():
+        conversa.enviar_da_equipe({"id": 1}, reserva, "Olá")
+        assert mensagem_repo.marcar_como_lidas_pelo_hospede(
+            reserva, outra["hospede_id"]) == 0
+        assert mensagem_repo.respostas_novas(outra["hospede_id"]) == []
+        assert [r["reserva_id"] for r in
+                mensagem_repo.respostas_novas(conta["hospede_id"])] == [reserva]
+
+
+def test_lida_pelo_hospede_nao_volta(aplicacao, reserva):
+    _responder(_entrar(aplicacao, *ADMIN), reserva, "Olá")
+    _sql(aplicacao, "UPDATE mensagem SET lida_pelo_hospede = TRUE")
+    with pytest.raises(mysql.connector.Error) as erro:
+        _sql(aplicacao, "UPDATE mensagem SET lida_pelo_hospede = FALSE")
+    assert erro.value.errno == 1644
+
+
+def test_a_mensagem_do_hospede_nasce_lida_por_ele(aplicacao, hospede, reserva):
+    _escrever(hospede, reserva, SEGREDO)
+    assert _linhas(aplicacao, "SELECT lida_pelo_hospede FROM mensagem") == [(1,)]
+
+
+def test_o_campo_da_conversa_tem_tamanho_fixo(aplicacao, hospede, reserva):
+    """Pedido do Dimas em 21/11: largura das caixas do mural, sem o canto
+    que estica o campo."""
+    import pathlib
+    from test_pagina_do_chale import _valor_final
+
+    css = (pathlib.Path(__file__).resolve().parents[1]
+           / "app/static/css/villaju.css").read_text(encoding="utf-8")
+    seletor = ".formulario--conversa textarea"
+    assert _valor_final(css, seletor, "resize") == "none"
+    assert _valor_final(css, seletor, "width") == "100%"
+    assert _valor_final(css, ".formulario--conversa", "max-width") == \
+        _valor_final(css, ".mural-mensagem", "max-width")
+
+    equipe = _entrar(aplicacao, *ADMIN)
+    for html in (hospede.get(f"/reservas/{reserva}/conversa").data.decode(),
+                 equipe.get(f"/reservas/{reserva}").data.decode()):
+        assert 'class="formulario formulario--conversa"' in html

@@ -50,8 +50,25 @@ def tela_do_hospede(usuario, reserva_id):
     )
     for mensagem in mensagens:
         mensagem["quem"] = PELA_POUSADA if mensagem["da_equipe"] else "Você"
+        # Bloco 17b: lidas DEPOIS de listadas, para que a tela ainda destaque
+        # as novas desta visita; na próxima, já não são novas.
+        mensagem["nova"] = mensagem["da_equipe"] and not mensagem["lida_pelo_hospede"]
+    if any(m["nova"] for m in mensagens):
+        mensagem_repo.marcar_como_lidas_pelo_hospede(
+            reserva_id, usuario["hospede_id"], usuario_id=usuario["id"]
+        )
     return {"reserva": reserva, "mensagens": mensagens,
             "limite": LIMITE_DO_TEXTO}
+
+
+def respostas_novas(usuario) -> list:
+    """Bloco 17b: o aviso de "nova resposta da pousada", para o Painel e
+    para Minhas reservas."""
+    if not usuario.get("hospede_id"):
+        return []
+    return mensagem_repo.respostas_novas(
+        usuario["hospede_id"], usuario_id=usuario["id"]
+    )
 
 
 def enviar_do_hospede(usuario, reserva_id, texto) -> bool:

@@ -468,6 +468,10 @@ def minhas():
         reservas=lista,
         contas=contas,
         cartoes=cartoes,
+        # Bloco 17b: reservas com resposta da pousada ainda não vista.
+        respostas_novas={
+            resposta["reserva_id"] for resposta in conversa.respostas_novas(usuario)
+        },
         acompanhantes=acompanhantes,
         devolucoes=devolucoes,
         # Ajuste 15.9: o titular no topo da lista de quem vai.

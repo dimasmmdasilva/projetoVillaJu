@@ -4,11 +4,12 @@
 {% if mensagens %}
 <ol class="mural">
   {% for mensagem in mensagens %}
-  <li class="mural-mensagem {{ 'mural-mensagem--equipe' if mensagem.da_equipe else 'mural-mensagem--hospede' }}{{ ' mural-mensagem--nao-lida' if mensagem.nao_lida }}">
+  <li class="mural-mensagem {{ 'mural-mensagem--equipe' if mensagem.da_equipe else 'mural-mensagem--hospede' }}{{ ' mural-mensagem--nao-lida' if mensagem.nao_lida or mensagem.nova }}">
     <p class="mural-autor">
       <strong>{{ mensagem.quem }}</strong>
       · {{ mensagem.criado_em.strftime('%d/%m/%Y às %Hh%M') }}
       {% if mensagem.nao_lida %}· <span class="selo-nao-lida">não lida</span>{% endif %}
+      {% if mensagem.nova %}· <span class="selo-nao-lida">nova</span>{% endif %}
     </p>
     {% if mensagem.legivel %}
     <p class="mural-texto">{{ mensagem.texto }}</p>

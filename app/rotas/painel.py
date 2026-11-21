@@ -13,7 +13,7 @@ reservas.
 from flask import Blueprint, render_template, request
 
 from app.dados import auditoria_repo, reserva_repo
-from app.servicos import painel_equipe
+from app.servicos import conversa, painel_equipe
 from app.seguranca.autorizacao import (
     ADMINISTRADOR,
     HOSPEDE,
@@ -42,9 +42,12 @@ def inicio():
     # atalhos saíram, a pedido do Dimas. No lugar, um card por chalé. A
     # equipe vê a ocupação de hoje; o hóspede, não — é dado de outras
     # pessoas. O hóspede também não recebe as reservas da pousada.
+    respostas = []
     if usuario["perfil"] == HOSPEDE:
         cards = None
         chales = painel_equipe.chales_para_o_hospede(usuario["id"])
+        # Bloco 17b: o aviso de "nova resposta da pousada".
+        respostas = conversa.respostas_novas(usuario)
     else:
         chales = painel_equipe.chales_para_a_equipe(usuario["id"])
 
@@ -63,6 +66,7 @@ def inicio():
         usuario=usuario,
         chales=chales,
         cards=cards,
+        respostas=respostas,
         situacoes=reserva_repo.SITUACOES,
     )
 

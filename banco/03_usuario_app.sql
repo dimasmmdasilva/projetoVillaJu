@@ -143,13 +143,14 @@ SET @sql = CONCAT('GRANT SELECT, INSERT, UPDATE, DELETE ON `', @banco, '`.acompa
 PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
 
 -- Mensagem (Etapa 5, Bloco 17): a conversa da reserva só cresce. SELECT e
--- INSERT na tabela, e UPDATE apenas na coluna `lida_pela_equipe` —
+-- INSERT na tabela, e UPDATE apenas em `lida_pela_equipe` e, desde o Bloco
+-- 17b, `lida_pelo_hospede` —
 -- privilégio por coluna: a aplicação marca como lida, e não consegue
 -- reescrever texto, autor nem data. Sem DELETE. O gatilho
 -- `trg_mensagem_antes_alterar` é a segunda camada.
 SET @sql = CONCAT('GRANT SELECT, INSERT ON `', @banco, '`.mensagem TO ', @conta);
 PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
-SET @sql = CONCAT('GRANT UPDATE (lida_pela_equipe) ON `', @banco, '`.mensagem TO ', @conta);
+SET @sql = CONCAT('GRANT UPDATE (lida_pela_equipe, lida_pelo_hospede) ON `', @banco, '`.mensagem TO ', @conta);
 PREPARE comando FROM @sql; EXECUTE comando; DEALLOCATE PREPARE comando;
 
 FLUSH PRIVILEGES;

@@ -338,7 +338,8 @@ def test_aplicacao_nao_esvazia_acompanhantes(app):
 
 _GRANT_MENSAGEM = (
     "rode, como root: GRANT SELECT, INSERT ON <banco>.mensagem TO "
-    "'villaju_app'@'localhost'; GRANT UPDATE (lida_pela_equipe) ON "
+    "'villaju_app'@'localhost'; GRANT UPDATE (lida_pela_equipe, "
+    "lida_pelo_hospede) ON "
     "<banco>.mensagem TO 'villaju_app'@'localhost'"
 )
 
@@ -358,18 +359,20 @@ def test_aplicacao_grava_mensagem(app):
     with pytest.raises(mysql.connector.Error) as erro:
         app.execute(
             "INSERT INTO mensagem (reserva_id, ordem, autor_id, da_equipe, "
-            "texto_cif, texto_nonce, texto_tag) "
+            "texto_cif, texto_nonce, texto_tag, lida_pelo_hospede) "
             "VALUES (999999, 1, 999999, FALSE, 'x', 'nnnnnnnnnnnn', "
-            "'tttttttttttttttt')"
+            "'tttttttttttttttt', TRUE)"
         )
     assert erro.value.errno == 1452, _GRANT_MENSAGEM
 
 
-def test_aplicacao_marca_mensagem_como_lida(app):
+@pytest.mark.parametrize("coluna", ["lida_pela_equipe", "lida_pelo_hospede"])
+def test_aplicacao_marca_mensagem_como_lida(app, coluna):
+    """As duas colunas de leitura (a do hóspede desde o Bloco 17b)."""
     try:
-        app.execute("UPDATE mensagem SET lida_pela_equipe = TRUE WHERE id < 0")
+        app.execute("UPDATE mensagem SET " + coluna + " = TRUE WHERE id < 0")  # nosec B608 - lista fixa do teste
     except mysql.connector.Error as erro:
-        assert erro.errno != ERRO_SEM_PRIVILEGIO, _GRANT_MENSAGEM
+        assert erro.errno not in (ERRO_SEM_PRIVILEGIO, 1143), _GRANT_MENSAGEM
         raise
 
 

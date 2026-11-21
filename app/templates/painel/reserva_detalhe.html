@@ -112,7 +112,7 @@
 </form>
 {% endif %}
 
-<form method="post" class="formulario"
+<form method="post" class="formulario formulario--conversa"
       action="{{ url_for('conversa.enviar_da_equipe', identificador=reserva.id) }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="texto">Responder</label>

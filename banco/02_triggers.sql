@@ -688,7 +688,8 @@ BEGIN
             SET MESSAGE_TEXT = 'Uma mensagem enviada não muda; só pode ser marcada como lida.';
     END IF;
 
-    IF OLD.lida_pela_equipe = TRUE AND NEW.lida_pela_equipe = FALSE THEN
+    IF (OLD.lida_pela_equipe = TRUE AND NEW.lida_pela_equipe = FALSE)
+       OR (OLD.lida_pelo_hospede = TRUE AND NEW.lida_pelo_hospede = FALSE) THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'Uma mensagem lida não volta a ser não lida.';
     END IF;

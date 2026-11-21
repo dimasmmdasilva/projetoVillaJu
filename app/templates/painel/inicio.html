@@ -43,6 +43,7 @@
 {% endmacro %}
 
 {% if tem_perfil('hospede') %}
+{% include "painel/_respostas_novas.html" %}
 {{ grade_de_chales(chales, false) }}
 <p><a href="{{ url_for('reservas.minhas') }}">Ver minhas reservas</a></p>
 
