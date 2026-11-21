@@ -45,7 +45,7 @@
 {% if tem_perfil('hospede') %}
 {% include "painel/_respostas_novas.html" %}
 {{ grade_de_chales(chales, false) }}
-<p><a href="{{ url_for('reservas.minhas') }}">Ver minhas reservas</a></p>
+<p class="acoes-de-navegacao"><a class="botao botao--secundario" href="{{ url_for('reservas.minhas') }}">Ver minhas reservas</a></p>
 
 {% else %}
 {# Etapa 5, Bloco 16. O Painel da equipe: o resumo numa linha e as
@@ -97,7 +97,9 @@
       {% if card.mensagem_nao_lida %}
       <a class="botao" href="{{ url_for('reservas.detalhe', identificador=reserva.id) }}#conversa">Responder mensagem</a>
       {% endif %}
-      <a href="{{ url_for('reservas.detalhe', identificador=reserva.id) }}">Ver reserva</a>
+      {# Bloco 17c: o terceiro botão, contornado, para não competir com
+         os de ação. Card sem nada a resolver fica só com ele. #}
+      <a class="botao botao--secundario" href="{{ url_for('reservas.detalhe', identificador=reserva.id) }}">Ver reserva</a>
     </p>
   </div>
 </article>

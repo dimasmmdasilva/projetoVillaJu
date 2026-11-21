@@ -59,7 +59,7 @@
   {% endif %}
 </ol>
 {% if tem_perfil('administrador') and reserva.situacao in ('pendente', 'confirmada') %}
-<p><a href="{{ url_for('quem_vai.editar', identificador=reserva.id) }}">Editar a lista de quem vai</a></p>
+<p class="acoes-de-navegacao"><a class="botao botao--secundario" href="{{ url_for('quem_vai.editar', identificador=reserva.id) }}">Editar a lista de quem vai</a></p>
 {% endif %}
 
 <h2>Valor da estadia</h2>
@@ -146,7 +146,7 @@
       action="{{ url_for('reservas.mudar_situacao', identificador=reserva.id) }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="situacao" value="{{ destino }}">
-  <button type="submit">Marcar como {{ destino }}</button>
+  <button type="submit" class="{{ 'secundario perigo' if destino == 'cancelada' }}">Marcar como {{ destino }}</button>
 </form>
 {% endfor %}
 {% else %}
@@ -154,10 +154,10 @@
 {% endif %}
 
 <h2>Ações</h2>
-<p>
+<p class="acoes-de-navegacao">
   {% if reserva.situacao in ('pendente', 'confirmada') %}
-  <a href="{{ url_for('reservas.editar', identificador=reserva.id) }}">Editar</a> &middot;
+  <a class="botao botao--secundario" href="{{ url_for('reservas.editar', identificador=reserva.id) }}">Editar</a>
   {% endif %}
-  <a href="{{ url_for('painel.inicio') }}">Voltar ao painel</a>
+  <a class="botao botao--secundario" href="{{ url_for('painel.inicio') }}">Voltar ao painel</a>
 </p>
 {% endblock %}

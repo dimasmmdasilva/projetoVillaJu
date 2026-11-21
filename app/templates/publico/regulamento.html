@@ -14,8 +14,8 @@
   {% include "_regulamento.html" %}
 </section>
 
-<p class="voltar">
-  <a href="{{ url_for('publico.disponibilidade') }}">Consultar disponibilidade</a>
-  · <a href="{{ url_for('publico.inicio') }}">Voltar ao início</a>
+<p class="voltar acoes-de-navegacao">
+  <a class="botao botao--secundario" href="{{ url_for('publico.disponibilidade') }}">Consultar disponibilidade</a>
+  <a class="botao botao--secundario" href="{{ url_for('publico.inicio') }}">Voltar ao início</a>
 </p>
 {% endblock %}

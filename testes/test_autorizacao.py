@@ -434,7 +434,10 @@ def test_todo_link_do_painel_responde_ao_proprio_perfil(aplicacao, credenciais):
     assert achado, "a `main` do painel mudou de forma"
     corpo = achado.group(1)
 
-    links = re.findall(r'<a href="(/[^"]*)"', corpo)
+    # `<a [^>]*href`, e não `<a href`: desde o Bloco 17c muitos links levam
+    # a classe de botão antes do endereço, e o padrão literal deixaria de
+    # ver justamente esses — o teste passaria olhando menos caminhos.
+    links = re.findall(r'<a [^>]*href="(/[^"]*)"', corpo)
     assert links, "o painel precisa oferecer algum caminho"
 
     recusados = [

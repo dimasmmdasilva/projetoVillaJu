@@ -51,9 +51,9 @@
 <form method="post" class="acao"
       action="{{ url_for('hospedes.excluir', identificador=hospede.id) }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <button type="submit">Excluir hóspede {{ hospede.id }}</button>
+  <button type="submit" class="secundario perigo">Excluir hóspede {{ hospede.id }}</button>
 </form>
 {% endif %}
 
-<p><a href="{{ url_for('hospedes.listar') }}">Voltar à lista</a></p>
+<p class="acoes-de-navegacao"><a class="botao botao--secundario" href="{{ url_for('hospedes.listar') }}">Voltar à lista</a></p>
 {% endblock %}

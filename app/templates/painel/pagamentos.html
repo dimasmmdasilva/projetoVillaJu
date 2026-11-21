@@ -99,7 +99,7 @@
     </ol>
     {# Bloco 15b: só o administrador edita a lista. #}
     {% if tem_perfil('administrador') %}
-    <p><a href="{{ url_for('quem_vai.editar', identificador=reserva.id) }}">Editar a lista de quem vai</a></p>
+    <p class="acoes-de-navegacao"><a class="botao botao--secundario" href="{{ url_for('quem_vai.editar', identificador=reserva.id) }}">Editar a lista de quem vai</a></p>
     {% endif %}
   </div>
 
@@ -115,7 +115,7 @@
     <form method="post"
           action="{{ url_for('pagamentos.agir', identificador=reserva.id, acao='cancelar') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="secundario">Cancelar reserva por falta de pagamento</button>
+      <button type="submit" class="secundario perigo">Cancelar reserva por falta de pagamento</button>
     </form>
     {% endif %}
   </div>

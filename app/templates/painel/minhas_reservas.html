@@ -124,7 +124,11 @@
   <p class="cartao-reserva__aviso-cancelamento">{{ estado.aviso_cancelamento }}</p>
   {% endif %}
 
-  {% if estado.botao or estado.pode_desistir or estado.pode_cancelar %}
+  {# Os botões do card. Bloco 17c (21/11, pedido do Dimas): a conversa com a
+     pousada é o terceiro botão, e aparece em todo card — inclusive no que
+     não tem nada a pagar. Com resposta que o hóspede ainda não viu
+     (Bloco 17b), o aviso fica junto dela, e some quando ele abre a
+     conversa. #}
   <div class="cartao-reserva__acoes">
     {% if estado.botao %}
     <form method="post"
@@ -140,7 +144,7 @@
     <form method="post"
           action="{{ url_for('reservas.cancelar', identificador=reserva.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="secundario">Cancelar reserva</button>
+      <button type="submit" class="secundario perigo">Cancelar reserva</button>
     </form>
     {% endif %}
 
@@ -148,21 +152,16 @@
     <form method="post"
           action="{{ url_for('reservas.desistir', identificador=reserva.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="secundario">Desistir do pedido</button>
+      <button type="submit" class="secundario perigo">Desistir do pedido</button>
     </form>
     {% endif %}
-  </div>
-  {% endif %}
 
-  {# Bloco 17: a conversa com a pousada, presa a esta reserva. Bloco 17b:
-     com resposta que o hóspede ainda não viu, o aviso aparece aqui também,
-     e some quando ele abre a conversa. #}
-  <p class="cartao-reserva__conversa">
+    <a class="botao botao--secundario"
+       href="{{ url_for('conversa.do_hospede', identificador=reserva.id) }}">Conversa com a pousada</a>
     {% if reserva.id in respostas_novas %}
     <span class="aviso aviso-resposta aviso-resposta--card"><strong>Nova resposta da pousada</strong></span>
     {% endif %}
-    <a href="{{ url_for('conversa.do_hospede', identificador=reserva.id) }}">Conversa com a pousada</a>
-  </p>
+  </div>
 </article>
 {% endmacro %}
 
@@ -258,7 +257,7 @@
 
 {% endif %}
 
-<p class="voltar">
-  <a href="{{ url_for('reservas.perfil') }}">Meu perfil</a>
+<p class="voltar acoes-de-navegacao">
+  <a class="botao botao--secundario" href="{{ url_for('reservas.perfil') }}">Meu perfil</a>
 </p>
 {% endblock %}

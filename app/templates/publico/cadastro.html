@@ -103,10 +103,9 @@
   <button type="submit">Criar conta</button>
 </form>
 
-<p class="voltar">
-  Já tem conta? <a href="{{ url_for('auth.login') }}">Entrar</a>
-  &middot;
+<p class="voltar acoes-de-navegacao">
+  Já tem conta? <a class="botao botao--secundario" href="{{ url_for('auth.login') }}">Entrar</a>
   Só quer perguntar?
-  <a href="{{ url_for('publico.fale_com_a_pousada') }}">Fale com a pousada</a>
+  <a class="botao botao--secundario" href="{{ url_for('publico.fale_com_a_pousada') }}">Fale com a pousada</a>
 </p>
 {% endblock %}

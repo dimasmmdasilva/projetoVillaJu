@@ -63,17 +63,12 @@
      Sem ele, a pessoa fica sem saída: desde a Etapa 5, ninguém conhece a
      senha de ninguém — nem a recepção, nem o administrador, nem o banco,
      que guarda só o hash Argon2id. #}
-  <p class="voltar">
-    <a href="{{ url_for('auth.esqueci_senha') }}">Esqueci a senha</a>
-  </p>
-
-  <p class="voltar">
-    Não tem conta?
-    <a href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
-  </p>
-
-  <p class="voltar">
-    <a href="{{ url_for('publico.inicio') }}">Voltar</a>
+  {# Bloco 17c (21/11, pedido do Dimas): os três caminhos numa linha só,
+     da largura do formulário e do botão Entrar, sem frase entre eles. #}
+  <p class="voltar acoes-de-navegacao acoes-de-entrada">
+    <a class="botao botao--secundario" href="{{ url_for('auth.esqueci_senha') }}">Esqueci a senha</a>
+    <a class="botao botao--secundario" href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
+    <a class="botao botao--secundario" href="{{ url_for('publico.inicio') }}">Voltar</a>
   </p>
 </div>
 {% endblock %}

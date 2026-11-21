@@ -1243,7 +1243,6 @@ a.botao.botao--secundario {
 
 .selo-nao-lida { color: #8a5a00; font-weight: bold; }
 
-.cartao-reserva__conversa { margin: 0.8rem 0 0; }
 
 .aviso-provisorio { background: #fff7e0; border-color: #e6cf8f; color: #6b4e00; }
 
@@ -1277,3 +1276,122 @@ a.botao.botao--secundario {
 .aviso-resposta { background: #fff7e0; border-color: #c99a2e; color: #5a4100; }
 .aviso-resposta p { margin: 0.2rem 0; }
 .aviso-resposta--card { display: inline-block; margin-right: 0.6rem; padding: 0.2rem 0.5rem; }
+
+/* =====================================================================
+ * Bloco 17c (21/11, pedidos do Dimas) — botões.
+ *
+ * Três tipos, cada um com o seu efeito, só em CSS (sem JavaScript):
+ *
+ *   principal    escuro: `button`, `a.botao`
+ *                mouse: clareia e sobe 1 px, com sombra; clique: afunda
+ *   secundário   contornado: `button.secundario`, `a.botao.botao--secundario`
+ *                mouse: ganha fundo claro; clique: a borda escurece
+ *   destrutivo   `.perigo` (cancelar, desistir, remover, excluir)
+ *                mouse: tom vermelho suave; clique: o vermelho fica forte
+ *
+ * `:focus-visible` dá a quem usa o teclado um contorno nítido — o efeito
+ * de mouse sozinho não chega a essa pessoa. E quem pede menos movimento
+ * ao sistema operacional não recebe transição nem deslocamento.
+ * ===================================================================== */
+
+/* Os botões do card do Painel da equipe, menores: o card é denso, e os
+ * três lado a lado pesavam mais que o próprio conteúdo. */
+.cartao-painel__acoes { gap: 0.6rem; }
+.cartao-painel__acoes a.botao {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* A caixa da mensagem mede 40rem com borda e espaço interno, como o campo
+ * de resposta: as duas bordas da direita se alinham. */
+.mural-mensagem { box-sizing: border-box; }
+
+/* O terceiro botão do card do hóspede, ao lado dos de pagamento. */
+.cartao-reserva__acoes a.botao { margin-top: 0.25rem; }
+
+button,
+a.botao {
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+              box-shadow 0.15s ease, transform 0.15s ease, color 0.15s ease;
+}
+
+/* Principal */
+button:not(.secundario):not(.sair):hover,
+a.botao:not(.botao--secundario):hover {
+  background: #3f5546;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  transform: translateY(-1px);
+}
+button:not(.secundario):not(.sair):active,
+a.botao:not(.botao--secundario):active {
+  background: #243029;
+  box-shadow: none;
+  transform: translateY(0);
+}
+
+/* Secundário */
+button.secundario:hover,
+a.botao.botao--secundario:hover { background: #eef2ec; }
+button.secundario:active,
+a.botao.botao--secundario:active {
+  background: #e2e8df;
+  border-color: #1b241e;
+}
+
+/* Destrutivo: vem depois do secundário e o sobrepõe. */
+button.perigo {
+  color: #8a2b22;
+  border-color: #8a2b22;
+}
+button.perigo:hover { background: #fdecea; }
+button.perigo:active {
+  background: #f6d2cd;
+  border-color: #6d1f18;
+  color: #6d1f18;
+}
+
+/* Teclado */
+button:focus-visible,
+a.botao:focus-visible {
+  outline: 2px solid #c99a2e;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  a.botao { transition: none; }
+  button:not(.secundario):not(.sair):hover,
+  a.botao:not(.botao--secundario):hover { transform: none; }
+}
+
+/* Bloco 17c: os links que ficavam sozinhos na linha viraram botões
+ * contornados. O grupo os põe lado a lado, e a frase que às vezes vem
+ * junto ("Não tem conta?") fica alinhada ao centro do botão. Links no meio
+ * de uma frase, nos menus e nas linhas de tabela continuam links. */
+.acoes-de-navegacao {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin: 1.25rem 0;
+}
+
+/* Os botões de navegação no tamanho dos botões do card do Painel: são
+ * caminhos, não a ação principal da tela (21/11, pedido do Dimas sobre o
+ * cadastro, estendido a todos para que o sistema fale uma língua só). */
+.acoes-de-navegacao a.botao {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* No login, os três caminhos numa linha da largura do formulário: cada
+ * botão cresce até a linha fechar, sem quebrar o próprio texto. */
+.acoes-de-entrada { flex-wrap: nowrap; gap: 0.5rem; }
+.acoes-de-entrada a.botao {
+  flex: 1 1 auto;
+  text-align: center;
+  white-space: nowrap;
+  padding: 0.35rem 0.5rem;
+}

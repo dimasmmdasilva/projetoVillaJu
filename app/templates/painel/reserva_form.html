@@ -72,11 +72,11 @@
   <button type="submit">{{ 'Registrar reserva' if novo else 'Salvar' }}</button>
 </form>
 
-<p>
+<p class="acoes-de-navegacao">
   {% if novo %}
-  <a href="{{ url_for('painel.inicio') }}">Voltar ao painel</a>
+  <a class="botao botao--secundario" href="{{ url_for('painel.inicio') }}">Voltar ao painel</a>
   {% else %}
-  <a href="{{ url_for('reservas.detalhe', identificador=reserva.id) }}">Voltar à reserva</a>
+  <a class="botao botao--secundario" href="{{ url_for('reservas.detalhe', identificador=reserva.id) }}">Voltar à reserva</a>
   {% endif %}
 </p>
 {% endblock %}

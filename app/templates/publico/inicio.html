@@ -90,11 +90,11 @@
          o nome outra vez numa lista. Não cria reserva — grava um pedido
          que a recepção confirma. #}
       {# O botão "Solicitar reserva" saiu no Bloco 13 e passou a ser da
-         página do chalé. Fica o link de texto, porque a imagem acima já
-         leva ao mesmo lugar e dois botões iguais no mesmo cartão são um
-         a mais. #}
+         página do chalé. Bloco 17c (21/11, pedido do Dimas): o link de
+         texto que ficou virou botão contornado — secundário, porque a
+         imagem acima já leva ao mesmo lugar. #}
       <p class="acao-chale">
-        <a href="{{ url_for('publico.chale', apelido=chale.apelido) }}">
+        <a class="botao botao--secundario" href="{{ url_for('publico.chale', apelido=chale.apelido) }}">
           Ver fotos e detalhes do {{ chale.nome }}
         </a>
       </p>

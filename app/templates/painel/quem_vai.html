@@ -78,7 +78,7 @@
     <form method="post"
           action="{{ url_for('quem_vai.remover', identificador=reserva.id, ordem=pessoa.ordem) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="secundario">Remover da lista</button>
+      <button type="submit" class="secundario perigo">Remover da lista</button>
     </form>
     {% else %}
     <p>
@@ -110,7 +110,7 @@
 </section>
 {% endif %}
 
-<p class="voltar">
-  <a href="{{ url_for('pagamentos.cards') }}">Pagamentos</a>
+<p class="voltar acoes-de-navegacao">
+  <a class="botao botao--secundario" href="{{ url_for('pagamentos.cards') }}">Pagamentos</a>
 </p>
 {% endblock %}

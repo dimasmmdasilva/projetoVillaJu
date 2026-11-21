@@ -37,7 +37,7 @@
    válidas na mesma data, o cálculo do valor total ficaria ambíguo. A
    verificação é feita no repositório, antes de gravar. #}
 
-<p><a href="{{ url_for('chales.nova_tarifa', chale_id=chale.id) }}">Cadastrar tarifa</a></p>
+<p class="acoes-de-navegacao"><a class="botao botao--secundario" href="{{ url_for('chales.nova_tarifa', chale_id=chale.id) }}">Cadastrar tarifa</a></p>
 
 {% if tarifas %}
 <table>
@@ -58,7 +58,7 @@
               action="{{ url_for('chales.excluir_tarifa', chale_id=chale.id,
                                  identificador=tarifa.id) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit">Excluir</button>
+          <button type="submit" class="secundario perigo">Excluir</button>
         </form>
       </td>
     </tr>
@@ -71,5 +71,5 @@
 {% endif %}
 {% endif %}
 
-<p><a href="{{ url_for('chales.listar') }}">Voltar à lista</a></p>
+<p class="acoes-de-navegacao"><a class="botao botao--secundario" href="{{ url_for('chales.listar') }}">Voltar à lista</a></p>
 {% endblock %}

@@ -29,9 +29,9 @@
     Entre na sua conta e abra a reserva em <strong>Minhas reservas</strong>:
     a conversa com a pousada fica ali, junto da reserva.
   </p>
-  <p>
+  <p class="acoes-de-navegacao">
     <a class="botao" href="{{ url_for('auth.login') }}">Entrar</a>
-    · <a href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
+    <a class="botao botao--secundario" href="{{ url_for('publico.criar_conta') }}">Criar conta</a>
   </p>
 </section>
 {% endblock %}

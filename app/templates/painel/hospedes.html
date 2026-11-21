@@ -23,7 +23,7 @@
          maxlength="150">
   <button type="submit">Buscar</button>
   {% if busca %}
-  <a href="{{ url_for('hospedes.listar') }}">Limpar</a>
+  <a class="botao botao--secundario" href="{{ url_for('hospedes.listar') }}">Limpar</a>
   {% endif %}
 </form>
 

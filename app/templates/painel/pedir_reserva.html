@@ -101,8 +101,8 @@
   <button type="submit">Continuar</button>
 </form>
 
-<p class="voltar">
-  <a href="{{ url_for('reservas.pedir') }}">Mudar chalé ou datas</a>
+<p class="voltar acoes-de-navegacao">
+  <a class="botao botao--secundario" href="{{ url_for('reservas.pedir') }}">Mudar chalé ou datas</a>
 </p>
 
 {% elif passo == 3 %}
@@ -158,8 +158,8 @@
   nome, fale com a recepção.
 </p>
 
-<p class="voltar">
-  <a href="{{ url_for('reservas.pedir', chale=resumo.chale_id,
+<p class="voltar acoes-de-navegacao">
+  <a class="botao botao--secundario" href="{{ url_for('reservas.pedir', chale=resumo.chale_id,
                       entrada=resumo.entrada|iso, saida=resumo.saida|iso) }}">Mudar o número de pessoas</a>
 </p>
 
@@ -262,12 +262,12 @@
   partir da confirmação. A chave Pix aparece no seu painel.
 </p>
 
-<p class="voltar">
-  <a href="{{ url_for('reservas.pedir') }}">Escolher outro chalé ou outras datas</a>
+<p class="voltar acoes-de-navegacao">
+  <a class="botao botao--secundario" href="{{ url_for('reservas.pedir') }}">Escolher outro chalé ou outras datas</a>
 </p>
 {% endif %}
 
-<p class="voltar">
-  <a href="{{ url_for('reservas.minhas') }}">Minhas reservas</a>
+<p class="voltar acoes-de-navegacao">
+  <a class="botao botao--secundario" href="{{ url_for('reservas.minhas') }}">Minhas reservas</a>
 </p>
 {% endblock %}
