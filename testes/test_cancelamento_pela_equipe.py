@@ -14,6 +14,7 @@ cancelou; e a regra é uma só, `regulamento.tem_direito_a_devolucao`.
 """
 
 import datetime as dt
+import re
 from decimal import Decimal
 
 import pytest
@@ -265,3 +266,68 @@ def test_o_log_registra_o_motivo_e_a_devolucao(aplicacao, conta, chale, recepcao
             detalhe = cursor.fetchone()[0]
     assert detalhe == "Equipe cancelou a reserva pela pousada; com devolução"
     assert DADOS["nome"] not in detalhe
+
+
+# ===========================================================================
+# Bloco 18f — o detalhe da equipe conta como a reserva foi cancelada
+#
+# Pedido do Dimas: "é importante relatar os fluxos e decisões dentro do
+# sistema". O hóspede via "Cancelada pela pousada"; a equipe via só
+# "cancelada". Agora vê o motivo, quando e quem — e quem é lido da
+# auditoria, não deduzido.
+# ===========================================================================
+
+def _situacao(aplicacao, identificador):
+    pagina = _entrar(aplicacao, *ADMIN).get(f"/reservas/{identificador}").data.decode()
+    linha = pagina[pagina.index("<th>Situação"):]
+    return re.sub(r"\s+", " ", linha[:linha.index("</tr>")])
+
+
+def test_cancelada_pela_pousada_diz_motivo_data_e_quem(aplicacao, conta, chale):
+    identificador = _pedir(aplicacao, conta, chale, entrada=30)
+    _cancelar(_entrar(aplicacao, *ADMIN), identificador, "equipe")
+    linha = _situacao(aplicacao, identificador)
+    assert "<strong>cancelada</strong> — pela pousada" in linha
+    assert f"Cancelada em {dt.date.today():%d/%m/%Y} às " in linha
+    assert "por admin (administrador)." in linha
+
+
+def test_a_pedido_do_hospede_registrado_pela_recepcao_diz_quem(aplicacao, conta,
+                                                                chale):
+    identificador = _pedir(aplicacao, conta, chale, entrada=30)
+    _cancelar(_entrar(aplicacao, *RECEPCAO), identificador, "pedido_do_hospede")
+    linha = _situacao(aplicacao, identificador)
+    assert "— a pedido do hóspede" in linha
+    assert "por recepcao (recepcionista)." in linha
+
+
+def test_cancelada_pelo_hospede_no_site_nao_mostra_o_login_dele(aplicacao, conta,
+                                                                 chale, recepcao):
+    """O login do hóspede é o HMAC do e-mail: não diria nada a ninguém."""
+    identificador = _quitada(aplicacao, conta, chale, recepcao, 30)
+    with aplicacao.app_context():
+        assert pedido.cancelar(conta, identificador) is not None
+    linha = _situacao(aplicacao, identificador)
+    assert "— a pedido do hóspede" in linha
+    assert "pelo próprio hóspede, no site." in linha
+    assert conta["login"] not in linha
+
+
+def test_cancelada_pelo_prazo_do_pix_foi_automatico(aplicacao, conta, chale):
+    """A varredura não tem autor; a frase diz que foi o prazo."""
+    identificador = _pedir(aplicacao, conta, chale, entrada=30)
+    with aplicacao.app_context():
+        with conexao.obter_cursor() as cursor:
+            cursor.execute(
+                "UPDATE reserva SET prazo_pagamento = NOW() - INTERVAL 1 MINUTE "
+                "WHERE id = %s", (identificador,))
+        reserva_repo.cancelar_pedidos_vencidos()
+    linha = _situacao(aplicacao, identificador)
+    assert "— Pix não informado no prazo" in linha
+    assert "automaticamente, quando o prazo do Pix venceu." in linha
+
+
+def test_reserva_viva_nao_tem_linha_de_cancelamento(aplicacao, conta, chale):
+    identificador = _pedir(aplicacao, conta, chale, entrada=30)
+    linha = _situacao(aplicacao, identificador)
+    assert "Cancelada" not in linha and " — " not in linha

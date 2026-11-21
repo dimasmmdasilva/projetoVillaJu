@@ -34,6 +34,7 @@ import logging
 import math
 
 from app.dados import (
+    auditoria_repo,
     chale_repo,
     hospede_repo,
     mensagem_repo,
@@ -93,6 +94,41 @@ def selo_estadia(reserva: dict, hoje: dt.date) -> str:
     if reserva["data_entrada"] <= hoje:
         return "em andamento"
     return f"próxima — {reserva['data_entrada']:%d/%m/%Y}"
+
+
+def cancelamento(reserva: dict, usuario_id=None):
+    """Como a reserva foi cancelada, para o detalhe da equipe (Bloco 18f).
+
+    Pedido do Dimas: "é importante relatar os fluxos e decisões dentro do
+    sistema". O hóspede já via "Cancelada pela pousada"; a equipe via só
+    "cancelada". Agora vê o motivo, quando e quem:
+
+    - pelo prazo do Pix: a varredura, sem autor — "automaticamente";
+    - pelo hóspede no site: "o próprio hóspede, pelo site" — o login dele
+      é o HMAC do e-mail e não diria nada a ninguém;
+    - pela equipe: o login e o perfil de quem clicou, lidos da auditoria.
+
+    A data é a da reserva (`cancelado_em`), gravada pelo banco no mesmo
+    UPDATE que cancelou. `None` se a reserva não está cancelada.
+    """
+    if reserva.get("situacao") != "cancelada":
+        return None
+    motivo = reserva.get("motivo_cancelamento")
+    if motivo == "prazo_do_pix":
+        quem = "automaticamente, quando o prazo do Pix venceu"
+    else:
+        evento = auditoria_repo.quem_cancelou(reserva["id"], usuario_id=usuario_id)
+        if evento is None:
+            quem = "autor não registrado"
+        elif evento["acao"] == auditoria_repo.CANCELADA_PELO_HOSPEDE:
+            quem = "pelo próprio hóspede, no site"
+        else:
+            quem = f"por {evento['login']} ({evento['perfil']})"
+    return {
+        "motivo": _MOTIVOS.get(motivo, "motivo não registrado"),
+        "quando": reserva.get("cancelado_em"),
+        "quem": quem,
+    }
 
 
 def autor(reserva: dict) -> str:

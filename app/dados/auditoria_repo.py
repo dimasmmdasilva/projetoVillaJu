@@ -69,6 +69,20 @@ _SQL_LISTAR = (
     "ORDER BY l.id DESC LIMIT %s"
 )
 
+# Bloco 18f: quem cancelou uma reserva, para o detalhe da equipe. Só as
+# três ações em que uma PESSOA cancela; o cancelamento por prazo do Pix é
+# da varredura e não tem autor. A lista de ações vai escrita na consulta,
+# não montada.
+_SQL_QUEM_CANCELOU = (
+    "SELECT l.acao, u.login, u.perfil, l.data_hora "
+    "FROM log_auditoria l "
+    "LEFT JOIN usuario u ON u.id = l.usuario_id "
+    "WHERE l.tabela_afetada = 'reserva' AND l.registro_id = %s "
+    "  AND l.acao IN ('CANCELADA_PELO_HOSPEDE', 'CANCELADA_PELA_EQUIPE', "
+    "                 'CANCELADA_SEM_PAGAMENTO') "
+    "ORDER BY l.id DESC LIMIT 1"
+)
+
 
 def registrar(
     acao: str,
@@ -115,6 +129,13 @@ def listar(limite: int = 100, usuario_id=None) -> list:
     with obter_cursor(usuario_id=usuario_id, dicionario=True) as cursor:
         cursor.execute(_SQL_LISTAR, (limite,))
         return cursor.fetchall()
+
+
+def quem_cancelou(reserva_id, usuario_id=None):
+    """O último evento de cancelamento por uma pessoa; `None` se não há."""
+    with obter_cursor(usuario_id=usuario_id, dicionario=True) as cursor:
+        cursor.execute(_SQL_QUEM_CANCELOU, (reserva_id,))
+        return cursor.fetchone()
 
 
 def contar_por_acao(usuario_id=None) -> list:

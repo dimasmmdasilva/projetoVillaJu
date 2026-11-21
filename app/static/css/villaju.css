@@ -1569,3 +1569,31 @@ a.botao:focus-visible {
   .fotos-da-pousada__pausa,
   .fotos-da-pousada__pausa + label { display: none; }
 }
+
+/* =====================================================================
+ * Bloco 18f: o banner branco (pedido do Dimas em 21/11).
+ *
+ * O verde-escuro escondia o logo, que tem fundo creme: parecia um selo
+ * colado num cartaz. No branco, o logo fica maior e é ele que dá a cor; o
+ * título e a chamada passam a preto, maiores, para acompanhá-lo. A borda
+ * fina separa o banner do fundo da página (#fafafa), que é quase branco.
+ * ===================================================================== */
+.banner {
+  background: #fff;
+  color: #1a1a1a;
+  border: 1px solid #e2e6e3;
+  padding: 2rem 2.25rem;
+  gap: 2.5rem;
+}
+.banner__logo {
+  width: 260px;
+  height: 260px;
+}
+.banner h1 { font-size: 3rem; color: #1a1a1a; }
+.banner .chamada { font-size: 1.4rem; color: #1a1a1a; }
+
+/* Em tela estreita, o logo não pode passar da largura da coluna. */
+@media (max-width: 40rem) {
+  .banner__logo { width: 180px; height: 180px; }
+  .banner h1 { font-size: 2.2rem; }
+}

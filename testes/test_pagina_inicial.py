@@ -252,3 +252,47 @@ def test_um_atraso_por_foto_no_ciclo_certo():
     assert _valor_final(
         NORMAL, f".fotos-da-pousada__lista li:nth-child({total + 1})", "animation-delay"
     ) is None
+
+
+# ===========================================================================
+# Bloco 18f — o banner branco, com o logo maior e letras pretas
+# ===========================================================================
+
+_MEDIA = re.compile(r"@media[^{]*\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}")
+SEM_MEDIA = _MEDIA.sub("", CSS)
+ESTREITA = "\n".join(
+    corpo for consulta, corpo in re.findall(
+        r"@media\s*(\(max-width:[^)]*\))\s*\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}", CSS)
+)
+
+
+@pytest.mark.parametrize("seletor,propriedade,valor", [
+    (".banner", "background", "#fff"),
+    (".banner", "color", "#1a1a1a"),
+    (".banner h1", "color", "#1a1a1a"),
+    (".banner .chamada", "color", "#1a1a1a"),
+])
+def test_o_banner_e_branco_com_letras_pretas(seletor, propriedade, valor):
+    assert _valor_final(SEM_MEDIA, seletor, propriedade) == valor
+
+
+def test_o_banner_tem_borda_para_nao_sumir_no_fundo():
+    """O fundo da página é #fafafa: sem borda, o banner branco não teria
+    contorno."""
+    assert _valor_final(SEM_MEDIA, "body", "background") == "#fafafa"
+    assert _valor_final(SEM_MEDIA, ".banner", "border").startswith("1px solid")
+
+
+def test_logo_e_letras_maiores_que_no_18e():
+    def rem(seletor):
+        return float(_valor_final(SEM_MEDIA, seletor, "font-size").removesuffix("rem"))
+
+    assert int(_valor_final(SEM_MEDIA, ".banner__logo", "width").removesuffix("px")) >= 240
+    assert _valor_final(SEM_MEDIA, ".banner__logo", "width") == \
+        _valor_final(SEM_MEDIA, ".banner__logo", "height")
+    assert rem(".banner h1") > 2.2
+    assert rem(".banner .chamada") > 1.15
+
+
+def test_em_tela_estreita_o_logo_encolhe():
+    assert _valor_final(ESTREITA, ".banner__logo", "width") == "180px"

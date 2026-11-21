@@ -71,3 +71,6 @@ Claude outputs/
 # Mensagens gravadas pelo modo `arquivo` do correio. São conteúdo de
 # execução, não código — e carregam token de confirmação.
 instance/
+
+# Documento pessoal de método de trabalho - fica só com o Dimas
+metodo_dimas.md

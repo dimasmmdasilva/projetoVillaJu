@@ -439,6 +439,7 @@ afrouxar a política.
 | 18b | Página "Como usar" para a equipe, por tarefa, com os prazos tirados do regulamento | concluído |
 | 18c | Backup diário automático com usuário só de leitura, aviso no Painel e restauração testada (RNF06) | concluído |
 | 18e | Logo na barra e no banner, fotos da pousada passando na página inicial (só CSS, sem metadado), barra só com o perfil, "Nada foi pago" no cancelamento | concluído |
+| 18f | Banner branco com o logo maior; o detalhe da reserva diz por que, quando e quem cancelou | concluído |
 
 Falta só o **12** (mensagem em HTML), opcional.
 

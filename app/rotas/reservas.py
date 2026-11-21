@@ -40,6 +40,7 @@ from app.extensoes import limiter
 from app.seguranca.cripto import FalhaDeAutenticacao
 from app.servicos import (
     conversa,
+    painel_equipe,
     pagamentos,
     pedido,
     registro_pela_recepcao,
@@ -227,6 +228,8 @@ def detalhe(identificador):
         ),
         rotulos_do_motivo=pagamentos.ROTULOS_DO_MOTIVO,
         limite_da_mensagem=conversa.LIMITE_DO_TEXTO,
+        # Bloco 18f: motivo, quando e quem, se a reserva foi cancelada.
+        cancelamento=painel_equipe.cancelamento(reserva, _quem()),
     )
 
 
