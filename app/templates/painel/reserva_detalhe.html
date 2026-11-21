@@ -137,12 +137,19 @@
 {% endif %}
 {% endif %}
 
+{% if reserva.situacao == 'confirmada' %}
+{# Bloco 17d: não há "Marcar como concluída". A reserva se conclui sozinha
+   quando a saída chega com o pagamento quitado. #}
+<p>A reserva é concluída automaticamente depois da data de saída, com o
+   pagamento quitado.</p>
+{% endif %}
+
 {% if transicoes %}
 {# Cada transição é um POST próprio, com token CSRF. A situação não vem do
    formulário de edição: de `cancelada` não se volta, e misturar as duas
    coisas permitiria reabilitar uma reserva por um campo oculto. #}
 {% for destino in transicoes %}
-<form method="post" class="acao"
+<form method="post" class="acao-da-situacao"
       action="{{ url_for('reservas.mudar_situacao', identificador=reserva.id) }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="situacao" value="{{ destino }}">

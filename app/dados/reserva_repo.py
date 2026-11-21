@@ -212,9 +212,15 @@ def chale_disponivel(chale_id, entrada, saida, ignorar_id=0, usuario_id=None) ->
 # que lança o pagamento junto. Um "Marcar como confirmada" deixaria passar
 # uma reserva confirmada sem nenhum Pix conferido — e o selo da estadia, o
 # controle do mês e a devolução contam com esse lançamento.
+#
+# **E de `confirmada` não se vai a `concluida` por aqui** (Bloco 17d). A
+# conclusão é automática, em `concluir_estadias_encerradas`, quando a
+# saída chega com o pagamento quitado. Um "Marcar como concluída" deixava
+# concluir uma reserva com o restante em aberto — e ela sumia da tela de
+# Pagamentos, que só olha as pendentes e as confirmadas.
 TRANSICOES = {
     "pendente": ("cancelada",),
-    "confirmada": ("cancelada", "concluida"),
+    "confirmada": ("cancelada",),
     "cancelada": (),
     "concluida": (),
 }
@@ -557,8 +563,9 @@ def atualizar(identificador, dados: dict, usuario_id=None) -> None:
 def mudar_situacao(identificador, nova: str, usuario_id=None) -> None:
     """Move a reserva no ciclo de vida, respeitando as transições.
 
-    Desde o Bloco 16b, só cancela e conclui: a confirmação é da conferência
-    do Pix. Nenhuma transição volta a ocupar o chalé, e por isso a
+    Desde o Bloco 16b não confirma (a confirmação é da conferência do Pix),
+    e desde o 17d não conclui (a conclusão é automática, pela data e pelo
+    pagamento): só cancela. Nenhuma transição volta a ocupar o chalé, e por isso a
     reverificação de conflito que havia aqui saiu — era código que nenhum
     caminho alcançava. Se o mapa mudar, a trigger de sobreposição continua
     recusando no banco.
@@ -730,6 +737,45 @@ def pedidos_em_aberto(hospede_id, usuario_id=None) -> int:
             _cancelar_vencidos(cursor)
             executar(cursor, _SQL_CONTAR_EM_ABERTO, (hospede_id,))
             return cursor.fetchone()[0]
+        finally:
+            cursor.close()
+
+
+# Etapa 5, Bloco 17d: a estadia que terminou, com o pagamento quitado, se
+# conclui sozinha. Duas condições, as duas no UPDATE:
+#
+# - **a saída chegou** (`data_saida <= CURDATE()`, o relógio do banco, como
+#   o prazo do Pix). No dia da saída o hóspede vai embora, e o selo da
+#   estadia já diz "concluída" desde a manhã;
+# - **o pagamento está quitado**: há o lançamento `integral`, ou o
+#   `restante` depois do sinal. Com o restante em aberto, a reserva
+#   continua confirmada e em "Precisa de ação" até a equipe conferir; aí
+#   se conclui na varredura seguinte.
+#
+# A reserva antiga, sem modalidade, nunca entrou no controle do Pix e não
+# tem lançamento a esperar: conclui só pela data.
+_SQL_CONCLUIR_ENCERRADAS = (
+    "UPDATE reserva r SET r.situacao = 'concluida' "
+    "WHERE r.situacao = 'confirmada' "
+    "  AND r.data_saida <= CURDATE() "
+    "  AND (r.modalidade IS NULL "
+    "       OR EXISTS (SELECT 1 FROM pagamento p "
+    "                  WHERE p.reserva_id = r.id "
+    "                    AND p.tipo IN ('integral', 'restante')))"
+)
+
+
+def concluir_estadias_encerradas(usuario_id=None) -> int:
+    """Conclui as estadias terminadas e quitadas. Devolve quantas.
+
+    Chamada pelo gancho de requisição da aplicação, junto da varredura do
+    Pix vencido. Não há botão: quem conclui é a data, com o pagamento.
+    """
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            executar(cursor, _SQL_CONCLUIR_ENCERRADAS)
+            return cursor.rowcount
         finally:
             cursor.close()
 

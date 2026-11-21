@@ -57,7 +57,8 @@ def create_app(configuracao=None, iniciar_banco: bool = True) -> Flask:
 
 
 def _registrar_varredura_de_pedidos(app: Flask) -> None:
-    """Cancela os pedidos cujo prazo do Pix venceu — Etapa 5, Bloco 7.
+    """Cancela os pedidos cujo prazo do Pix venceu — Etapa 5, Bloco 7 — e,
+    desde o Bloco 17d, conclui as estadias terminadas e quitadas.
 
     O mesmo desenho da varredura de cadastros, logo acima: sem agendador,
     disparada por qualquer requisição, travada em uma vez por minuto, e
@@ -93,12 +94,20 @@ def _registrar_varredura_de_pedidos(app: Flask) -> None:
                 return None
             estado["ultima"] = agora
 
-        try:
-            from app.dados import reserva_repo
+        from app.dados import reserva_repo
 
+        try:
             reserva_repo.cancelar_pedidos_vencidos()
         except Exception:  # noqa: BLE001
             app.logger.exception("falha na varredura de pedidos vencidos")
+
+        # Bloco 17d: na mesma passada, as estadias terminadas e quitadas se
+        # concluem. Proteção própria: uma falha aqui não impede a de cima,
+        # e nenhuma das duas derruba a resposta.
+        try:
+            reserva_repo.concluir_estadias_encerradas()
+        except Exception:  # noqa: BLE001
+            app.logger.exception("falha na conclusão das estadias encerradas")
 
         return None
 

@@ -1395,3 +1395,17 @@ a.botao:focus-visible {
   white-space: nowrap;
   padding: 0.35rem 0.5rem;
 }
+
+/* Bloco 17d (21/11, pedido do Dimas): "Marcar como cancelada" é decisão
+ * importante — no tamanho dos botões da página ("Enviar resposta") e
+ * alinhado à esquerda, e não miúdo e recuado como os de linha de tabela
+ * (`.acao`). */
+.acao-da-situacao { margin: 0.75rem 0; }
+.acao-da-situacao button { margin: 0; }
+
+/* No login, os avisos vêm depois dos três caminhos. */
+.cartao-entrada .acoes-de-entrada + .avisos { margin-top: 0.5rem; }
+
+/* No login, o aviso tem a largura do botão Entrar e dos três caminhos —
+ * fora daqui ele continua do tamanho do próprio texto (`fit-content`). */
+.cartao-entrada .avisos .aviso { width: 100%; }

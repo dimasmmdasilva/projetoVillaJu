@@ -310,8 +310,15 @@ def _reservar(aplicacao, hospede_id, chale_id, entrada, saida, situacao):
         # confirmada. A confirmação é a da conferência do Pix (Bloco 16b).
         if situacao in ("confirmada", "concluida"):
             _confirmar_como_o_pix(identificador)
-        if situacao in ("cancelada", "concluida"):
+        if situacao == "cancelada":
             reserva_repo.mudar_situacao(identificador, situacao)
+        elif situacao == "concluida":
+            # Bloco 17d: a conclusão é automática; aqui, o efeito dela.
+            with conexao.obter_cursor() as cursor:
+                cursor.execute(
+                    "UPDATE reserva SET situacao = 'concluida' WHERE id = %s",
+                    (identificador,),
+                )
     return identificador
 
 

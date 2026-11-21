@@ -323,11 +323,24 @@ def test_reserva_nao_nasce_confirmada(banco):
     assert "Pix" in str(erro.value)
 
 
-def test_confirmada_vira_concluida(banco):
+def test_confirmada_nao_vira_concluida_por_aqui(banco):
+    """Bloco 17d: a conclusão é automática, pela data e pelo pagamento
+    (`concluir_estadias_encerradas`); por `mudar_situacao`, não."""
     identificador = reserva_repo.criar(_reserva("2027-07-01", "2027-07-05"))
     _confirmar_pelo_banco(banco, identificador)
-    reserva_repo.mudar_situacao(identificador, "concluida")
-    assert reserva_repo.buscar_por_id(identificador)["situacao"] == "concluida"
+    with pytest.raises(ErroDeReserva):
+        reserva_repo.mudar_situacao(identificador, "concluida")
+    assert reserva_repo.buscar_por_id(identificador)["situacao"] == "confirmada"
+
+
+def _concluir_pelo_banco(identificador):
+    with conexao.obter_conexao() as conectada:
+        cursor = conectada.cursor()
+        cursor.execute(
+            "UPDATE reserva SET situacao = 'concluida' WHERE id = %s",
+            (identificador,),
+        )
+        cursor.close()
 
 
 def test_pendente_vira_cancelada(banco):
@@ -341,6 +354,7 @@ def test_pendente_vira_cancelada(banco):
     [
         ("pendente", "concluida"),
         ("pendente", "confirmada"),
+        ("confirmada", "concluida"),
         ("cancelada", "confirmada"),
         ("cancelada", "pendente"),
         ("concluida", "confirmada"),
@@ -358,7 +372,9 @@ def test_transicao_proibida_e_recusada(banco, de, para):
 
     if de == "concluida":
         _confirmar_pelo_banco(banco, identificador)
-        reserva_repo.mudar_situacao(identificador, "concluida")
+        _concluir_pelo_banco(identificador)
+    elif de == "confirmada":
+        _confirmar_pelo_banco(banco, identificador)
     elif de == "cancelada":
         reserva_repo.mudar_situacao(identificador, "cancelada")
 

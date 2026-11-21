@@ -258,3 +258,42 @@ def test_os_botoes_de_navegacao_sao_do_tamanho_menor():
     for propriedade in ("padding", "font-size"):
         assert _valor_final(NORMAL, ".acoes-de-navegacao a.botao", propriedade) == \
             _valor_final(NORMAL, ".cartao-painel__acoes a.botao", propriedade)
+
+
+# ===========================================================================
+# 6. Bloco 17d: os avisos do login e o "Marcar como cancelada"
+# ===========================================================================
+
+def test_o_aviso_do_login_vem_depois_dos_tres_caminhos(aplicacao):
+    """Antes o aviso ficava entre o Entrar e os botões, e os empurrava para
+    baixo quando aparecia. Conferido com um aviso de verdade na tela."""
+    cliente = aplicacao.test_client()
+    with cliente.session_transaction() as sessao:
+        sessao["_flashes"] = [("sucesso", "Sessão encerrada.")]
+    html = cliente.get("/login").data.decode()
+    assert "Sessão encerrada." in html
+    assert html.index("acoes-de-entrada") < html.index('class="avisos"') \
+        < html.index("Sessão encerrada.")
+
+
+def test_marcar_como_cancelada_tem_o_tamanho_dos_botoes_da_pagina(aplicacao, conta,
+                                                                  chale):
+    identificador = _pedir(aplicacao, conta, chale)
+    pagina = _entrar(aplicacao, "admin", "Villa@Admin2026").get(
+        f"/reservas/{identificador}").data.decode()
+    inicio = pagina.index("Marcar como cancelada")
+    formulario = pagina[pagina.rindex("<form", 0, inicio):inicio]
+    assert 'class="acao-da-situacao"' in formulario, "não é o .acao miúdo"
+    # Sem regra de tamanho própria: vale o do `button`, o mesmo do
+    # "Enviar resposta"; e sem o recuo à esquerda do `.acao`.
+    assert _valor_final(NORMAL, ".acao-da-situacao button", "padding") is None
+    assert _valor_final(NORMAL, ".acao-da-situacao button", "font-size") is None
+    assert _valor_final(NORMAL, ".acao-da-situacao button", "margin") == "0"
+
+
+def test_o_aviso_do_login_tem_a_largura_do_entrar():
+    """21/11: no cartão do login, o aviso ocupa a largura do formulário;
+    nas outras telas continua do tamanho do texto."""
+    assert _valor_final(NORMAL, ".cartao-entrada .avisos .aviso", "width") == "100%"
+    assert _valor_final(NORMAL, ".aviso", "width") == "fit-content"
+    assert _valor_final(NORMAL, ".aviso", "box-sizing") == "border-box"
