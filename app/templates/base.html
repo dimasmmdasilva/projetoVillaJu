@@ -38,7 +38,10 @@
      face pública continuava lá, mas sem link para ela a partir de
      dentro. Para o hóspede isso era um cercado — ele entrava e via duas
      telas. #}
-  <a class="marca" href="{{ url_for('publico.inicio') }}">VillaJu</a>
+  {# Bloco 18e: o selo é a ilustração do logo, sem as letras — a 36 px
+     elas não se leem. `alt` vazio porque o nome vem escrito ao lado: o
+     leitor de tela diria "VillaJu" duas vezes. #}
+  <a class="marca" href="{{ url_for('publico.inicio') }}"><img class="marca__selo" src="{{ url_for('static', filename='img/marca/villaju-selo.jpg') }}" alt="" width="72" height="36">VillaJu</a>
   <nav>
     <a href="{{ url_for('painel.inicio') }}">Painel</a>
     {% if tem_perfil('administrador', 'recepcionista') %}
@@ -82,8 +85,11 @@
     <a href="{{ url_for('ajuda.como_usar') }}">Como usar</a>
     {% endif %}
   </nav>
+  {# Bloco 18e (21/11, pedido do Dimas): só o perfil. O nome está no
+     "Olá" do Painel; na barra, em toda página, era nome exposto à toa. #}
+  {# O valor no banco é `hospede`, sem acento; a tela escreve em português. #}
   <span class="identificacao">
-    {{ sessao_usuario.nome }} &middot; {{ sessao_usuario.perfil }}
+    {{ rotulo_do_perfil.get(sessao_usuario.perfil, sessao_usuario.perfil) }}
   </span>
   {# Logout por POST: com GET, bastaria a um sítio hostil embutir uma
      imagem apontando para /logout para derrubar a sessão de quem

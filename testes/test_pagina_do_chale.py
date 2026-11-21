@@ -465,7 +465,10 @@ def test_a_barra_mostra_administrador_e_nao_nome_de_pessoa(aplicacao):
 
     painel = cliente.get("/painel/").data.decode()
 
-    assert "Administrador" in painel
+    # Desde o Bloco 18e a barra mostra só o perfil — nome de pessoa
+    # nenhum, nem o da conta.
+    barra = re.search(r'<span class="identificacao">\s*(.*?)\s*</span>', painel, re.S)
+    assert barra and barra.group(1) == "administrador"
     assert "Vania" not in painel
 
 

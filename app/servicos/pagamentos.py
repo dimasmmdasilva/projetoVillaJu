@@ -306,7 +306,8 @@ ROTULOS_DO_MOTIVO = {
 }
 
 
-def _pago(reserva_id, usuario_id) -> Decimal:
+def total_pago(reserva_id, usuario_id) -> Decimal:
+    """O que entrou de fato: os lançamentos positivos da reserva."""
     return sum(
         (v for v in pagamento_repo.lancamentos_da_reserva(
             reserva_id, usuario_id=usuario_id).values() if v > 0),
@@ -322,7 +323,7 @@ def previa_do_cancelamento(reserva: dict, usuario_id,
     decide sabendo o efeito.
     """
     hoje = hoje or dt.date.today()
-    pago = _pago(reserva["id"], usuario_id)
+    pago = total_pago(reserva["id"], usuario_id)
     return {
         motivo: (
             pago if regulamento.tem_direito_a_devolucao(

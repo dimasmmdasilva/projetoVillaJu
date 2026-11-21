@@ -6,18 +6,47 @@
 {# ---------------------------------------------------------------------
    Banner
 
-   Sem fotografia ainda. O bloco de cor é conteúdo provisório declarado,
-   não lacuna esquecida: a página não fica com espaço vazio nem com
-   imagem quebrada, e a troca pelo material da parceira é substituir o
-   arquivo em `static/img/chales/`, sem tocar neste template.
+   Bloco 18e (21/11, pedido do Dimas): o logo da pousada ao lado do
+   nome. `alt` vazio porque o nome está escrito no título logo ao lado —
+   o leitor de tela o leria duas vezes.
    --------------------------------------------------------------------- #}
 <section class="banner">
-  <h1>{{ hospedaria.nome }}</h1>
-  <p class="chamada">{{ hospedaria.chamada }}</p>
+  <img class="banner__logo"
+       src="{{ url_for('static', filename='img/marca/villaju-logo.jpg') }}"
+       alt="" width="400" height="400">
+  <div class="banner__texto">
+    <h1>{{ hospedaria.nome }}</h1>
+    <p class="chamada">{{ hospedaria.chamada }}</p>
+  </div>
 </section>
 
 <section class="apresentacao">
   <p>{{ hospedaria.apresentacao }}</p>
+
+  {# Bloco 18e: as fotos da pousada, uma de cada vez.
+
+     Só CSS — o sistema não tem JavaScript. A troca é uma animação de
+     opacidade com um atraso por foto (`villaju.css`, "Apresentação de
+     fotos"). Para quando o cursor está sobre ela e quando a caixa "Pausar
+     fotos" está marcada: conteúdo que se move sozinho por mais de cinco
+     segundos precisa de um jeito de parar (WCAG 2.2.2). Quem pediu ao
+     sistema menos movimento vê só a primeira foto, parada.
+
+     A caixa vem ANTES da lista no HTML porque o seletor `:checked ~` só
+     alcança irmãos seguintes; na tela, a lista é posta antes por `order`.
+     Só a primeira foto é carregada de imediato; as outras, quando a
+     página chega perto delas. #}
+  <div class="fotos-da-pousada">
+    <input type="checkbox" id="pausar-fotos" class="fotos-da-pousada__pausa">
+    <label for="pausar-fotos">Pausar fotos</label>
+    <ul class="fotos-da-pousada__lista" aria-label="Fotos da pousada">
+      {% for arquivo, descricao in fotos %}
+      <li><img src="{{ url_for('static', filename='img/inicio/' ~ arquivo) }}"
+               alt="{{ descricao }}" width="1280" height="853"
+               {%- if not loop.first %} loading="lazy"{% endif %}></li>
+      {% endfor %}
+    </ul>
+  </div>
 
   {# A chamada principal da face pública.
 

@@ -180,9 +180,20 @@ def test_a_pedido_do_hospede_em_cima_da_hora_nao_devolve(aplicacao, conta, chale
     html = _cancelar(_entrar(aplicacao, *RECEPCAO), identificador,
                      "pedido_do_hospede").data.decode()
     assert "Não há devolução" in html
+    assert "Nada tinha sido pago" not in html
     assert identificador not in _devolucoes(aplicacao)
     with aplicacao.app_context():
         assert not pagamentos.executar(pagamentos.DEVOLVER, identificador, recepcao)
+
+
+def test_sem_pagamento_o_aviso_diz_que_nada_foi_pago(aplicacao, conta, chale):
+    """Bloco 18e, achado do Dimas nas telas: "Não há devolução" de uma
+    reserva que ninguém pagou soava como dinheiro retido."""
+    identificador = _pedir(aplicacao, conta, chale, entrada=30)
+    html = _cancelar(_entrar(aplicacao, *ADMIN), identificador,
+                     "equipe").data.decode()
+    assert "Nada tinha sido pago, então não há o que devolver." in html
+    assert "Não há devolução" not in html
 
 
 def test_o_detalhe_mostra_quanto_volta_em_cada_motivo(aplicacao, conta, chale,
@@ -194,6 +205,19 @@ def test_o_detalhe_mostra_quanto_volta_em_cada_motivo(aplicacao, conta, chale,
     pela_pousada = bloco[bloco.index("Cancelar pela pousada"):]
     assert a_pedido.index("Sem devolução") < a_pedido.index("Cancelar pela pousada")
     assert "Devolve R$ 600,00 ao hóspede" in pela_pousada
+    assert "Nada foi pago ainda" not in bloco
+
+
+def test_sem_pagamento_o_detalhe_diz_que_nada_foi_pago(aplicacao, conta, chale):
+    """Bloco 18e: "Sem devolução" numa reserva que ninguém pagou dava a
+    entender que havia dinheiro retido."""
+    identificador = _pedir(aplicacao, conta, chale, entrada=3)
+    pagina = _entrar(aplicacao, *ADMIN).get(f"/reservas/{identificador}").data.decode()
+    bloco = pagina[pagina.index('class="cancelamento-pela-equipe"'):]
+    bloco = bloco[:bloco.index("</div>")]
+    assert bloco.count("Nada foi pago ainda.") == 2
+    assert "Sem devolução" not in bloco
+    assert "Devolve" not in bloco
 
 
 # ===========================================================================

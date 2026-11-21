@@ -307,7 +307,10 @@ def mudar_situacao(identificador):
     try:
         if nova_situacao == "cancelada":
             # Bloco 17e: o cancelamento diz o motivo, e o motivo decide a
-            # devolução, pela mesma regra do site.
+            # devolução, pela mesma regra do site. Bloco 18e: o pago é lido
+            # antes, para o aviso não dizer "Não há devolução" de uma
+            # reserva que ninguém pagou — soava como dinheiro retido.
+            nada_pago = pagamentos.total_pago(reserva["id"], _quem()) == 0
             devolver = pagamentos.cancelar_pela_equipe(
                 usuario_atual(), reserva, motivo
             )
@@ -324,7 +327,9 @@ def mudar_situacao(identificador):
                 + (
                     f"Devolva {pedido.em_reais(devolver)} ao hóspede pelo "
                     f"Pix e registre em Pagamentos, em Devoluções."
-                    if devolver > 0 else "Não há devolução."
+                    if devolver > 0
+                    else "Nada tinha sido pago, então não há o que devolver."
+                    if nada_pago else "Não há devolução."
                 ),
                 "sucesso",
             )

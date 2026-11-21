@@ -152,6 +152,11 @@
    mesma regra do site. Cada botão mostra, antes do clique, quanto volta
    ao hóspede se o cancelamento for hoje. #}
 <p>Cancelar a reserva:</p>
+{# Bloco 18e: "Sem devolução" numa reserva que ninguém pagou dava a
+   entender que havia dinheiro retido. Pela regra, o cancelamento pela
+   pousada devolve tudo o que foi pago — então o maior valor da prévia É o
+   pago, e zero nele quer dizer que nada entrou. #}
+{% set nada_pago = (previa.values()|max) == 0 %}
 <div class="cancelamento-pela-equipe">
   {% for motivo, rotulo in rotulos_do_motivo.items() %}
   <form method="post" class="acao-da-situacao"
@@ -161,7 +166,7 @@
     <input type="hidden" name="motivo" value="{{ motivo }}">
     <button type="submit" class="secundario perigo">Cancelar {{ rotulo }}</button>
     <p class="nota-campo">
-      {% if previa[motivo] > 0 %}Devolve {{ previa[motivo]|reais }} ao hóspede.{% else %}Sem devolução.{% endif %}
+      {% if previa[motivo] > 0 %}Devolve {{ previa[motivo]|reais }} ao hóspede.{% elif nada_pago %}Nada foi pago ainda.{% else %}Sem devolução.{% endif %}
     </p>
   </form>
   {% endfor %}

@@ -34,7 +34,9 @@
    as duas coisas pareciam de páginas diferentes. #}
 <header class="cabecalho-publico">
   <div class="coluna-central">
-    <a class="marca" href="{{ url_for('publico.inicio') }}">{{ hospedaria.nome }}</a>
+    {# Bloco 18e: o mesmo selo da barra interna; `alt` vazio porque o
+       nome vem escrito ao lado. #}
+    <a class="marca" href="{{ url_for('publico.inicio') }}"><img class="marca__selo" src="{{ url_for('static', filename='img/marca/villaju-selo.jpg') }}" alt="" width="72" height="36">{{ hospedaria.nome }}</a>
 
     {# Sem link para "Chalés": eles são a página, e âncora para o que já
        está à vista é ruído.

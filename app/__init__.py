@@ -15,6 +15,11 @@ from flask import Flask
 
 from app.config import Configuracao
 
+# Bloco 18e: como a barra escreve o perfil. O banco guarda `hospede`, sem
+# acento, como identificador; a tela escreve a palavra em português. Os
+# outros dois já são a própria palavra.
+ROTULOS_DO_PERFIL = {"hospede": "hóspede"}
+
 
 def create_app(configuracao=None, iniciar_banco: bool = True) -> Flask:
     """Monta e devolve a aplicação.
@@ -313,6 +318,7 @@ def _registrar_contexto(app: Flask) -> None:
         return {
             "sessao_usuario": atual,
             "tem_perfil": tem_perfil,
+            "rotulo_do_perfil": ROTULOS_DO_PERFIL,
         }
 
     @app.template_filter("iso")

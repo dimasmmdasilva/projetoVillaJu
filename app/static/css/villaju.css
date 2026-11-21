@@ -1452,3 +1452,120 @@ a.botao:focus-visible {
 
 /* Bloco 18c: o aviso de backup em dia, discreto; atrasado, usa .aviso-erro. */
 .aviso-backup { background: #f4f6f3; border-color: #d6dcd4; color: #2f3e34; font-size: 0.9rem; }
+
+/* =====================================================================
+ * Bloco 18e: o logo e a apresentação de fotos da página inicial.
+ * ===================================================================== */
+
+/* O selo da barra é a ilustração do logo, sem as letras. Cabe na altura
+ * mínima das duas barras (2.25rem), que continuam com a mesma medida. */
+.barra .marca,
+.cabecalho-publico .marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.marca__selo {
+  display: block;
+  width: 72px;
+  height: 36px;
+  border-radius: 4px;
+}
+
+/* No banner, o logo inteiro à esquerda do nome; em tela estreita, o texto
+ * desce para baixo dele. */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+  flex-wrap: wrap;
+}
+.banner__logo {
+  flex: none;
+  width: 170px;
+  height: 170px;
+  border-radius: 6px;
+}
+.banner__texto { flex: 1 1 14rem; }
+
+/* Apresentação de fotos — só CSS.
+ *
+ * As nove fotos ficam empilhadas no mesmo lugar, e cada uma faz a mesma
+ * animação de opacidade, com um atraso diferente. O ciclo tem 36 s: cada
+ * foto entra em 1 s, fica 4 s inteira e sai em 1 s, por baixo da seguinte,
+ * que já entrou. A primeira começa um segundo "adiantada" (-1 s), para já
+ * estar inteira quando a página abre.
+ *
+ *   0%     -> 0      (começa a entrar)
+ *   2.78%  -> 1      (1 s: inteira)
+ *   13.89% -> 1      (5 s: começa a sair, a seguinte já está inteira)
+ *   16.67% -> 0      (6 s: saiu)
+ *
+ * Trocar o número de fotos exige trocar o ciclo, as porcentagens e os
+ * atrasos; `test_pagina_inicial.py` confere que há um atraso por foto. */
+.fotos-da-pousada {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 1.5rem 0;
+  font-size: 0.9rem;
+}
+.fotos-da-pousada__lista {
+  order: -1;
+  flex: 0 0 100%;
+  position: relative;
+  aspect-ratio: 3 / 2;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #2f3e34;
+}
+.fotos-da-pousada__lista li {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: troca-de-foto 36s linear infinite;
+}
+.fotos-da-pousada__lista li:first-child { opacity: 1; }
+.fotos-da-pousada__lista img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.fotos-da-pousada__lista li:nth-child(1) { animation-delay: -1s; }
+.fotos-da-pousada__lista li:nth-child(2) { animation-delay: 3s; }
+.fotos-da-pousada__lista li:nth-child(3) { animation-delay: 7s; }
+.fotos-da-pousada__lista li:nth-child(4) { animation-delay: 11s; }
+.fotos-da-pousada__lista li:nth-child(5) { animation-delay: 15s; }
+.fotos-da-pousada__lista li:nth-child(6) { animation-delay: 19s; }
+.fotos-da-pousada__lista li:nth-child(7) { animation-delay: 23s; }
+.fotos-da-pousada__lista li:nth-child(8) { animation-delay: 27s; }
+.fotos-da-pousada__lista li:nth-child(9) { animation-delay: 31s; }
+
+@keyframes troca-de-foto {
+  0% { opacity: 0; }
+  2.78% { opacity: 1; }
+  13.89% { opacity: 1; }
+  16.67% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* Para com o cursor em cima, com o foco na caixa e com a caixa marcada. */
+.fotos-da-pousada:hover .fotos-da-pousada__lista li,
+.fotos-da-pousada:focus-within .fotos-da-pousada__lista li,
+.fotos-da-pousada__pausa:checked ~ .fotos-da-pousada__lista li {
+  animation-play-state: paused;
+}
+
+/* Quem pediu menos movimento vê a primeira foto, parada, e não precisa
+ * de uma caixa para parar o que já não se move. */
+@media (prefers-reduced-motion: reduce) {
+  .fotos-da-pousada__lista li { animation: none; }
+  .fotos-da-pousada__pausa,
+  .fotos-da-pousada__pausa + label { display: none; }
+}

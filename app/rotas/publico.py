@@ -109,6 +109,38 @@ HOSPEDARIA = {
     ),
 }
 
+# Bloco 18e: as fotos da pousada, na ordem em que a página as mostra.
+#
+# Enviadas pelo Dimas em 20/11; são do espaço, sem ninguém nelas. Foram
+# tratadas uma vez antes de entrar no projeto: convertidas para sRGB,
+# reduzidas a 1280 px e gravadas sem metadado nenhum — sem EXIF, XMP ou
+# perfil de cor, que diziam câmera, data e hora de cada foto. Os
+# originais ficam em `instance/originais_18e/`, fora do Git.
+# `test_pagina_inicial.py` reprova arquivo com metadado, pesado demais ou
+# fora desta lista.
+#
+# O texto alternativo descreve o que se vê, para quem não vê: é o que o
+# leitor de tela lê no lugar da foto.
+FOTOS_DA_POUSADA = (
+    ("pousada-01.jpg", "A entrada da VillaJu: muro verde com losangos de "
+     "tijolo, jardim tropical e portão de madeira."),
+    ("pousada-02.jpg", "A piscina com cascata, a rede e as espreguiçadeiras, "
+     "ao lado da casa de tijolos."),
+    ("pousada-03.jpg", "A piscina de perto, com a cascata ligada e as "
+     "espreguiçadeiras listradas de azul."),
+    ("pousada-04.jpg", "Flores vermelhas do jardim em primeiro plano, com a "
+     "piscina e a rede ao fundo."),
+    ("pousada-05.jpg", "As espreguiçadeiras junto à parede de tijolos, sob "
+     "o guarda-sol, à beira da piscina."),
+    ("pousada-06.jpg", "O corredor dos chalés: bancos de tijolo, caminho de "
+     "pedras e o jardim ao longo do muro."),
+    ("pousada-07.jpg", "No muro, um prato pintado e a placa azul: \"Me dê a "
+     "mão, vamos sair pra ver o mar\"."),
+    ("pousada-08.jpg", "O sol nascendo sobre o mar, visto da areia da praia."),
+    ("pousada-09.jpg", "A área da piscina à noite, com o jardim e o corredor "
+     "iluminados."),
+)
+
 # Até as fotos chegarem, cada chalé recebe um bloco de cor como imagem de
 # apresentação. É conteúdo provisório declarado, não lacuna esquecida: a
 # página não fica com espaço vazio nem com imagem quebrada, e a troca é
@@ -219,6 +251,7 @@ def inicio():
     return render_template(
         "publico/inicio.html",
         hospedaria=HOSPEDARIA,
+        fotos=FOTOS_DA_POUSADA,
         chales=chales,
         banco_disponivel=banco_disponivel,
     )

@@ -104,21 +104,30 @@ def _mudar_usuario(coluna: str, valor: str):
 # O que a barra mostra
 # ---------------------------------------------------------------------------
 
-def test_a_barra_mostra_o_nome_da_massa(sessao):
-    assert NOME_NA_MASSA in _barra(sessao.get("/painel").data.decode())
+def test_a_barra_mostra_so_o_perfil(sessao):
+    """Bloco 18e (21/11, pedido do Dimas): só o perfil, sem o nome.
+
+    O nome já está no "Olá" do Painel; repetido na barra, em toda página,
+    só ocupava espaço — e numa tela projetada na apresentação, era o nome
+    de alguém exposto à toa.
+    """
+    barra = _barra(sessao.get("/painel").data.decode())
+    assert barra == "recepcionista"
+    assert NOME_NA_MASSA not in barra
 
 
 def test_alterar_o_nome_aparece_sem_novo_login(sessao):
-    """O centro do caso: a mesma sessão, o nome novo."""
+    """O centro do caso: a mesma sessão, o nome novo — agora no corpo."""
     _mudar_usuario("nome", "Atendimento Noturno")
 
-    barra = _barra(sessao.get("/painel").data.decode())
+    html = sessao.get("/painel").data.decode()
 
-    assert "Atendimento Noturno" in barra, (
-        "a barra continua mostrando o nome antigo: a sessão virou uma "
+    assert "Olá, Atendimento Noturno" in html, (
+        "o Painel continua mostrando o nome antigo: a sessão virou uma "
         "cópia congelada do registro"
     )
-    assert NOME_NA_MASSA not in barra
+    assert NOME_NA_MASSA not in html
+    assert "Atendimento Noturno" not in _barra(html)
 
 
 def test_alterar_o_perfil_aparece_sem_novo_login(sessao):
@@ -153,17 +162,18 @@ def test_o_perfil_novo_tambem_muda_os_links(sessao):
     assert "administrador" in _barra(html)
 
 
-def test_corpo_e_barra_mostram_o_mesmo_nome(sessao):
-    """Duas fontes para o mesmo dado divergem. Uma só, não.
+def test_o_nome_fica_no_corpo_e_fora_da_barra(sessao):
+    """Desde o Bloco 18e o nome tem um lugar só, o corpo do Painel.
 
-    O corpo do painel usa `usuario_atual()`; a barra, o contexto do
-    template. Depois da correção, os dois leem do banco.
+    Antes, corpo e barra o mostravam, e o teste conferia que os dois
+    concordavam. Com uma fonte e um lugar, resta conferir que a barra não
+    voltou a mostrá-lo.
     """
     _mudar_usuario("nome", "Plantão da Madrugada")
 
     html = sessao.get("/painel").data.decode()
 
-    assert "Plantão da Madrugada" in _barra(html)
+    assert "Plantão da Madrugada" not in _barra(html)
     assert "Olá, Plantão da Madrugada" in html
 
 

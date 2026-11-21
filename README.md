@@ -438,6 +438,7 @@ afrouxar a política.
 | 18a | Relatórios de ocupação por chalé, reservas por situação e volume de mensagens, por período (RF06 e RF12) | concluído |
 | 18b | Página "Como usar" para a equipe, por tarefa, com os prazos tirados do regulamento | concluído |
 | 18c | Backup diário automático com usuário só de leitura, aviso no Painel e restauração testada (RNF06) | concluído |
+| 18e | Logo na barra e no banner, fotos da pousada passando na página inicial (só CSS, sem metadado), barra só com o perfil, "Nada foi pago" no cancelamento | concluído |
 
 Falta só o **12** (mensagem em HTML), opcional.
 
