@@ -1449,3 +1449,6 @@ a.botao:focus-visible {
 }
 .indice-como-usar li { margin-bottom: 0.3rem; }
 .tarefa + .tarefa { margin-top: 1.75rem; }
+
+/* Bloco 18c: o aviso de backup em dia, discreto; atrasado, usa .aviso-erro. */
+.aviso-backup { background: #f4f6f3; border-color: #d6dcd4; color: #2f3e34; font-size: 0.9rem; }

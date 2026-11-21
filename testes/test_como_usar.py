@@ -87,3 +87,11 @@ def test_a_regra_de_cancelamento_pela_pousada_esta_explicada(aplicacao):
     html = _pagina(aplicacao, RECEPCAO)
     assert "Cancelar pela pousada" in html
     assert "Cancelar a pedido do hóspede" in html
+
+
+def test_o_backup_esta_explicado_so_ao_administrador(aplicacao):
+    """Bloco 18c: quando roda, a cópia semanal e a chave à parte."""
+    admin = _pagina(aplicacao, ADMIN)
+    for trecho in ("todo dia às 3h", "Uma vez por semana", "Guarde a chave à parte"):
+        assert trecho in admin, trecho
+    assert "todo dia às 3h" not in _pagina(aplicacao, RECEPCAO)

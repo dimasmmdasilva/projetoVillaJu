@@ -156,6 +156,30 @@
     <li><strong>Auditoria</strong> — o registro de quem entrou e do que foi
         feito.</li>
   </ul>
+
+  <h3 id="backup">O backup</h3>
+  <p>O sistema copia o banco <strong>sozinho, todo dia às 3h</strong> (ou
+     assim que o computador ligar, se estava desligado nesse horário) e
+     guarda as últimas 14 cópias. O Painel mostra quando foi a última, e
+     fica em vermelho se passar de dois dias — nesse caso, confira se a
+     tarefa "VillaJu - backup diario" está ativa no Agendador de Tarefas do
+     Windows.</p>
+  <ul>
+    <li><strong>Uma vez por semana</strong>, copie a pasta
+        <code>instance\backups\automaticos</code> para um pen drive ou para a
+        nuvem. A cópia que fica no mesmo computador não salva de um disco
+        que quebra.</li>
+    <li><strong>Guarde a chave à parte.</strong> Os dados pessoais saem
+        cifrados no backup; sem a chave do arquivo <code>.env</code> eles
+        não se leem — e a chave junto da cópia entrega tudo. Pen drive de
+        um, lugar separado para a outra.</li>
+    <li><strong>Fazer um backup agora</strong> (antes de uma mudança, por
+        exemplo): na pasta do sistema,
+        <code>.\venv\Scripts\python scripts\backup.py</code>.</li>
+    <li><strong>Restaurar</strong> é com quem instalou o sistema, porque
+        sobrescreve dados: <code>scripts\restaurar.py</code>, explicado em
+        <code>docs/instalacao.md</code>.</li>
+  </ul>
 </section>
 {% endif %}
 {% endblock %}

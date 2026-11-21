@@ -13,7 +13,7 @@ reservas.
 from flask import Blueprint, render_template, request
 
 from app.dados import auditoria_repo, reserva_repo
-from app.servicos import conversa, painel_equipe
+from app.servicos import conversa, estado_do_backup, painel_equipe
 from app.seguranca.autorizacao import (
     ADMINISTRADOR,
     HOSPEDE,
@@ -43,6 +43,11 @@ def inicio():
     # equipe vê a ocupação de hoje; o hóspede, não — é dado de outras
     # pessoas. O hóspede também não recebe as reservas da pousada.
     respostas = []
+    backup = None
+    if usuario["perfil"] == ADMINISTRADOR:
+        # Bloco 18c: quando foi o último backup. Backup que falha em silêncio
+        # dá falsa segurança; o Painel avisa se passar de dois dias.
+        backup = estado_do_backup.situacao()
     if usuario["perfil"] == HOSPEDE:
         cards = None
         chales = painel_equipe.chales_para_o_hospede(usuario["id"])
@@ -67,6 +72,7 @@ def inicio():
         chales=chales,
         cards=cards,
         respostas=respostas,
+        backup=backup,
         situacoes=reserva_repo.SITUACOES,
     )
 

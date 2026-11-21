@@ -7,6 +7,11 @@
 <p>Olá, {{ usuario.nome }}. Você está conectado como
    <strong>{{ usuario.perfil }}</strong>.</p>
 
+{# Bloco 18c: só o administrador vê; em alerta se passar de dois dias. #}
+{% if backup %}
+<p class="aviso {{ 'aviso-erro' if backup.atrasado else 'aviso-backup' }}">{{ backup.texto }}</p>
+{% endif %}
+
 {# 20/11, a pedido do Dimas: um card por chalé ativo no topo do Painel,
    e o card que cria a reserva fecha a grade (3 x 2 com os cinco chalés).
    A EQUIPE vê a situação de hoje; o HÓSPEDE, não — "ocupado até 11/12"
