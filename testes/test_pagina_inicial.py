@@ -255,7 +255,7 @@ def test_um_atraso_por_foto_no_ciclo_certo():
 
 
 # ===========================================================================
-# Bloco 18f — o banner branco, com o logo maior e letras pretas
+# Blocos 18f e 18d — o banner: logo maior, cores e lema do logo
 # ===========================================================================
 
 _MEDIA = re.compile(r"@media[^{]*\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}")
@@ -266,21 +266,50 @@ ESTREITA = "\n".join(
 )
 
 
+# 22/11, escolha do Dimas: o banner passou do branco do 18f às cores do
+# próprio logo. Os testes do branco deram lugar a estes.
+CREME, OLIVA, TERRACOTA = "#f6e8d7", "#5e5835", "#96582e"
+
+
+def _contraste(cor_a, cor_b):
+    """Razão de contraste da WCAG 2.x entre duas cores #rrggbb."""
+    def luminancia(cor):
+        canais = []
+        for i in (1, 3, 5):
+            c = int(cor[i:i + 2], 16) / 255
+            canais.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
+        r, g, b = canais
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    claro, escuro = sorted((luminancia(cor_a), luminancia(cor_b)), reverse=True)
+    return (claro + 0.05) / (escuro + 0.05)
+
+
 @pytest.mark.parametrize("seletor,propriedade,valor", [
-    (".banner", "background", "#fff"),
-    (".banner", "color", "#1a1a1a"),
-    (".banner h1", "color", "#1a1a1a"),
-    (".banner .chamada", "color", "#1a1a1a"),
+    (".banner", "background", CREME),
+    (".banner h1", "color", OLIVA),
+    (".banner .lema", "color", TERRACOTA),
+    (".banner .lema-complemento", "color", OLIVA),
 ])
-def test_o_banner_e_branco_com_letras_pretas(seletor, propriedade, valor):
+def test_o_banner_usa_as_cores_do_logo(seletor, propriedade, valor):
     assert _valor_final(SEM_MEDIA, seletor, propriedade) == valor
 
 
-def test_o_banner_tem_borda_para_nao_sumir_no_fundo():
-    """O fundo da página é #fafafa: sem borda, o banner branco não teria
-    contorno."""
+@pytest.mark.parametrize("seletor", [
+    ".banner h1", ".banner .lema", ".banner .lema-complemento",
+])
+def test_o_texto_do_banner_passa_o_contraste(seletor):
+    """WCAG AA para texto normal: 4,5:1. O terracota do logo (#c1723c) dá
+    3:1 e não passaria — por isso o lema usa um tom mais escuro."""
+    fundo = _valor_final(SEM_MEDIA, ".banner", "background")
+    cor = _valor_final(SEM_MEDIA, seletor, "color")
+    assert _contraste(cor, fundo) >= 4.5, (seletor, cor, round(_contraste(cor, fundo), 2))
+    assert _contraste("#c1723c", CREME) < 4.5  # o motivo da troca continua valendo
+
+
+def test_o_banner_se_separa_do_fundo_da_pagina_sem_borda():
     assert _valor_final(SEM_MEDIA, "body", "background") == "#fafafa"
-    assert _valor_final(SEM_MEDIA, ".banner", "border").startswith("1px solid")
+    assert _valor_final(SEM_MEDIA, ".banner", "background") != "#fafafa"
+    assert _valor_final(SEM_MEDIA, ".banner", "border") == "none"
 
 
 def test_logo_e_letras_maiores_que_no_18e():
@@ -288,11 +317,64 @@ def test_logo_e_letras_maiores_que_no_18e():
         return float(_valor_final(SEM_MEDIA, seletor, "font-size").removesuffix("rem"))
 
     assert int(_valor_final(SEM_MEDIA, ".banner__logo", "width").removesuffix("px")) >= 240
-    assert _valor_final(SEM_MEDIA, ".banner__logo", "width") == \
-        _valor_final(SEM_MEDIA, ".banner__logo", "height")
+    assert _valor_final(SEM_MEDIA, ".banner__logo", "width") ==         _valor_final(SEM_MEDIA, ".banner__logo", "height")
     assert rem(".banner h1") > 2.2
-    assert rem(".banner .chamada") > 1.15
+    assert rem(".banner h1") > rem(".banner .lema")
+
+
+def test_o_banner_mostra_o_lema_do_logo_em_ordem(inicial):
+    from app.rotas.publico import HOSPEDARIA
+
+    banner = inicial[inicial.index('class="banner"'):]
+    banner = banner[:banner.index("</section>")]
+    titulo = banner.index("<h1>")
+    lema = banner.index(f'<p class="lema">{HOSPEDARIA["lema"]}</p>')
+    traco = banner.index('<span class="banner__divisor" aria-hidden="true"></span>')
+    complemento = banner.index(
+        f'<p class="lema-complemento">{HOSPEDARIA["lema_complemento"]}</p>')
+    assert titulo < lema < traco < complemento
+    assert HOSPEDARIA["lema"] == "Sua casa na praia."
+    assert HOSPEDARIA["lema_complemento"] == "Entre o mar e a mata da Juréia."
+    # A descrição para o buscador continua informativa.
+    assert f'content="{HOSPEDARIA["chamada"]}"' in inicial
+    assert HOSPEDARIA["chamada"] not in banner
+
+
+def test_a_regra_de_tela_estreita_vem_depois_do_titulo_grande():
+    """Mesma especificidade: vale a que vem por último na folha."""
+    grande = CSS.rindex("font-size: 3.4rem;")
+    estreita = CSS.rindex("@media (max-width: 40rem)")
+    assert estreita > grande
+    assert _valor_final(ESTREITA, ".banner h1", "font-size") == "2.4rem"
 
 
 def test_em_tela_estreita_o_logo_encolhe():
     assert _valor_final(ESTREITA, ".banner__logo", "width") == "180px"
+
+
+# 22/11, pedido do Dimas: logo e texto centralizados, o texto alinhado ao
+# traço, e o espaçamento das letras compensado para o centro ser o centro.
+
+def test_o_conjunto_e_o_texto_do_banner_ficam_no_centro():
+    assert _valor_final(SEM_MEDIA, ".banner", "justify-content") == "center"
+    assert _valor_final(SEM_MEDIA, ".banner__texto", "text-align") == "center"
+    assert _valor_final(SEM_MEDIA, ".banner__texto", "flex") == "0 1 auto"
+
+
+def test_o_traco_tem_a_largura_do_texto_e_fica_no_centro():
+    assert _valor_final(SEM_MEDIA, ".banner__divisor", "width") == "100%"
+    assert _valor_final(SEM_MEDIA, ".banner__divisor", "margin").endswith("auto")
+
+
+@pytest.mark.parametrize("folha", ["normal", "estreita"])
+@pytest.mark.parametrize("seletor", [".banner h1", ".banner .lema"])
+def test_o_espacamento_das_letras_e_compensado(folha, seletor):
+    """O `letter-spacing` sobra depois da última letra; o recuo à esquerda
+    do mesmo tamanho devolve o centro. Em tela estreita o espaçamento do
+    lema muda, e o recuo precisa mudar junto."""
+    css = SEM_MEDIA if folha == "normal" else ESTREITA
+    espaco = _valor_final(css, seletor, "letter-spacing") or \
+        _valor_final(SEM_MEDIA, seletor, "letter-spacing")
+    recuo = _valor_final(css, seletor, "padding-left") or \
+        _valor_final(SEM_MEDIA, seletor, "padding-left")
+    assert espaco and espaco == recuo, (folha, seletor, espaco, recuo)

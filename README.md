@@ -195,6 +195,12 @@ Todas de código aberto e gratuitas, executando localmente.
 
 ## Instalação
 
+Resumo abaixo. O **guia completo** — banco passo a passo, todas as
+variáveis do `.env`, backup agendado, restauração, como desfazer e
+problemas comuns — está em [`docs/instalacao.md`](docs/instalacao.md). O
+roteiro da demonstração está em
+[`docs/roteiro_demonstracao.md`](docs/roteiro_demonstracao.md).
+
 ### Pré-requisitos
 
 - **Python 3.11 ou superior**
@@ -240,7 +246,26 @@ openssl req -x509 -newkey rsa:4096 -nodes \
 No Git Bash, prefixe o comando com `MSYS_NO_PATHCONV=1`, senão o `/CN=localhost`
 é convertido em caminho do Windows.
 
-### 4. Subir a aplicação
+### 4. Criar o banco
+
+Cole as senhas do `.env` nos dois marcadores de `banco/00_bancos.sql` e
+`banco/03_usuario_app.sql` e rode os scripts **com `SOURCE`** — nunca com
+`Get-Content | mysql`, que estraga os acentos no PowerShell:
+
+```powershell
+mysql -u root -p -e "SOURCE banco/00_bancos.sql"
+mysql -u root -p villaju -e "SOURCE banco/01_schema.sql"
+mysql -u root -p villaju -e "SOURCE banco/02_triggers.sql"
+mysql -u root -p villaju -e "SOURCE banco/03_usuario_app.sql"
+mysql -u root -p villaju -e "SOURCE banco/04_dados_ficticios.sql"
+mysql -u root -p villaju_teste -e "SOURCE banco/03_usuario_app.sql"
+git checkout -- banco/00_bancos.sql banco/03_usuario_app.sql
+python scripts\regerar_dados_pessoais.py
+```
+
+Detalhes e o porquê de cada passo: [`docs/instalacao.md`](docs/instalacao.md), seção 5.
+
+### 5. Subir a aplicação
 
 ```powershell
 python run.py
@@ -440,6 +465,7 @@ afrouxar a política.
 | 18c | Backup diário automático com usuário só de leitura, aviso no Painel e restauração testada (RNF06) | concluído |
 | 18e | Logo na barra e no banner, fotos da pousada passando na página inicial (só CSS, sem metadado), barra só com o perfil, "Nada foi pago" no cancelamento | concluído |
 | 18f | Banner branco com o logo maior; o detalhe da reserva diz por que, quando e quem cancelou | concluído |
+| 18d | Guia de instalação completo e roteiro da demonstração, conferidos pela suíte | concluído |
 
 Falta só o **12** (mensagem em HTML), opcional.
 

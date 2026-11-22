@@ -16,7 +16,13 @@
        alt="" width="400" height="400">
   <div class="banner__texto">
     <h1>{{ hospedaria.nome }}</h1>
-    <p class="chamada">{{ hospedaria.chamada }}</p>
+    {# 22/11: o lema do logo, na mesma hierarquia — a primeira linha em
+       maiúsculas espaçadas (pelo CSS: o leitor de tela lê a frase
+       normal), o traço com ponto, e a segunda linha menor. O traço é
+       decoração, escondido do leitor de tela. #}
+    <p class="lema">{{ hospedaria.lema }}</p>
+    <span class="banner__divisor" aria-hidden="true"></span>
+    <p class="lema-complemento">{{ hospedaria.lema_complemento }}</p>
   </div>
 </section>
 

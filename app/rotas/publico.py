@@ -85,7 +85,13 @@ HOSPEDARIA = {
     # espaço e corta o que passar disso, e é também o que aparece como
     # título no resultado de busca.
     "titulo_curto": "VillaJu — Praia da Juréia",
+    # A descrição da página para o buscador (`<meta name="description">`):
+    # informativa, diz o que o lugar é e onde fica.
     "chamada": "Cinco chalés na Praia da Juréia, em São Sebastião.",
+    # O lema do logo, em duas linhas no banner (22/11, escolha do Dimas):
+    # o banner repete o que o logo diz, na mesma hierarquia.
+    "lema": "Sua casa na praia.",
+    "lema_complemento": "Entre o mar e a mata da Juréia.",
     "apresentacao": (
         "A VillaJu fica na Alameda Jubéris, a poucos minutos a pé da "
         "Praia da Juréia. São cinco chalés independentes, cercados por "
