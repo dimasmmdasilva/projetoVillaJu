@@ -18,7 +18,7 @@ import getpass
 import os
 import pathlib
 import secrets
-import subprocess  # nosec B404 - icacls com lista fixa de argumentos
+import subprocess  # nosec B404  # icacls com lista fixa de argumentos
 import sys
 
 RAIZ = pathlib.Path(__file__).resolve().parents[1]
@@ -45,12 +45,49 @@ def conteudo_das_opcoes(senha: str) -> str:
     )
 
 
+def icacls() -> str:
+    """O `icacls` pelo caminho da pasta do sistema, perguntado ao Windows.
+
+    Chamado pelo nome, ele seria procurado no PATH, e quem pusesse outro
+    `icacls.exe` numa pasta que venha antes no PATH rodaria o próprio
+    programa (achado R1-01 do Relatório 1, alerta B607 do Bandit).
+
+    A primeira correção montou o caminho com a variável `SystemRoot` — e o
+    Semgrep acusou, com razão: variável de ambiente é tão controlável
+    quanto o PATH. A pasta do sistema vem da API do Windows
+    (`GetSystemDirectoryW`), que não lê ambiente nenhum.
+    """
+    import ctypes
+
+    pasta = ctypes.create_unicode_buffer(260)
+    if not ctypes.windll.kernel32.GetSystemDirectoryW(pasta, len(pasta)):
+        raise OSError("o Windows não informou a pasta do sistema")
+    return os.path.join(pasta.value, "icacls.exe")
+
+
+def usuario_do_windows() -> str:
+    """A conta que está rodando o script, perguntada ao Windows.
+
+    Vinha da variável `USERNAME` — e quem a alterasse faria o `icacls` dar
+    a leitura do `backup.cnf`, que guarda a senha do usuário de backup, a
+    OUTRA conta. O Semgrep acusou ao revisar a correção do R1-01; a conta
+    agora vem da API (`GetUserNameW`), que não lê o ambiente.
+    """
+    import ctypes
+
+    nome = ctypes.create_unicode_buffer(257)
+    tamanho = ctypes.c_ulong(len(nome))
+    if not ctypes.windll.advapi32.GetUserNameW(nome, ctypes.byref(tamanho)):
+        raise OSError("o Windows não informou a conta em uso")
+    return nome.value
+
+
 def restringir(arquivo: pathlib.Path) -> None:
     """Só o dono lê e escreve. No Windows, pelas permissões NTFS."""
     if os.name == "nt":
-        usuario = os.environ.get("USERNAME", "")
-        subprocess.run(  # nosec B603 B607 - icacls do sistema, lista fixa
-            ["icacls", str(arquivo), "/inheritance:r",
+        usuario = usuario_do_windows()
+        subprocess.run(  # nosec B603  # caminho absoluto do sistema, lista fixa, sem shell
+            [icacls(), str(arquivo), "/inheritance:r",
              "/grant:r", f"{usuario}:(R,W)"],
             check=True, capture_output=True,
         )

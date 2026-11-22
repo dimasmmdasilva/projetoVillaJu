@@ -32,7 +32,7 @@ import getpass
 import os
 import pathlib
 import shutil
-import subprocess  # nosec B404 - chama o mysql com lista fixa de argumentos
+import subprocess  # nosec B404  # chama o mysql com lista fixa de argumentos
 import sys
 import tempfile
 
@@ -48,19 +48,25 @@ _SQL_CRIAR_RESTAURADO = (
 )
 
 # Uma contagem por tabela, por extenso.
-CONTAGENS = {
-    "chale": "SELECT COUNT(*) FROM chale",
-    "tarifa": "SELECT COUNT(*) FROM tarifa",
-    "hospede": "SELECT COUNT(*) FROM hospede",
-    "reserva": "SELECT COUNT(*) FROM reserva",
-    "usuario": "SELECT COUNT(*) FROM usuario",
-    "log_auditoria": "SELECT COUNT(*) FROM log_auditoria",
-    "contato": "SELECT COUNT(*) FROM contato",
-    "token_acesso": "SELECT COUNT(*) FROM token_acesso",  # nosec B105 - nome de tabela
-    "pagamento": "SELECT COUNT(*) FROM pagamento",
-    "acompanhante": "SELECT COUNT(*) FROM acompanhante",
-    "mensagem": "SELECT COUNT(*) FROM mensagem",
-}
+#
+# Montado a partir de pares, e não como `{...}`: no dicionário literal, o
+# Bandit lia a CHAVE "token_acesso" como nome de senha (B105, falso
+# positivo), e a única saída era uma exceção do Bandit (nosec) valendo
+# para o bloco inteiro. Sem chave literal, não há o que suprimir (Relatório 1,
+# achado R1-02).
+CONTAGENS = dict((
+    ("chale", "SELECT COUNT(*) FROM chale"),
+    ("tarifa", "SELECT COUNT(*) FROM tarifa"),
+    ("hospede", "SELECT COUNT(*) FROM hospede"),
+    ("reserva", "SELECT COUNT(*) FROM reserva"),
+    ("usuario", "SELECT COUNT(*) FROM usuario"),
+    ("log_auditoria", "SELECT COUNT(*) FROM log_auditoria"),
+    ("contato", "SELECT COUNT(*) FROM contato"),
+    ("token_acesso", "SELECT COUNT(*) FROM token_acesso"),
+    ("pagamento", "SELECT COUNT(*) FROM pagamento"),
+    ("acompanhante", "SELECT COUNT(*) FROM acompanhante"),
+    ("mensagem", "SELECT COUNT(*) FROM mensagem"),
+))
 _SQL_GATILHOS = (
     "SELECT trigger_name, MD5(action_statement) FROM information_schema.triggers "
     "WHERE trigger_schema = DATABASE() ORDER BY trigger_name"
@@ -106,7 +112,7 @@ def carregar(arquivo: pathlib.Path, banco: str, senha: str,
     opcoes = _arquivo_de_opcoes(senha)
     try:
         with arquivo.open("rb") as entrada:
-            resultado = executar(  # nosec B603 - lista fixa, sem shell
+            resultado = executar(  # lista fixa, sem shell
                 [mysql, f"--defaults-extra-file={opcoes}",
                  "--default-character-set=utf8mb4", banco],
                 stdin=entrada, capture_output=True,

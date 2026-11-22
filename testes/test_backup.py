@@ -18,6 +18,7 @@ conferida, é feito uma vez com o root do Dimas e registrado como evidência
 """
 
 import datetime as dt
+import os
 import importlib.util
 import pathlib
 import types
@@ -182,6 +183,35 @@ def test_a_conferencia_conta_todas_as_tabelas():
 # ===========================================================================
 # 5. O usuário de backup só lê
 # ===========================================================================
+
+@pytest.mark.skipif(os.name != "nt", reason="permissões NTFS: só no Windows")
+def test_o_icacls_e_a_conta_vem_do_windows_e_nao_do_ambiente(monkeypatch, tmp_path):
+    """Relatório 1, achado R1-01 e o que a correção revelou.
+
+    Chamado pelo nome, o `icacls` era procurado no PATH (Bandit B607). A
+    primeira correção usou a variável `SystemRoot`, e o Semgrep acusou:
+    ambiente é tão controlável quanto o PATH. A conta que recebe a
+    permissão também vinha do ambiente (`USERNAME`) — alterá-la daria a
+    leitura do `backup.cnf` a outra conta. As duas agora vêm da API do
+    Windows; o teste põe valores falsos no ambiente e exige que nenhum
+    chegue ao comando.
+    """
+    chamadas = []
+    monkeypatch.setenv("SystemRoot", r"D:\Falso")
+    monkeypatch.setenv("USERNAME", "Todos")
+    monkeypatch.setenv("PATH", r"D:\Falso")
+    monkeypatch.setattr(configurar.subprocess, "run",
+                        lambda args, **kw: chamadas.append(args))
+    configurar.restringir(tmp_path / "backup.cnf")
+
+    programa, *argumentos = chamadas[0]
+    assert os.path.isabs(programa)
+    assert programa.lower().endswith(r"\system32\icacls.exe")
+    assert "Falso" not in programa
+    concedido = argumentos[argumentos.index("/grant:r") + 1]
+    assert concedido == f"{configurar.usuario_do_windows()}:(R,W)"
+    assert not concedido.startswith("Todos")
+
 
 def test_o_usuario_de_backup_so_le():
     privilegios = configurar._SQL_PRIVILEGIOS

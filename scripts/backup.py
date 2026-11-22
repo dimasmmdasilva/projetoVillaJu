@@ -28,7 +28,7 @@ import datetime as dt
 import os
 import pathlib
 import shutil
-import subprocess  # nosec B404 - chama o mysqldump com lista fixa de argumentos
+import subprocess  # nosec B404  # chama o mysqldump com lista fixa de argumentos
 import sys
 
 RAIZ = pathlib.Path(__file__).resolve().parents[1]
@@ -113,7 +113,7 @@ def fazer_backup(agora: dt.datetime = None, executar=subprocess.run) -> pathlib.
     pasta.mkdir(parents=True, exist_ok=True)
     final = pasta / nome_do_arquivo(agora)
     temporario = final.with_suffix(".sql.parcial")
-    resultado = executar(  # nosec B603 - argumentos em lista, sem shell
+    resultado = executar(  # argumentos em lista, sem shell
         comando(mysqldump, OPCOES, banco, temporario),
         capture_output=True, text=True,
     )
