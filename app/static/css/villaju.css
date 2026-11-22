@@ -10,12 +10,82 @@
  * também informaria a esse servidor quem acessou o sistema e quando.
  */
 
+/* =====================================================================
+ * A PALETA — Bloco 18g (22/11, decisão do Dimas)
+ *
+ * As cores do sistema vêm do logo: o verde-oliva das letras, o creme do
+ * fundo e o terracota do lema. Antes, o verde frio #2f3e34 estava escrito
+ * à mão 29 vezes, e o sistema tinha outra temperatura que o logo.
+ *
+ * Toda cor da identidade mora AQUI. Trocar a paleta é mexer nestas
+ * linhas. `test_paleta.py` calcula o contraste de cada par texto/fundo
+ * (WCAG AA: 4,5:1 para texto, 3:1 para borda de campo e foco).
+ *
+ * Ficam de fora, de propósito, as cores de SIGNIFICADO: o vermelho de
+ * erro e de perigo, o verde de "feito" e o âmbar de "aguardando".
+ * Cor de estado não é cor de marca — o terracota é parecido demais com
+ * vermelho para servir de "cancelar".
+ * ===================================================================== */
+:root {
+  /* O verde-oliva do logo, como está nele. */
+  --oliva-do-logo: #5e5835;
+
+  /* Os tons da interface. 22/11, pedido do Dimas ao ver a primeira
+   * versão: barra e botões num oliva mais fechado, o MESMO tom nos dois
+   * (antes, #4a452a e #5e5835, tão próximos que pareciam um só, e claros
+   * demais). Duas variáveis com o mesmo valor porque os papéis podem
+   * divergir depois sem caçar usos. */
+  --marca-escura: #403b24;    /* barra e rodapé */
+  --marca: #403b24;           /* botões, bordas fortes, links */
+  --marca-clara: #524c2e;     /* hover do botão principal */
+  --marca-clique: #2f2b1a;    /* clique: mais escuro que o botão */
+  --marca-suave: #6b6448;     /* texto de apoio esverdeado */
+
+  /* O creme do logo e os neutros quentes */
+  --creme: #f6e8d7;           /* banner, Entrar/Sair, hover secundário */
+  --fundo: #fbf6ef;           /* fundo da página */
+  --areia: #e6dccd;           /* bordas, divisórias, selos */
+  --areia-suave: #f3ece2;     /* fundos suaves */
+  --borda-campo: #8c8270;     /* borda dos campos: 3:1 (WCAG 1.4.11) */
+  --texto-suave: #5f584d;     /* notas e legendas */
+
+  /* O terracota do logo */
+  --terracota: #c1723c;       /* decoração: pontos, bordas de destaque */
+  --terracota-texto: #96582e; /* terracota para TEXTO: 4,5:1 */
+  --foco: #96582e;            /* contorno de foco: 3:1 (WCAG 2.4.13) */
+
+  /* Links de texto */
+  --link: var(--marca);
+  --link-visitado: var(--terracota-texto);
+
+  /* Blocos de cor dos chalés, até as fotos chegarem: 12 tons terrosos,
+   * todos com 4,5:1 ou mais para o nome em branco. */
+  --chale-1: var(--oliva-do-logo);
+  --chale-2: #96582e;
+  --chale-3: #7a6a3f;
+  --chale-4: #6f7a4f;
+  --chale-5: #8a6d4b;
+  --chale-6: #7b5a3c;
+  --chale-7: #5d6b4f;
+  --chale-8: #9a5d36;
+  --chale-9: #6e5a46;
+  --chale-10: #4f5a3a;
+  --chale-11: #8b5e4a;
+  --chale-12: #66603f;
+}
+
+/* Links de texto no conteúdo: só os sem classe, para não alcançar botão,
+ * barra nem bloco de cor (que é link com texto branco). Antes, ficavam com
+ * o azul e o roxo do navegador — o único elemento sem paleta nenhuma. */
+main a:not([class]) { color: var(--link); }
+main a:not([class]):visited { color: var(--link-visitado); }
+
 body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   line-height: 1.5;
   margin: 0;
   color: #1a1a1a;
-  background: #fafafa;
+  background: var(--fundo);
 }
 
 main {
@@ -34,7 +104,7 @@ main.coluna-central {
 h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
 h2 { font-size: 1.1rem; margin-top: 2rem; }
 
-.subtitulo { color: #555; margin-top: 0; }
+.subtitulo { color: var(--texto-suave); margin-top: 0; }
 
 /* Barra superior da área autenticada.
  *
@@ -46,7 +116,7 @@ h2 { font-size: 1.1rem; margin-top: 2rem; }
 .barra {
   display: block;
   padding: 0.75rem 0;
-  background: #2f3e34;
+  background: var(--marca-escura);
   color: #fff;
 }
 
@@ -95,9 +165,9 @@ h2 { font-size: 1.1rem; margin-top: 2rem; }
 .barra .sair {
   margin: 0;
   padding: 0.4rem 1rem;
-  background: #e8ece9;
-  color: #2f3e34;
-  border: 1px solid #e8ece9;
+  background: var(--creme);
+  color: var(--marca-escura);
+  border: 1px solid var(--creme);
   border-radius: 4px;
   font-weight: 600;
   font-size: 0.92rem;
@@ -127,7 +197,7 @@ input[type="number"],
 select,
 textarea {
   padding: 0.5rem;
-  border: 1px solid #bbb;
+  border: 1px solid var(--borda-campo);
   border-radius: 3px;
   font: inherit;
 }
@@ -135,9 +205,9 @@ textarea {
 button {
   margin-top: 1rem;
   padding: 0.5rem 1rem;
-  border: 1px solid #2f3e34;
+  border: 1px solid var(--marca);
   border-radius: 3px;
-  background: #2f3e34;
+  background: var(--marca);
   color: #fff;
   font: inherit;
   cursor: pointer;
@@ -145,8 +215,8 @@ button {
 
 /* Tabelas */
 table { border-collapse: collapse; width: 100%; }
-th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; }
-th { background: #f0f0f0; }
+th, td { border: 1px solid var(--areia); padding: 0.4rem 0.6rem; text-align: left; }
+th { background: var(--areia-suave); }
 
 /* Avisos */
 /* A caixa tem a largura do PRÓPRIO TEXTO, e não da coluna.
@@ -194,7 +264,7 @@ th { background: #f0f0f0; }
   gap: 1.5rem;
   flex-wrap: wrap;
   padding: 0.9rem 1.25rem;
-  background: #2f3e34;
+  background: var(--marca-escura);
   color: #fff;
 }
 
@@ -206,26 +276,42 @@ th { background: #f0f0f0; }
 }
 
 .cabecalho-publico nav { display: flex; gap: 1rem; }
-.cabecalho-publico nav a { color: #e8ece9; }
+.cabecalho-publico nav a { color: var(--creme); }
 
 /* Empurra o acesso da equipe para a direita: é link de serviço, não
    chamada para o visitante. */
 .cabecalho-publico .area-equipe {
   margin-left: auto;
-  color: #c6d0c9;
+  color: var(--creme);
   font-size: 0.9rem;
 }
 
+/* O banner da página inicial: só o logo (22/11, escolha do Dimas).
+ *
+ * Cinco versões até aqui — faixa verde com título (Bloco 13), logo ao
+ * lado do nome (18e), fundo branco (18f), fundo creme com o lema em texto
+ * (18d) e, por fim, só o logo, que já escreve o nome e o lema com a
+ * tipografia dele. A história está em `docs/etapa5.md`, 19g.
+ *
+ * O fundo é o creme do próprio logo: os cantos do arquivo têm a mesma cor,
+ * e o logo se funde ao banner. A cópia publicada tem 840 px, tirada do
+ * original de 1254: nítida até 420 px também em tela de alta densidade.
+ * O nome continua sendo o `<h1>` da página, fora da vista (inicio.html). */
 .banner {
-  background: linear-gradient(140deg, #2f3e34, #5a7566);
-  color: #fff;
-  padding: 3rem 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--creme);
+  padding: 1.25rem;
   border-radius: 6px;
   margin-bottom: 1.5rem;
 }
-
-.banner h1 { font-size: 2.2rem; margin: 0 0 0.5rem; }
-.banner .chamada { font-size: 1.15rem; margin: 0; color: #e4eae6; }
+.banner__logo {
+  display: block;
+  width: 420px;
+  height: auto;
+  max-width: 100%;
+}
 
 .apresentacao p { font-size: 1.05rem; }
 
@@ -234,7 +320,7 @@ th { background: #f0f0f0; }
   gap: 1.25rem;
   flex-wrap: wrap;
   align-items: flex-start;
-  border: 1px solid #ddd;
+  border: 1px solid var(--areia);
   border-radius: 6px;
   background: #fff;
   padding: 1rem;
@@ -290,16 +376,16 @@ th { background: #f0f0f0; }
 .dados-chale dd { margin: 0; }
 
 .rodape-publico {
-  border-top: 1px solid #ddd;
+  border-top: 1px solid var(--areia);
   margin-top: 2rem;
   padding: 1.25rem;
   text-align: center;
   font-size: 0.88rem;
-  color: #555;
+  color: var(--texto-suave);
 }
 
-.rodape-publico .aviso-academico { color: #777; font-size: 0.82rem; }
-.rodape-publico .rodape-regiao { font-size: 0.88rem; color: #555; }
+.rodape-publico .aviso-academico { color: var(--texto-suave); font-size: 0.82rem; }
+.rodape-publico .rodape-regiao { font-size: 0.88rem; color: var(--texto-suave); }
 
 /* As cinco faixas provisórias, uma por chalé.
  *
@@ -309,11 +395,11 @@ th { background: #f0f0f0; }
  * bloqueou — os blocos apareciam vazios. Afrouxar a política para
  * resolver um detalhe decorativo enfraqueceria a defesa contra XSS em
  * todo o sistema. */
-.foto-provisoria--1 { background: #2f3e34; }
-.foto-provisoria--2 { background: #3d5245; }
-.foto-provisoria--3 { background: #4a6456; }
-.foto-provisoria--4 { background: #577667; }
-.foto-provisoria--5 { background: #648878; }
+.foto-provisoria--1 { background: var(--chale-1); }
+.foto-provisoria--2 { background: var(--chale-2); }
+.foto-provisoria--3 { background: var(--chale-3); }
+.foto-provisoria--4 { background: var(--chale-4); }
+.foto-provisoria--5 { background: var(--chale-5); }
 
 /* Cartão da tela de entrada.
  *
@@ -353,7 +439,7 @@ body.entrada main {
 .botao {
   display: inline-block;
   padding: 0.5rem 1rem;
-  background: #2f3e34;
+  background: var(--marca);
   color: #fff;
   border-radius: 4px;
   text-decoration: none;
@@ -369,7 +455,7 @@ body.entrada main {
 .formulario textarea {
   font: inherit;
   padding: 0.45rem 0.5rem;
-  border: 1px solid #bbb;
+  border: 1px solid var(--borda-campo);
   border-radius: 3px;
 }
 
@@ -392,7 +478,7 @@ body.entrada main {
 
 /* Caixa de saída, em modo arquivo. */
 .mensagem-enviada {
-  border: 1px solid #ddd;
+  border: 1px solid var(--areia);
   border-radius: 6px;
   background: #fff;
   padding: 1rem;
@@ -400,8 +486,8 @@ body.entrada main {
 }
 
 .corpo-mensagem {
-  background: #f6f6f6;
-  border: 1px solid #e3e3e3;
+  background: var(--areia-suave);
+  border: 1px solid var(--areia);
   border-radius: 4px;
   padding: 0.75rem;
   white-space: pre-wrap;
@@ -423,7 +509,7 @@ body.entrada main {
 .nota-campo {
   margin: 0.6rem 0 0;
   font-size: 0.82rem;
-  color: #555;
+  color: var(--texto-suave);
   line-height: 1.35;
 }
 
@@ -461,7 +547,7 @@ textarea + .nota-campo {
   padding: 0.5rem 0.75rem;
   margin-bottom: 0.4rem;
   background: #fff;
-  border: 1px solid #ddd;
+  border: 1px solid var(--areia);
   border-radius: 4px;
 }
 
@@ -552,8 +638,8 @@ body.publico main {
   margin-left: auto;
   display: inline-block;
   padding: 0.4rem 1rem;
-  background: #e8ece9;
-  color: #2f3e34;
+  background: var(--creme);
+  color: var(--marca-escura);
   border-radius: 4px;
   text-decoration: none;
   font-weight: 600;
@@ -565,7 +651,7 @@ body.publico main {
  * ===================================================================== */
 .migalha {
   font-size: 0.88rem;
-  color: #666;
+  color: var(--texto-suave);
   margin: 0 0 0.5rem;
 }
 
@@ -668,18 +754,18 @@ body.publico main {
  *
  * Como classe, nunca como atributo `style=`: a política de conteúdo
  * declara `style-src 'self'` sem `unsafe-inline`. */
-.amostra--1  { background: #2f3e34; }
-.amostra--2  { background: #3d5245; }
-.amostra--3  { background: #4a6456; }
-.amostra--4  { background: #577667; }
-.amostra--5  { background: #648878; }
-.amostra--6  { background: #7a6a4f; }
-.amostra--7  { background: #8c6f55; }
-.amostra--8  { background: #6b5d7b; }
-.amostra--9  { background: #4f6d7a; }
-.amostra--10 { background: #3f5d6b; }
-.amostra--11 { background: #7d5a5a; }
-.amostra--12 { background: #5a6b4a; }
+.amostra--1  { background: var(--chale-1); }
+.amostra--2  { background: var(--chale-2); }
+.amostra--3  { background: var(--chale-3); }
+.amostra--4  { background: var(--chale-4); }
+.amostra--5  { background: var(--chale-5); }
+.amostra--6  { background: var(--chale-6); }
+.amostra--7  { background: var(--chale-7); }
+.amostra--8  { background: var(--chale-8); }
+.amostra--9  { background: var(--chale-9); }
+.amostra--10 { background: var(--chale-10); }
+.amostra--11 { background: var(--chale-11); }
+.amostra--12 { background: var(--chale-12); }
 
 /* A fotografia do cartão da vitrine virou link para a página do chalé.
  * Precisa parecer clicável sem deixar de ser um bloco de cor. */
@@ -751,8 +837,8 @@ a.foto-provisoria:focus {
  * ------------------------------------------------------------------- */
 
 .cartao-reserva {
-  border: 1px solid #d6d6d6;
-  border-left: 5px solid #2f3e34;
+  border: 1px solid var(--areia);
+  border-left: 5px solid var(--marca);
   border-radius: 4px;
   background: #fff;
   padding: 1rem 1.25rem;
@@ -760,7 +846,7 @@ a.foto-provisoria:focus {
 }
 
 .cartao-reserva h3 { margin: 0; font-size: 1.15rem; }
-.cartao-reserva__periodo { margin: 0.25rem 0 0.75rem; color: #555; font-size: 0.92rem; }
+.cartao-reserva__periodo { margin: 0.25rem 0 0.75rem; color: var(--texto-suave); font-size: 0.92rem; }
 .cartao-reserva__estado { margin: 0.75rem 0; }
 
 /* A cor da borda diz o estado antes da leitura: âmbar quando falta uma
@@ -775,7 +861,7 @@ a.foto-provisoria:focus {
 .cartao-reserva--restante_vencido { border-left-color: #a33; }
 
 .cartao-reserva__pix {
-  background: #f6f3ea;
+  background: var(--areia-suave);
   border-radius: 3px;
   padding: 0.5rem 0.75rem;
 }
@@ -800,7 +886,7 @@ a.foto-provisoria:focus {
 
 button.secundario {
   background: #fff;
-  color: #2f3e34;
+  color: var(--marca);
 }
 
 .resumo-do-pedido dl,
@@ -835,13 +921,13 @@ button.secundario {
   padding: 0;
   margin: 0 0 1rem;
   font-size: 0.9rem;
-  color: #5b6a60;
+  color: var(--marca-suave);
   counter-reset: passo;
 }
 .passos-do-pedido li { counter-increment: passo; }
 .passos-do-pedido li::before { content: counter(passo) ". "; }
 .passos-do-pedido li[aria-current="step"] {
-  color: #2f3e34;
+  color: var(--marca);
   font-weight: 700;
 }
 .passos-do-pedido li.feito { text-decoration: line-through; }
@@ -872,18 +958,18 @@ button.secundario {
   min-width: 2.75rem;
   padding: 0.6rem 0.9rem;
   text-align: center;
-  border: 1px solid #2f3e34;
+  border: 1px solid var(--marca);
   border-radius: 0.4rem;
   background: #fff;
-  color: #2f3e34;
+  color: var(--marca);
   cursor: pointer;
 }
 .botoes-de-pessoas input[type="radio"]:checked + label {
-  background: #2f3e34;
+  background: var(--marca);
   color: #fff;
 }
 .botoes-de-pessoas input[type="radio"]:focus-visible + label {
-  outline: 3px solid #c58b2b;
+  outline: 3px solid var(--foco);
   outline-offset: 2px;
 }
 
@@ -891,7 +977,7 @@ fieldset.acompanhante {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  border: 1px solid #d6dcd4;
+  border: 1px solid var(--areia);
   border-radius: 0.4rem;
   padding: 0.5rem 1rem 1rem;
   margin: 0.75rem 0 0;
@@ -910,7 +996,7 @@ fieldset.acompanhante legend { font-weight: 700; padding: 0 0.25rem; }
 
 /* --- Etapa 5, Bloco 8: os cards da equipe e o controle do ano ---------- */
 
-.cartao-equipe--urgencia-1 { border-left: 6px solid #c58b2b; }
+.cartao-equipe--urgencia-1 { border-left: 6px solid var(--terracota); }
 .cartao-equipe--urgencia-2 { border-left: 6px solid #7a2520; }
 
 .seletor-de-ano {
@@ -948,15 +1034,15 @@ fieldset.acompanhante legend { font-weight: 700; padding: 0 0.25rem; }
   flex-direction: column;
   gap: 0.15rem;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #d6dcd4;
+  border: 1px solid var(--areia);
   border-radius: 0.4rem;
   text-decoration: none;
-  color: #2f3e34;
+  color: var(--marca);
   background: #fff;
 }
-.grade-de-meses .escolhido a { border-color: #2f3e34; border-width: 2px; }
+.grade-de-meses .escolhido a { border-color: var(--marca); border-width: 2px; }
 .mes-nome { text-transform: capitalize; }
-.mes-quantidade { font-size: 0.85rem; color: #5b6a60; }
+.mes-quantidade { font-size: 0.85rem; color: var(--marca-suave); }
 
 /* 20/11, a pedido do Dimas: os cards dos meses eram pequenos (auto-fill
  * de 9rem dava 7 por linha). Agora 4 colunas por 3 linhas ocupam a coluna
@@ -989,7 +1075,7 @@ fieldset.acompanhante legend { font-weight: 700; padding: 0 0.25rem; }
   list-style: none;
   padding: 0;
   margin: 0.75rem 0 0.25rem;
-  border-left: 3px solid #d6dcd4;
+  border-left: 3px solid var(--areia);
 }
 .linha-do-tempo li {
   display: flex;
@@ -1006,10 +1092,10 @@ fieldset.acompanhante legend { font-weight: 700; padding: 0 0.25rem; }
   height: 0.7rem;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid #8a958d;
+  border: 2px solid var(--borda-campo);
 }
-.linha-do-tempo li.feito::before { background: #2f3e34; border-color: #2f3e34; }
-.linha-do-tempo span { font-size: 0.9rem; color: #5b6a60; }
+.linha-do-tempo li.feito::before { background: var(--marca); border-color: var(--marca); }
+.linha-do-tempo span { font-size: 0.9rem; color: var(--marca-suave); }
 
 /* --- Etapa 5, Bloco 16: o Painel da equipe em cards -------------------- */
 
@@ -1020,7 +1106,7 @@ fieldset.acompanhante legend { font-weight: 700; padding: 0 0.25rem; }
   gap: 1rem;
   align-items: stretch;
   background: #fff;
-  border: 1px solid #d6dcd4;
+  border: 1px solid var(--areia);
   border-radius: 0.4rem;
   padding: 0.75rem;
   margin: 0.75rem 0;
@@ -1042,16 +1128,16 @@ fieldset.acompanhante legend { font-weight: 700; padding: 0 0.25rem; }
 
 .selos { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0 0; }
 .selo {
-  border: 1px solid #d6dcd4;
+  border: 1px solid var(--areia);
   border-radius: 999px;
   padding: 0.15rem 0.7rem;
   font-size: 0.9rem;
-  background: #f4f6f3;
+  background: var(--areia-suave);
 }
 
 a.botao {
   display: inline-block;
-  background: #2f3e34;
+  background: var(--marca);
   color: #fff;
   padding: 0.5rem 0.9rem;
   border-radius: 0.3rem;
@@ -1079,7 +1165,7 @@ a.botao {
 .barra,
 .cabecalho-publico {
   padding: 0.85rem 0;
-  background: #2f3e34;
+  background: var(--marca-escura);
   color: #fff;
 }
 
@@ -1100,7 +1186,7 @@ a.botao {
 }
 
 .barra nav a,
-.cabecalho-publico nav a { color: #e8ece9; }
+.cabecalho-publico nav a { color: var(--creme); }
 
 .barra .marca,
 .cabecalho-publico .marca {
@@ -1113,7 +1199,7 @@ a.botao {
 .barra .sair,
 .cabecalho-publico .entrar {
   padding: 0.4rem 1rem;
-  border: 1px solid #e8ece9;
+  border: 1px solid var(--creme);
   border-radius: 4px;
   font-size: 0.92rem;
   font-weight: 600;
@@ -1154,12 +1240,12 @@ a.botao {
   box-sizing: border-box;
   padding: 1rem;
   background: #fff;
-  border: 1px solid #d6dcd4;
+  border: 1px solid var(--areia);
   border-radius: 0.4rem;
-  color: #2f3e34;
+  color: var(--marca);
   text-decoration: none;
 }
-.chale-painel:hover { border-color: #2f3e34; }
+.chale-painel:hover { border-color: var(--marca); }
 /* Proporção 4:3, a das fotos: quando elas chegarem, entram sem recorte. */
 .chale-painel__cor {
   display: block;
@@ -1169,7 +1255,7 @@ a.botao {
 }
 .chale-painel__dados { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
 .chale-painel__dados strong { font-size: 1.2rem; }
-.chale-painel__dados span { font-size: 0.95rem; color: #5b6a60; }
+.chale-painel__dados span { font-size: 0.95rem; color: var(--marca-suave); }
 .chale-painel__dados .chale-painel__hoje { font-weight: 600; }
 .chale-painel__dados .chale-painel__hoje--ocupado { color: #7a2520; }
 .chale-painel__dados .chale-painel__hoje--livre { color: #2f5e3e; }
@@ -1177,7 +1263,7 @@ a.botao {
   grid-template-columns: auto auto;
   justify-content: center;
   border-style: dashed;
-  border-color: #2f3e34;
+  border-color: var(--marca);
 }
 .chale-painel--novo strong { font-size: 1.15rem; }
 .chale-painel__mais {
@@ -1204,8 +1290,8 @@ form + table { margin-top: 1.25rem; }
 .acao-chale { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
 a.botao.botao--secundario {
   background: #fff;
-  color: #2f3e34;
-  border: 1px solid #2f3e34;
+  color: var(--marca);
+  border: 1px solid var(--marca);
 }
 .convite-para-reservar { font-weight: 600; margin-bottom: 0.25rem; }
 
@@ -1222,7 +1308,7 @@ a.botao.botao--secundario {
 }
 
 .mural-mensagem {
-  border: 1px solid #d8d2c4;
+  border: 1px solid var(--areia);
   border-radius: 3px;
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
@@ -1230,8 +1316,8 @@ a.botao.botao--secundario {
 }
 
 .mural-mensagem--hospede { background: #ffffff; }
-.mural-mensagem--equipe { background: #f3efe6; margin-left: 2rem; }
-.mural-mensagem--nao-lida { border-color: #c99a2e; border-width: 2px; }
+.mural-mensagem--equipe { background: var(--areia-suave); margin-left: 2rem; }
+.mural-mensagem--nao-lida { border-color: var(--terracota); border-width: 2px; }
 
 .mural-autor { margin: 0 0 0.3rem; font-size: 0.9rem; }
 
@@ -1273,7 +1359,7 @@ a.botao.botao--secundario {
 
 /* Bloco 17b: o aviso de "nova resposta da pousada", no Painel do hóspede e
  * no card de Minhas reservas. Mesma cor do selo "não lida" da equipe. */
-.aviso-resposta { background: #fff7e0; border-color: #c99a2e; color: #5a4100; }
+.aviso-resposta { background: #fff7e0; border-color: var(--terracota); color: #5a4100; }
 .aviso-resposta p { margin: 0.2rem 0; }
 .aviso-resposta--card { display: inline-block; margin-right: 0.6rem; padding: 0.2rem 0.5rem; }
 
@@ -1319,24 +1405,24 @@ a.botao {
 /* Principal */
 button:not(.secundario):not(.sair):hover,
 a.botao:not(.botao--secundario):hover {
-  background: #3f5546;
+  background: var(--marca-clara);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
   transform: translateY(-1px);
 }
 button:not(.secundario):not(.sair):active,
 a.botao:not(.botao--secundario):active {
-  background: #243029;
+  background: var(--marca-clique);
   box-shadow: none;
   transform: translateY(0);
 }
 
 /* Secundário */
 button.secundario:hover,
-a.botao.botao--secundario:hover { background: #eef2ec; }
+a.botao.botao--secundario:hover { background: var(--creme); }
 button.secundario:active,
 a.botao.botao--secundario:active {
-  background: #e2e8df;
-  border-color: #1b241e;
+  background: var(--areia);
+  border-color: var(--marca-clique);
 }
 
 /* Destrutivo: vem depois do secundário e o sobrepõe. */
@@ -1354,7 +1440,7 @@ button.perigo:active {
 /* Teclado */
 button:focus-visible,
 a.botao:focus-visible {
-  outline: 2px solid #c99a2e;
+  outline: 2px solid var(--foco);
   outline-offset: 2px;
 }
 
@@ -1451,7 +1537,7 @@ a.botao:focus-visible {
 .tarefa + .tarefa { margin-top: 1.75rem; }
 
 /* Bloco 18c: o aviso de backup em dia, discreto; atrasado, usa .aviso-erro. */
-.aviso-backup { background: #f4f6f3; border-color: #d6dcd4; color: #2f3e34; font-size: 0.9rem; }
+.aviso-backup { background: var(--areia-suave); border-color: var(--areia); color: var(--marca); font-size: 0.9rem; }
 
 /* =====================================================================
  * Bloco 18e: o logo e a apresentação de fotos da página inicial.
@@ -1471,22 +1557,6 @@ a.botao:focus-visible {
   height: 36px;
   border-radius: 4px;
 }
-
-/* No banner, o logo inteiro à esquerda do nome; em tela estreita, o texto
- * desce para baixo dele. */
-.banner {
-  display: flex;
-  align-items: center;
-  gap: 1.75rem;
-  flex-wrap: wrap;
-}
-.banner__logo {
-  flex: none;
-  width: 170px;
-  height: 170px;
-  border-radius: 6px;
-}
-.banner__texto { flex: 1 1 14rem; }
 
 /* Apresentação de fotos — só CSS.
  *
@@ -1522,7 +1592,7 @@ a.botao:focus-visible {
   list-style: none;
   overflow: hidden;
   border-radius: 6px;
-  background: #2f3e34;
+  background: var(--marca-escura);
 }
 .fotos-da-pousada__lista li {
   position: absolute;
@@ -1555,8 +1625,9 @@ a.botao:focus-visible {
   100% { opacity: 0; }
 }
 
-/* Para com o cursor em cima, com o foco na caixa e com a caixa marcada. */
-.fotos-da-pousada:hover .fotos-da-pousada__lista li,
+/* Para com a caixa marcada — e enquanto ela tem o foco do teclado, que é
+ * quem navega sem mouse usando a própria caixa. A pausa com o cursor em
+ * cima saiu em 22/11, a pedido do Dimas: as fotos param só pelo botão. */
 .fotos-da-pousada:focus-within .fotos-da-pousada__lista li,
 .fotos-da-pousada__pausa:checked ~ .fotos-da-pousada__lista li {
   animation-play-state: paused;
@@ -1568,135 +1639,4 @@ a.botao:focus-visible {
   .fotos-da-pousada__lista li { animation: none; }
   .fotos-da-pousada__pausa,
   .fotos-da-pousada__pausa + label { display: none; }
-}
-
-/* =====================================================================
- * Bloco 18f: o banner branco (pedido do Dimas em 21/11).
- *
- * O verde-escuro escondia o logo, que tem fundo creme: parecia um selo
- * colado num cartaz. No branco, o logo fica maior e é ele que dá a cor; o
- * título e a chamada passam a preto, maiores, para acompanhá-lo. A borda
- * fina separa o banner do fundo da página (#fafafa), que é quase branco.
- * ===================================================================== */
-.banner {
-  background: #fff;
-  color: #1a1a1a;
-  border: 1px solid #e2e6e3;
-  padding: 2rem 2.25rem;
-  gap: 2.5rem;
-}
-.banner__logo {
-  width: 260px;
-  height: 260px;
-}
-.banner h1 { font-size: 3rem; color: #1a1a1a; }
-.banner .chamada { font-size: 1.4rem; color: #1a1a1a; }
-
-/* Em tela estreita, o logo não pode passar da largura da coluna. */
-@media (max-width: 40rem) {
-  .banner__logo { width: 180px; height: 180px; }
-  .banner h1 { font-size: 2.2rem; }
-}
-
-/* =====================================================================
- * 22/11 (com o 18d): o banner fiel ao logo — escolha do Dimas.
- *
- * O banner usa as três cores do próprio logo: o creme do fundo, o
- * verde-oliva das letras e o terracota do lema. Com o fundo igual ao do
- * logo, a imagem deixa de ser um quadro colado e se funde ao banner, e a
- * borda do 18f deixa de ser necessária (o creme já se separa do #fafafa).
- *
- * O terracota do logo (#c1723c) tem contraste de 3:1 sobre o creme — só
- * passa em letra grande. O lema usa #96582e, o mesmo tom escurecido, com
- * 4,67:1: passa a regra de texto normal (WCAG AA, 4,5:1). A estimativa
- * inicial, #a85d2c, dava 4,09 — `test_pagina_inicial.py` calcula o
- * contraste e pegou. O ponto do traço é decoração e fica com o tom
- * original do logo.
- *
- * A fonte serifada é a Georgia, que já vem no sistema: a política de
- * conteúdo não carrega fonte de fora, e a demonstração roda sem rede.
- * ===================================================================== */
-.banner {
-  background: #f6e8d7;
-  color: #5e5835;
-  border: none;
-}
-.banner__logo { border-radius: 0; }
-.banner h1 {
-  font-family: Georgia, "Times New Roman", serif;
-  font-weight: 400;
-  font-size: 3.4rem;
-  letter-spacing: 0.08em;
-  color: #5e5835;
-  margin: 0 0 0.6rem;
-}
-.banner .lema {
-  margin: 0;
-  font-size: 1.15rem;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  color: #96582e;
-}
-/* O traço com o ponto no meio, como no logo: uma linha de 1 px desenhada
- * pelo fundo e o ponto pelo ::after, com um halo da cor do creme para
- * a linha não atravessá-lo. */
-.banner__divisor {
-  display: block;
-  position: relative;
-  width: min(22rem, 100%);
-  height: 9px;
-  margin: 0.9rem 0;
-  background: linear-gradient(#c9a98a, #c9a98a) center / 100% 1px no-repeat;
-}
-.banner__divisor::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  margin: -3.5px 0 0 -3.5px;
-  border-radius: 50%;
-  background: #c1723c;
-  box-shadow: 0 0 0 4px #f6e8d7;
-}
-.banner .lema-complemento {
-  margin: 0;
-  font-size: 1.15rem;
-  color: #5e5835;
-}
-
-/* Em tela estreita, o título e o espaçamento do lema encolhem — repetido
- * aqui, depois das regras acima, para valer sobre elas. */
-@media (max-width: 40rem) {
-  .banner h1 { font-size: 2.4rem; }
-  .banner .lema { letter-spacing: 0.15em; }
-}
-
-/* 22/11, pedido do Dimas ao ver o banner: centralizar.
- *
- * O conjunto (logo + texto) vai para o centro do banner, e o texto se
- * centraliza sobre o traço, como no logo — o traço tem a largura da linha
- * mais larga do bloco.
- *
- * O `letter-spacing` põe espaço também DEPOIS da última letra; centrado,
- * o texto pende para a esquerda. O recuo à esquerda do mesmo tamanho
- * devolve o centro visual. Se o espaçamento mudar, o recuo muda junto —
- * `test_pagina_inicial.py` confere que os dois são iguais. */
-.banner {
-  justify-content: center;
-  gap: 3rem;
-}
-.banner__texto {
-  flex: 0 1 auto;
-  text-align: center;
-}
-.banner h1 { padding-left: 0.08em; }
-.banner .lema { padding-left: 0.25em; }
-.banner__divisor {
-  width: 100%;
-  margin: 0.9rem auto;
-}
-@media (max-width: 40rem) {
-  .banner .lema { padding-left: 0.15em; }
 }

@@ -466,6 +466,7 @@ afrouxar a política.
 | 18e | Logo na barra e no banner, fotos da pousada passando na página inicial (só CSS, sem metadado), barra só com o perfil, "Nada foi pago" no cancelamento | concluído |
 | 18f | Banner branco com o logo maior; o detalhe da reserva diz por que, quando e quem cancelou | concluído |
 | 18d | Guia de instalação completo e roteiro da demonstração, conferidos pela suíte | concluído |
+| 18g | A paleta do logo no sistema inteiro (variáveis CSS, contraste calculado por teste), banner só com o logo e pausa das fotos só pelo botão | concluído |
 
 Falta só o **12** (mensagem em HTML), opcional.
 

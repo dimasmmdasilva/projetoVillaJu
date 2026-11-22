@@ -178,7 +178,7 @@ def test_o_logo_esta_no_banner(inicial):
     banner = inicial[inicial.index('class="banner"'):]
     banner = banner[:banner.index("</section>")]
     assert "/static/img/marca/villaju-logo.jpg" in banner
-    assert "<h1>" in banner
+    assert '<h1 class="apenas-leitor">' in banner
 
 
 def test_o_selo_esta_nas_duas_barras(aplicacao):
@@ -221,12 +221,19 @@ def test_a_caixa_de_pausa_vem_antes_da_lista(inicial):
 
 
 @pytest.mark.parametrize("seletor", [
-    ".fotos-da-pousada:hover .fotos-da-pousada__lista li",
     ".fotos-da-pousada:focus-within .fotos-da-pousada__lista li",
     ".fotos-da-pousada__pausa:checked ~ .fotos-da-pousada__lista li",
 ])
-def test_cursor_foco_e_caixa_param_as_fotos(seletor):
+def test_a_caixa_marcada_ou_com_foco_para_as_fotos(seletor):
     assert _valor_final(NORMAL, seletor, "animation-play-state") == "paused"
+
+
+def test_o_cursor_em_cima_nao_para_as_fotos():
+    """22/11, pedido do Dimas: as fotos param só pelo botão "Pausar fotos".
+    A WCAG 2.2.2 pede UM jeito de parar; a caixa basta."""
+    for seletores, corpo in re.findall(r"([^{}]+)\{([^{}]*)\}", NORMAL):
+        if "fotos-da-pousada" in seletores and ":hover" in seletores:
+            assert "animation-play-state" not in corpo, seletores
 
 
 def test_quem_pede_menos_movimento_ve_a_primeira_foto_parada():
@@ -255,126 +262,76 @@ def test_um_atraso_por_foto_no_ciclo_certo():
 
 
 # ===========================================================================
-# Blocos 18f e 18d — o banner: logo maior, cores e lema do logo
+# O banner só com o logo (22/11, escolha do Dimas)
+#
+# Cinco versões até aqui; ficou a mais simples: o logo, que já escreve o
+# nome e o lema. Os testes das versões com texto (cores, contraste do
+# lema, traço, centralização) saíram com o texto.
 # ===========================================================================
 
 _MEDIA = re.compile(r"@media[^{]*\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}")
 SEM_MEDIA = _MEDIA.sub("", CSS)
-ESTREITA = "\n".join(
-    corpo for consulta, corpo in re.findall(
-        r"@media\s*(\(max-width:[^)]*\))\s*\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}", CSS)
-)
+CREME = "#f6e8d7"
 
 
-# 22/11, escolha do Dimas: o banner passou do branco do 18f às cores do
-# próprio logo. Os testes do branco deram lugar a estes.
-CREME, OLIVA, TERRACOTA = "#f6e8d7", "#5e5835", "#96582e"
+def _cor(seletor, propriedade):
+    from test_paleta import resolver
+
+    return resolver(_valor_final(SEM_MEDIA, seletor, propriedade))
 
 
-def _contraste(cor_a, cor_b):
-    """Razão de contraste da WCAG 2.x entre duas cores #rrggbb."""
-    def luminancia(cor):
-        canais = []
-        for i in (1, 3, 5):
-            c = int(cor[i:i + 2], 16) / 255
-            canais.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
-        r, g, b = canais
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b
-    claro, escuro = sorted((luminancia(cor_a), luminancia(cor_b)), reverse=True)
-    return (claro + 0.05) / (escuro + 0.05)
+def _dimensoes_do_jpeg(arquivo):
+    """Largura e altura lidas do marcador SOF, sem biblioteca de imagem."""
+    dados = arquivo.read_bytes()
+    i = 2
+    while i < len(dados):
+        marcador = dados[i + 1]
+        tamanho = int.from_bytes(dados[i + 2:i + 4], "big")
+        if marcador in (0xC0, 0xC1, 0xC2):
+            altura = int.from_bytes(dados[i + 5:i + 7], "big")
+            largura = int.from_bytes(dados[i + 7:i + 9], "big")
+            return largura, altura
+        i += 2 + tamanho
+    raise AssertionError("JPEG sem SOF")
 
 
-@pytest.mark.parametrize("seletor,propriedade,valor", [
-    (".banner", "background", CREME),
-    (".banner h1", "color", OLIVA),
-    (".banner .lema", "color", TERRACOTA),
-    (".banner .lema-complemento", "color", OLIVA),
-])
-def test_o_banner_usa_as_cores_do_logo(seletor, propriedade, valor):
-    assert _valor_final(SEM_MEDIA, seletor, propriedade) == valor
+def test_o_banner_e_creme_como_o_fundo_do_logo():
+    assert _cor(".banner", "background") == CREME
+    assert _cor(".banner", "background") != _cor("body", "background")
 
 
-@pytest.mark.parametrize("seletor", [
-    ".banner h1", ".banner .lema", ".banner .lema-complemento",
-])
-def test_o_texto_do_banner_passa_o_contraste(seletor):
-    """WCAG AA para texto normal: 4,5:1. O terracota do logo (#c1723c) dá
-    3:1 e não passaria — por isso o lema usa um tom mais escuro."""
-    fundo = _valor_final(SEM_MEDIA, ".banner", "background")
-    cor = _valor_final(SEM_MEDIA, seletor, "color")
-    assert _contraste(cor, fundo) >= 4.5, (seletor, cor, round(_contraste(cor, fundo), 2))
-    assert _contraste("#c1723c", CREME) < 4.5  # o motivo da troca continua valendo
+def test_o_logo_fica_no_centro_e_cabe_em_tela_estreita():
+    assert _valor_final(SEM_MEDIA, ".banner", "justify-content") == "center"
+    assert _valor_final(SEM_MEDIA, ".banner__logo", "max-width") == "100%"
+    assert _valor_final(SEM_MEDIA, ".banner__logo", "height") == "auto"
 
 
-def test_o_banner_se_separa_do_fundo_da_pagina_sem_borda():
-    assert _valor_final(SEM_MEDIA, "body", "background") == "#fafafa"
-    assert _valor_final(SEM_MEDIA, ".banner", "background") != "#fafafa"
-    assert _valor_final(SEM_MEDIA, ".banner", "border") == "none"
+def test_o_logo_publicado_e_nitido_no_tamanho_mostrado():
+    """Tela de alta densidade usa 2 pixels por ponto: o arquivo precisa ter
+    o dobro da largura mostrada. A cópia do 18e tinha 400 px para 260 na
+    tela, e aparecia borrada — foi o que o Dimas viu."""
+    # A largura mostrada vem do CSS, não de uma constante do teste: quem
+    # aumentar o logo na folha sem trocar o arquivo é avisado aqui.
+    mostrada = int(_valor_final(SEM_MEDIA, ".banner__logo", "width").removesuffix("px"))
+    largura, altura = _dimensoes_do_jpeg(IMAGENS / "marca" / "villaju-logo.jpg")
+    assert largura == altura
+    assert largura >= 2 * mostrada, (largura, mostrada)
 
 
-def test_logo_e_letras_maiores_que_no_18e():
-    def rem(seletor):
-        return float(_valor_final(SEM_MEDIA, seletor, "font-size").removesuffix("rem"))
-
-    assert int(_valor_final(SEM_MEDIA, ".banner__logo", "width").removesuffix("px")) >= 240
-    assert _valor_final(SEM_MEDIA, ".banner__logo", "width") ==         _valor_final(SEM_MEDIA, ".banner__logo", "height")
-    assert rem(".banner h1") > 2.2
-    assert rem(".banner h1") > rem(".banner .lema")
-
-
-def test_o_banner_mostra_o_lema_do_logo_em_ordem(inicial):
+def test_o_banner_tem_so_o_logo_e_o_titulo_escondido(inicial):
     from app.rotas.publico import HOSPEDARIA
 
-    banner = inicial[inicial.index('class="banner"'):]
+    banner = inicial[inicial.rindex("<section", 0, inicial.index('class="banner"')):]
     banner = banner[:banner.index("</section>")]
-    titulo = banner.index("<h1>")
-    lema = banner.index(f'<p class="lema">{HOSPEDARIA["lema"]}</p>')
-    traco = banner.index('<span class="banner__divisor" aria-hidden="true"></span>')
-    complemento = banner.index(
-        f'<p class="lema-complemento">{HOSPEDARIA["lema_complemento"]}</p>')
-    assert titulo < lema < traco < complemento
-    assert HOSPEDARIA["lema"] == "Sua casa na praia."
-    assert HOSPEDARIA["lema_complemento"] == "Entre o mar e a mata da Juréia."
+    # O nome é o título da página, para o leitor de tela e o buscador,
+    # fora da vista: o logo já o escreve.
+    assert f'<h1 class="apenas-leitor">{HOSPEDARIA["nome"]}</h1>' in banner
+    # O logo deixou de ser decoração: é o texto do banner.
+    alt = html.unescape(re.search(r'<img\b[^>]*\balt="([^"]*)"', banner).group(1))
+    for parte in (HOSPEDARIA["nome"], HOSPEDARIA["lema"], HOSPEDARIA["lema_complemento"]):
+        assert parte in alt
+    # Nenhum outro texto visível no banner.
+    visivel = re.sub(r"<h1[^>]*>.*?</h1>|<[^>]+>|\{#.*?#\}", "", banner, flags=re.S)
+    assert not visivel.strip(), visivel.strip()
     # A descrição para o buscador continua informativa.
     assert f'content="{HOSPEDARIA["chamada"]}"' in inicial
-    assert HOSPEDARIA["chamada"] not in banner
-
-
-def test_a_regra_de_tela_estreita_vem_depois_do_titulo_grande():
-    """Mesma especificidade: vale a que vem por último na folha."""
-    grande = CSS.rindex("font-size: 3.4rem;")
-    estreita = CSS.rindex("@media (max-width: 40rem)")
-    assert estreita > grande
-    assert _valor_final(ESTREITA, ".banner h1", "font-size") == "2.4rem"
-
-
-def test_em_tela_estreita_o_logo_encolhe():
-    assert _valor_final(ESTREITA, ".banner__logo", "width") == "180px"
-
-
-# 22/11, pedido do Dimas: logo e texto centralizados, o texto alinhado ao
-# traço, e o espaçamento das letras compensado para o centro ser o centro.
-
-def test_o_conjunto_e_o_texto_do_banner_ficam_no_centro():
-    assert _valor_final(SEM_MEDIA, ".banner", "justify-content") == "center"
-    assert _valor_final(SEM_MEDIA, ".banner__texto", "text-align") == "center"
-    assert _valor_final(SEM_MEDIA, ".banner__texto", "flex") == "0 1 auto"
-
-
-def test_o_traco_tem_a_largura_do_texto_e_fica_no_centro():
-    assert _valor_final(SEM_MEDIA, ".banner__divisor", "width") == "100%"
-    assert _valor_final(SEM_MEDIA, ".banner__divisor", "margin").endswith("auto")
-
-
-@pytest.mark.parametrize("folha", ["normal", "estreita"])
-@pytest.mark.parametrize("seletor", [".banner h1", ".banner .lema"])
-def test_o_espacamento_das_letras_e_compensado(folha, seletor):
-    """O `letter-spacing` sobra depois da última letra; o recuo à esquerda
-    do mesmo tamanho devolve o centro. Em tela estreita o espaçamento do
-    lema muda, e o recuo precisa mudar junto."""
-    css = SEM_MEDIA if folha == "normal" else ESTREITA
-    espaco = _valor_final(css, seletor, "letter-spacing") or \
-        _valor_final(SEM_MEDIA, seletor, "letter-spacing")
-    recuo = _valor_final(css, seletor, "padding-left") or \
-        _valor_final(SEM_MEDIA, seletor, "padding-left")
-    assert espaco and espaco == recuo, (folha, seletor, espaco, recuo)

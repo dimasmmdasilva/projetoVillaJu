@@ -11,19 +11,15 @@
    o leitor de tela o leria duas vezes.
    --------------------------------------------------------------------- #}
 <section class="banner">
+  {# 22/11 (Dimas): só o logo, maior. O nome continua sendo o título da
+     página — para o leitor de tela e o buscador —, mas fora da vista: o
+     logo já o escreve. Pelo mesmo motivo o logo deixa de ter `alt` vazio:
+     agora ele É o texto do banner, com o nome e o lema. #}
+  <h1 class="apenas-leitor">{{ hospedaria.nome }}</h1>
   <img class="banner__logo"
        src="{{ url_for('static', filename='img/marca/villaju-logo.jpg') }}"
-       alt="" width="400" height="400">
-  <div class="banner__texto">
-    <h1>{{ hospedaria.nome }}</h1>
-    {# 22/11: o lema do logo, na mesma hierarquia — a primeira linha em
-       maiúsculas espaçadas (pelo CSS: o leitor de tela lê a frase
-       normal), o traço com ponto, e a segunda linha menor. O traço é
-       decoração, escondido do leitor de tela. #}
-    <p class="lema">{{ hospedaria.lema }}</p>
-    <span class="banner__divisor" aria-hidden="true"></span>
-    <p class="lema-complemento">{{ hospedaria.lema_complemento }}</p>
-  </div>
+       alt="{{ hospedaria.nome }} — {{ hospedaria.lema }} {{ hospedaria.lema_complemento }}"
+       width="840" height="840">
 </section>
 
 <section class="apresentacao">
@@ -33,7 +29,7 @@
 
      Só CSS — o sistema não tem JavaScript. A troca é uma animação de
      opacidade com um atraso por foto (`villaju.css`, "Apresentação de
-     fotos"). Para quando o cursor está sobre ela e quando a caixa "Pausar
+     fotos"). Para quando a caixa "Pausar
      fotos" está marcada: conteúdo que se move sozinho por mais de cinco
      segundos precisa de um jeito de parar (WCAG 2.2.2). Quem pediu ao
      sistema menos movimento vê só a primeira foto, parada.
