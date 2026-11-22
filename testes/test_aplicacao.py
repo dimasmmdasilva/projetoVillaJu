@@ -217,6 +217,22 @@ def test_rota_de_saude_nao_revela_informacao(cliente):
         assert proibido not in corpo
 
 
+@pytest.mark.parametrize("rota", ["/saude", "/login", "/rota-que-nao-existe"])
+def test_nenhum_cabecalho_revela_o_servidor_nem_a_versao(cliente, rota):
+    """Relatório 2, achado R2-02.
+
+    O teste de cima olhava só o CORPO da resposta — e a versão saía no
+    CABEÇALHO: o servidor anunciava "Werkzeug/3.1.9 Python/3.12.3". Só a
+    análise dinâmica (testssl.sh) mostrou. Vale também para página de erro,
+    que é onde servidor costuma se esquecer de esconder a versão.
+    """
+    resposta = cliente.get(rota)
+    assert resposta.headers.get("Server") == "VillaJu"
+    cabecalhos = " ".join(f"{k}: {v}" for k, v in resposta.headers.items()).lower()
+    for proibido in ("werkzeug", "python", "flask", "mysql"):
+        assert proibido not in cabecalhos, proibido
+
+
 def test_raiz_serve_a_vitrine_publica(cliente):
     """A raiz é a vitrine, não o login.
 

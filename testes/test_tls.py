@@ -111,6 +111,55 @@ def test_contexto_tls_recusa_versoes_obsoletas():
     assert contexto.minimum_version >= ssl.TLSVersion.TLSv1_2
 
 
+def test_o_servidor_nao_manda_o_proprio_cabecalho_de_versao():
+    """Relatório 2, achado R2-02. O teste da aplicação (test_aplicacao.py)
+    usa o cliente de teste do Flask, que não passa pelo servidor — e foi
+    o servidor que mandou o segundo cabeçalho, com a versão. Aqui o
+    tratador do servidor é exercitado direto."""
+    tratador = _carregar_run().tratador_sem_versao()
+    falso = tratador.__new__(tratador)
+    falso.request_version = "HTTP/1.1"
+    falso._headers_buffer = []
+    falso.log_request = lambda *a, **k: None
+    falso.send_response(200)
+    enviado = b"".join(falso._headers_buffer).decode("latin-1").lower()
+    assert "date:" in enviado
+    assert "server:" not in enviado
+    assert "werkzeug" not in enviado and "python" not in enviado
+
+
+def test_o_servidor_sobe_com_o_tratador_sem_versao_e_o_tls_restrito(monkeypatch):
+    """O tratador e o contexto TLS só valem se o `run.py` os usar: aqui a
+    subida do servidor é interceptada e os argumentos, conferidos."""
+    import types
+
+    run = _carregar_run()
+    recebido = {}
+    configuracao = types.SimpleNamespace(
+        HOST="127.0.0.1", PORTA=5999, DEBUG=False, TLS_CERT=CERT, TLS_CHAVE=CHAVE)
+    falsa = types.SimpleNamespace(run=lambda **kw: recebido.update(kw))
+    monkeypatch.setattr(run, "conferir_ambiente", lambda: configuracao)
+    import app as pacote
+    monkeypatch.setattr(pacote, "create_app", lambda cfg: falsa)
+
+    assert run.main() == 0
+    assert recebido["request_handler"].__name__ == "TratadorSemVersao"
+    contexto = recebido["ssl_context"]
+    assert contexto.minimum_version >= ssl.TLSVersion.TLSv1_2
+    assert all(c["aead"] for c in contexto.get_ciphers() if c["protocol"] == "TLSv1.2")
+
+
+def test_tls12_so_oferece_cifras_aead_com_chave_efemera():
+    """Relatório 2, achado R2-01: o testssl.sh encontrou AES em modo CBC
+    no TLS 1.2 (obsoleto, potencialmente vulnerável a LUCKY13)."""
+    cifras = _carregar_run().criar_contexto_tls(CERT, CHAVE).get_ciphers()
+    tls12 = [c for c in cifras if c["protocol"] == "TLSv1.2"]
+    assert tls12, "o TLS 1.2 precisa continuar disponível"
+    for cifra in tls12:
+        assert cifra["aead"], cifra["name"]
+        assert cifra["kea"] == "kx-ecdhe", cifra["name"]
+
+
 def test_chave_de_sessao_nao_esta_embutida_no_codigo():
     """Nenhum segredo no código-fonte (regra 2 do projeto).
 

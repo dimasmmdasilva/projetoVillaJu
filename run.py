@@ -63,17 +63,46 @@ def conferir_ambiente():
     return configuracao
 
 
+# Relatório 2, achado R2-01: no TLS 1.2, só cifras AEAD (AES-GCM e
+# ChaCha20), sempre com troca de chaves efêmera (ECDHE). O padrão do
+# OpenSSL ainda oferecia AES em modo CBC com HMAC-SHA256/384, que o
+# testssl.sh marcou como obsoletas e potencialmente vulneráveis a LUCKY13.
+# O TLS 1.3 não é afetado: as cifras dele já são todas AEAD.
+CIFRAS_TLS12 = "ECDHE+AESGCM:ECDHE+CHACHA20"
+
+
 def criar_contexto_tls(cert: pathlib.Path, chave: pathlib.Path) -> ssl.SSLContext:
-    """Contexto TLS restrito a TLS 1.2 e 1.3.
+    """Contexto TLS restrito a TLS 1.2 e 1.3, e só a cifras AEAD.
 
     Versões anteriores (SSLv3, TLS 1.0 e 1.1) estão obsoletas e carregam
-    fraquezas conhecidas. Restringir aqui já atende à verificação do
-    testssl.sh prevista para a Etapa 6.
+    fraquezas conhecidas.
     """
     contexto = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     contexto.minimum_version = ssl.TLSVersion.TLSv1_2
+    contexto.set_ciphers(CIFRAS_TLS12)
     contexto.load_cert_chain(certfile=cert, keyfile=chave)
     return contexto
+
+
+def tratador_sem_versao():
+    """O tratador de requisições do servidor, sem anunciar a versão.
+
+    Relatório 2, achado R2-02: a resposta saía com
+    "Server: Werkzeug/3.1.9 Python/3.12.3". A aplicação passou a declarar
+    "Server: VillaJu" — e a varredura mostrou DOIS cabeçalhos: o
+    `http.server` do Python, base do Werkzeug, manda o dele sempre, sem
+    olhar o que a aplicação disse. Este tratador manda só a data, e o
+    cabeçalho que vale é o da aplicação.
+    """
+    from werkzeug.serving import WSGIRequestHandler
+
+    class TratadorSemVersao(WSGIRequestHandler):
+        def send_response(self, code, message=None):
+            self.log_request(code)
+            self.send_response_only(code, message)
+            self.send_header("Date", self.date_time_string())
+
+    return TratadorSemVersao
 
 
 def main() -> int:
@@ -96,6 +125,7 @@ def main() -> int:
             configuracao.TLS_CERT, configuracao.TLS_CHAVE
         ),
         debug=configuracao.DEBUG,
+        request_handler=tratador_sem_versao(),
     )
     return 0
 

@@ -388,6 +388,13 @@ def _registrar_cabecalhos_de_seguranca(app: Flask) -> None:
             "Referrer-Policy", "strict-origin-when-cross-origin"
         )
 
+        # Relatório 2, achado R2-02: o servidor anunciava a versão exata
+        # ("Werkzeug/3.1.9 Python/3.12.3"), que é o que um atacante usa
+        # para escolher a falha a pesquisar. O servidor só põe o próprio
+        # cabeçalho quando a resposta não traz um; declarado aqui, vale
+        # também para um servidor de produção.
+        resposta.headers["Server"] = "VillaJu"
+
         # Exige HTTPS nas visitas seguintes. Só faz sentido quando a
         # resposta já veio por HTTPS; em modo de teste é omitido.
         if not app.config.get("TESTING"):
