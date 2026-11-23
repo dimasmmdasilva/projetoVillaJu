@@ -397,6 +397,28 @@ def _registrar_cabecalhos_de_seguranca(app: Flask) -> None:
             "Referrer-Policy", "strict-origin-when-cross-origin"
         )
 
+        # Relatório 2, achado R2-04 (risco baixo, ZAP 10063 e 90004):
+        # defesa em profundidade. O VillaJu não tem JavaScript nem carrega
+        # nada de fora — a política de conteúdo acima só admite 'self' —,
+        # então nenhum dos quatro quebra a página; eles fecham portas que
+        # o sistema não usa.
+        #
+        # O navegador não oferece câmera, microfone, localização, pagamento
+        # nem USB a esta página, nem a algo embutido nela.
+        resposta.headers.setdefault(
+            "Permissions-Policy",
+            "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+        )
+        # Outra janela aberta por um site de fora não ganha referência a
+        # esta (nem esta à dela): fecha ataques de abas trocadas.
+        resposta.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        # Arquivos daqui (imagens, CSS) não podem ser embutidos por sites
+        # de outra origem.
+        resposta.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+        # E esta página só aceita embutir o que declara aceitar ser
+        # embutido — com tudo vindo de 'self', nada muda na tela.
+        resposta.headers.setdefault("Cross-Origin-Embedder-Policy", "require-corp")
+
         # Relatório 2, achado R2-02: o servidor anunciava a versão exata
         # ("Werkzeug/3.1.9 Python/3.12.3"), que é o que um atacante usa
         # para escolher a falha a pesquisar. O servidor só põe o próprio

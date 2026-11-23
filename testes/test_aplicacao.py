@@ -258,10 +258,45 @@ def test_raiz_serve_a_vitrine_publica(cliente):
         ("X-Content-Type-Options", "nosniff"),
         ("X-Frame-Options", "DENY"),
         ("Referrer-Policy", "strict-origin-when-cross-origin"),
+        # Relatório 2, R2-04 (ZAP, risco baixo): os quatro de isolamento.
+        ("Cross-Origin-Opener-Policy", "same-origin"),
+        ("Cross-Origin-Resource-Policy", "same-origin"),
+        ("Cross-Origin-Embedder-Policy", "require-corp"),
     ],
 )
 def test_cabecalho_de_seguranca_presente(cliente, cabecalho, esperado):
     assert cliente.get("/saude").headers.get(cabecalho) == esperado
+
+
+@pytest.mark.parametrize("recurso", ["camera", "microphone", "geolocation", "payment", "usb"])
+def test_permissions_policy_nega_os_recursos_do_navegador(cliente, recurso):
+    """R2-04: o VillaJu não usa nenhum; `recurso=()` é a lista vazia."""
+    politica = cliente.get("/saude").headers.get("Permissions-Policy", "")
+    assert f"{recurso}=()" in politica
+
+
+def test_os_cabecalhos_de_isolamento_valem_tambem_na_pagina_publica(cliente):
+    """O ZAP achou a falta nas páginas públicas; não basta o /saude."""
+    cabecalhos = cliente.get("/").headers
+    for nome in ("Permissions-Policy", "Cross-Origin-Opener-Policy",
+                 "Cross-Origin-Resource-Policy", "Cross-Origin-Embedder-Policy"):
+        assert nome in cabecalhos, nome
+
+
+def test_nada_e_carregado_de_fora_o_que_permite_o_coep(cliente):
+    """`require-corp` bloquearia recurso externo sem permissão. Nenhum
+    modelo carrega nada de outra origem, e a CSP já garante só 'self'."""
+    import re
+    from pathlib import Path
+
+    modelos = Path(__file__).resolve().parents[1] / "app" / "templates"
+    externos = [
+        (m.name, achado)
+        for m in modelos.rglob("*.html")
+        for achado in re.findall(r'\bsrc="((?:https?:)?//[^"]+)"', m.read_text(encoding="utf-8"))
+    ]
+    assert not externos, externos
+    assert "default-src 'self'" in cliente.get("/").headers["Content-Security-Policy"]
 
 
 def test_politica_de_conteudo_restringe_script(cliente):
