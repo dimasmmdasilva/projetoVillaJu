@@ -138,6 +138,130 @@ acrescente ao `.env` se precisar mudar.
 | `VILLAJU_MYSQL` | o `mysql` do `PATH` | caminho do cliente, para a restauração |
 | `VILLAJU_MYSQLDUMP` | o `mysqldump` do `PATH` | caminho do `mysqldump`, para o backup |
 
+### 3.4. Envio de e-mail
+
+O sistema manda três e-mails, todos com um link de uso único:
+
+| E-mail | Quando | O link leva a |
+|---|---|---|
+| "Confirme o seu cadastro na VillaJu" | alguém se cadastra pelo site | confirmar a conta; vale por `VILLAJU_CADASTRO_MINUTOS` |
+| "Tentativa de cadastro com o seu e-mail na VillaJu" | alguém tenta cadastrar um e-mail que já tem conta | avisa o dono do e-mail; o site não revela a quem tentou que o e-mail existe |
+| "Redefinir a sua senha na VillaJu" | alguém usa "Esqueci a senha" | escolher a senha nova; vale 48 horas |
+
+Pagamentos, reservas e conversas **não** geram e-mail: o hóspede
+acompanha tudo pela área dele no site.
+
+Há dois modos, escolhidos por `VILLAJU_EMAIL_MODO`.
+
+#### Modo `arquivo` (o padrão): para demonstrar sem internet
+
+Nada sai do computador. Cada e-mail vira um arquivo de texto em
+`VILLAJU_EMAIL_PASTA` (`instance/emails/`, se não mudar), com nome no
+formato `AAAAMMDD-HHMMSS-...-destinatario.txt`.
+
+Para confirmar um cadastro nesse modo:
+
+1. Cadastre-se pelo site normalmente.
+2. Abra a pasta `instance\emails\` e o arquivo mais recente (ordene por
+   data).
+3. Copie o link `https://localhost:5000/confirmar/...` para o mesmo
+   navegador em que está usando o sistema.
+
+É o modo certo para a apresentação e para os testes: funciona sem rede e
+o conteúdo do e-mail fica à vista.
+
+#### Modo `smtp`: para enviar de verdade, pelo Gmail
+
+O sistema entrega a mensagem a um servidor de e-mail, que a envia. O
+passo a passo abaixo usa o Gmail; outro provedor funciona igual, com o
+servidor e a porta dele.
+
+**1. Prepare a conta de envio.** Use de preferência uma conta Gmail **só
+da pousada** (por exemplo, `reservas.villaju@gmail.com`), e não um e-mail
+pessoal: quem receber vê esse endereço como remetente.
+
+**2. Ative a verificação em duas etapas** na conta: em
+`myaccount.google.com` → Segurança → Verificação em duas etapas. Sem ela,
+o Google não oferece senha de app.
+
+**3. Gere uma senha de app** em `myaccount.google.com/apppasswords`. Dê o
+nome `VillaJu`. O Google mostra 16 letras em quatro grupos (`abcd efgh
+ijkl mnop`); copie **sem os espaços**. Ela só aparece uma vez — se
+perder, gere outra.
+
+A senha de app **não é a senha da conta**: só serve para enviar e-mail,
+não abre a caixa de entrada nem as configurações, e pode ser revogada na
+mesma tela a qualquer momento, sem mexer na conta.
+
+**4. Preencha o `.env`:**
+
+```ini
+VILLAJU_EMAIL_MODO=smtp
+VILLAJU_EMAIL_REMETENTE=VillaJu Reservas <reservas.villaju@gmail.com>
+VILLAJU_EMAIL_BASE_URL=https://localhost:5000
+VILLAJU_SMTP_HOST=smtp.gmail.com
+VILLAJU_SMTP_PORTA=587
+VILLAJU_SMTP_USUARIO=reservas.villaju@gmail.com
+VILLAJU_SMTP_SENHA=abcdefghijklmnop
+VILLAJU_CADASTRO_MINUTOS=15
+```
+
+- O endereço em `VILLAJU_EMAIL_REMETENTE` deve ser **o mesmo** de
+  `VILLAJU_SMTP_USUARIO`. O Gmail troca o remetente por conta própria
+  quando são diferentes, e filtros de spam desconfiam.
+- `VILLAJU_EMAIL_BASE_URL` é o começo de todo link dos e-mails. Use o
+  endereço exato que se digita no navegador para abrir o sistema — em
+  casa, `https://localhost:5000`; em uso real, o endereço público da
+  pousada. Se o link apontar para outro endereço (`127.0.0.1` no lugar de
+  `localhost`, por exemplo), a sessão e a exceção do certificado não
+  passam de um para o outro.
+
+**5. Reinicie o servidor.** O `.env` só é lido quando o sistema sobe.
+
+**6. Faça a prova de ponta a ponta,** antes de confiar no envio:
+
+1. Cadastre-se pelo site com um e-mail seu.
+2. Espere o e-mail — e olhe também a pasta de spam.
+3. Clique no link e entre com a conta nova.
+
+Só depois de medir quanto o e-mail demora a chegar, baixe
+`VILLAJU_CADASTRO_MINUTOS` para `5`.
+
+**Como o envio é protegido.** O sistema abre a conexão na porta 587 e a
+cifra (STARTTLS) **antes** de mandar a senha de app; se o servidor não
+aceitar cifrar, nada é enviado. A senha fica só no `.env`, que o Git
+ignora, e não aparece em tela nem em log. O link de cada e-mail é um
+código aleatório de uso único, guardado no banco apenas como resumo
+criptográfico.
+
+#### Quando o e-mail não funciona
+
+Os erros de envio aparecem **no terminal onde o servidor foi iniciado**.
+Na tela, de propósito, quase nada:
+
+- **No cadastro**, a falha de envio **não aparece**: a conta é criada
+  inativa e a pessoa vê a página normal de "verifique o seu e-mail". Sem
+  o e-mail, ninguém confirma, e o cadastro é descartado quando vence
+  `VILLAJU_CADASTRO_MINUTOS` — a pessoa precisa se cadastrar de novo
+  depois de o envio voltar a funcionar. Por isso a prova de ponta a ponta
+  do passo 6 é indispensável: um envio quebrado não avisa ninguém na
+  tela, só no terminal.
+- **No "Esqueci a senha"**, a tela diz "Não foi possível processar o
+  pedido agora", sem detalhe técnico.
+
+| O que aparece no terminal ou acontece | Causa provável | O que fazer |
+|---|---|---|
+| `autenticação recusada pelo servidor de e-mail` | senha de app errada, com espaços, ou revogada; ou a senha da conta no lugar da senha de app | gere outra senha de app e cole sem espaços |
+| `falha ao enviar mensagem: TimeoutError` ou `ConnectionRefusedError` | sem internet, ou a rede bloqueia a porta 587 (comum em rede de empresa ou universidade) | teste em outra rede; confira `VILLAJU_SMTP_HOST` e `VILLAJU_SMTP_PORTA` |
+| `O modo de correio é smtp, mas nenhum servidor foi configurado` | `VILLAJU_SMTP_HOST` vazio | preencha e reinicie |
+| O servidor nem sobe, citando `VILLAJU_EMAIL_MODO` | valor diferente de `arquivo` e `smtp` | corrija a grafia |
+| Nada no terminal, mas o e-mail não chega | foi para o spam, ou o endereço digitado no cadastro estava errado | procure no spam; marque como "não é spam" |
+| O link diz que expirou | o e-mail demorou mais que `VILLAJU_CADASTRO_MINUTOS` | aumente o prazo e cadastre de novo |
+| O link abre, mas a sessão não continua | o link aponta para um endereço diferente do que se usa no navegador | ajuste `VILLAJU_EMAIL_BASE_URL` |
+
+Para voltar ao modo de demonstração a qualquer momento:
+`VILLAJU_EMAIL_MODO=arquivo` e reiniciar.
+
 ---
 
 ## 4. Certificado TLS

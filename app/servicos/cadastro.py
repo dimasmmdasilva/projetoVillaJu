@@ -266,13 +266,15 @@ def _corpo_do_aviso(link_de_entrada: str) -> str:
 def _enviar(destinatario: str, assunto: str, corpo: str, configuracao) -> None:
     """Envia, e trata a falha sem derrubar o cadastro.
 
-    Um erro de SMTP não pode desfazer a conta já criada. A escolha da
-    Forma B foi justamente esta: a conta existe inativa, e a recepção
-    consegue ativá-la depois de falar com a pessoa. Derrubar tudo por
-    causa do correio deixaria a pessoa sem nada.
+    Um erro de SMTP não desfaz a conta já criada: ela fica inativa, e a
+    pessoa vê a mesma página de "verifique o seu e-mail". Sem a mensagem,
+    ninguém confirma, e o descarte por prazo (`VILLAJU_CADASTRO_MINUTOS`)
+    a remove como a qualquer cadastro não confirmado. (Corrigido em 23/11:
+    a versão anterior deste comentário dizia que a recepção podia ativar
+    a conta — essa tela nunca existiu.)
 
-    A falha vai para o log com o endereço, porque quem administra precisa
-    saber para quem o envio não funcionou.
+    A falha vai para o log com o rastro do erro, sem o endereço: e-mail é
+    dado pessoal, e o log não guarda dado pessoal.
     """
     try:
         destino = correio.enviar(destinatario, assunto, corpo, configuracao)
