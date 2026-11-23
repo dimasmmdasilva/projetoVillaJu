@@ -148,7 +148,9 @@ class Configuracao:
             "password": senha,
         }
 
-        self.banco_tamanho_do_pool = _inteiro("VILLAJU_DB_POOL", 5)
+        # 10 desde 23/11 (Relatório 2, R2-03): com 5, o rastreador do ZAP
+        # esgotava o pool. O MySQL aceita 151 conexões por padrão.
+        self.banco_tamanho_do_pool = _inteiro("VILLAJU_DB_POOL", 10)
 
         # --- TLS -------------------------------------------------------------
         self.TLS_CERT = RAIZ / _opcional("VILLAJU_TLS_CERT", "certs/villaju.crt")

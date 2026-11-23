@@ -219,11 +219,16 @@ def _registrar_paginas_de_erro(app: Flask) -> None:
         413: "O conteúdo enviado é grande demais.",
         429: "Tentativas demais em pouco tempo. Aguarde um momento.",
         500: "Ocorreu um erro inesperado. A equipe foi notificada.",
+        503: "O sistema está ocupado agora. Tente de novo em alguns instantes.",
     }
 
     def responder(codigo):
         def manipulador(erro):
-            if codigo >= 500:
+            if codigo == 503:
+                # Excesso de pedidos simultâneos, não defeito: sem rastro
+                # completo, que afogaria o log num pico (R2-03).
+                registrador.warning("banco ocupado: nenhuma conexão livre no prazo")
+            elif codigo >= 500:
                 # Só o erro interno vai ao log com rastro completo: os
                 # demais são resposta esperada a uma requisição ruim, e
                 # registrá-los todos afogaria o que importa.
@@ -241,6 +246,10 @@ def _registrar_paginas_de_erro(app: Flask) -> None:
 
     for codigo in MENSAGENS:
         app.register_error_handler(codigo, responder(codigo))
+
+    from app.dados.conexao import BancoOcupado
+
+    app.register_error_handler(BancoOcupado, responder(503))
 
 
 def _registrar_rotas(app: Flask) -> None:

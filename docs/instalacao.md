@@ -130,7 +130,7 @@ acrescente ao `.env` se precisar mudar.
 | `VILLAJU_SESSAO_SEGUNDOS` | 28800 (8 h) | duração da sessão |
 | `VILLAJU_CSRF_SEGUNDOS` | 3600 | validade do token dos formulários |
 | `VILLAJU_MAX_CORPO_BYTES` | 2097152 (2 MB) | maior requisição aceita |
-| `VILLAJU_DB_POOL` | 5 | conexões abertas com o banco |
+| `VILLAJU_DB_POOL` | 10 | conexões abertas com o banco; com todas em uso, o pedido espera até 2 s e, se nenhuma se liberar, a pessoa vê "sistema ocupado" (503) |
 | `VILLAJU_LIMITE_LOGIN` | `5 per minute` | tentativas de login |
 | `VILLAJU_LIMITE_PUBLICO` | `3 per minute` | formulários públicos |
 | `VILLAJU_LIMITE_PADRAO` | `200 per hour` | demais páginas |

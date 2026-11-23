@@ -25,6 +25,7 @@ silencioso e grave — a auditoria passaria a mentir.
 import contextlib
 import itertools
 import logging
+import time
 
 import mysql.connector
 from mysql.connector import pooling
@@ -49,6 +50,24 @@ _SQL_LER_USUARIO = "SELECT @app_usuario_id"
 
 class ErroDeConexao(Exception):
     """Falha ao obter ou configurar conexão com o banco."""
+
+
+class BancoOcupado(ErroDeConexao):
+    """Todas as conexões do pool seguiram ocupadas durante a espera.
+
+    Vira resposta 503 ("sistema ocupado, tente em instantes"), não 500:
+    não é defeito, é excesso de pedidos simultâneos (Relatório 2, R2-03).
+    """
+
+
+# Relatório 2, achado R2-03. O pool do mysql-connector não espera: com
+# todas as conexões emprestadas, o pedido seguinte falhava NA HORA, e a
+# pessoa via "erro inesperado" (500). Na análise dinâmica, o rastreador do
+# ZAP, com vários pedidos simultâneos, produziu 14 desses. Agora o pedido
+# espera uma conexão ser devolvida — o normal é questão de milissegundos —
+# e só desiste depois deste prazo.
+ESPERA_PELO_POOL_SEGUNDOS = 2.0
+INTERVALO_DA_ESPERA_SEGUNDOS = 0.05
 
 
 def iniciar_pool(configuracao) -> None:
@@ -140,6 +159,21 @@ def _limpar_usuario(conexao) -> None:
         )
 
 
+def _emprestar_do_pool():
+    """Pega uma conexão do pool, esperando até o prazo se todas estão em uso."""
+    pool = _exigir_pool()
+    prazo = time.monotonic() + ESPERA_PELO_POOL_SEGUNDOS
+    while True:
+        try:
+            return pool.get_connection()
+        except mysql.connector.errors.PoolError as erro:
+            if time.monotonic() >= prazo:
+                raise BancoOcupado(
+                    "Todas as conexões com o banco seguiram ocupadas."
+                ) from erro
+            time.sleep(INTERVALO_DA_ESPERA_SEGUNDOS)
+
+
 @contextlib.contextmanager
 def obter_conexao(usuario_id=None):
     """Empresta uma conexão do pool, já identificada e em transação.
@@ -152,7 +186,7 @@ def obter_conexao(usuario_id=None):
     operação sem sessão — uma tentativa de login que falhou antes de
     identificar a conta, por exemplo.
     """
-    conexao = _exigir_pool().get_connection()
+    conexao = _emprestar_do_pool()
     try:
         _definir_usuario(conexao, usuario_id)
         yield conexao
