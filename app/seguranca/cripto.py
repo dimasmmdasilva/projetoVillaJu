@@ -169,10 +169,13 @@ def aad_acompanhante(reserva_id, ordem, campo: str) -> bytes:
     """A etiqueta de um campo de acompanhante — Etapa 5, Bloco 15.
 
     Ao contrário de `hospede` e `contato`, a etiqueta não usa o
-    identificador da linha: ele só existe depois do INSERT, e a aplicação
-    não tem UPDATE nesta tabela para gravar em duas fases. Usa a reserva
-    e a posição na lista, conhecidas antes, e únicas pela restrição
-    `uq_acompanhante_reserva_ordem`.
+    identificador da linha: ele só existe depois do INSERT, e cifrar em
+    duas fases — gravar, e depois regravar com o identificador — deixaria
+    a linha um instante com a etiqueta errada. Usa a reserva e a posição
+    na lista, conhecidas antes, e únicas pela restrição
+    `uq_acompanhante_reserva_ordem`. (Corrigido em 23/11: a versão
+    anterior dizia que a aplicação não tinha UPDATE nesta tabela; tem
+    desde o Bloco 15b, para o administrador editar a lista.)
 
     O nome do campo entra também. Sem ele, o bloco do nome e o do
     documento de uma mesma linha poderiam ser trocados entre si sem que a
