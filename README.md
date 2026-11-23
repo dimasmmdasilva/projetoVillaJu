@@ -162,29 +162,41 @@ O banco guarda o **hash** do token, nunca o token.
 
 ## Tecnologias
 
-Todas de código aberto e gratuitas, executando localmente.
+Todas gratuitas e executando localmente; todas de código aberto, exceto o
+Docker Desktop, usado só para rodar duas ferramentas da análise dinâmica.
+As versões são as fixadas em `requirements.txt` e as instaladas na máquina
+de desenvolvimento.
 
-| Item | Escolha | Licença |
-|---|---|---|
-| Linguagem | Python 3.11+ | PSF |
-| Framework web | Flask | BSD-3 |
-| Banco de dados | MySQL Community Server 8.0 | GPLv2 |
-| Driver | mysql-connector-python | GPLv2 + FOSS exception |
-| Cifragem | cryptography (AES-256-GCM) | Apache 2.0 / BSD |
-| Hash de senha | argon2-cffi (Argon2id) | MIT |
-| CSRF | Flask-WTF | BSD-3 |
-| Limitação de taxa | Flask-Limiter | MIT |
-| TLS local | OpenSSL | Apache 2.0 |
+| Item | Escolha | Versão | Licença |
+|---|---|---|---|
+| Linguagem | Python | 3.12 (mínimo 3.11, conferido pela suíte) | PSF |
+| Framework web | Flask, com Jinja2 nos modelos | 3.1.3 · Jinja2 3.1.6 | BSD-3 |
+| Banco de dados | MySQL Community Server, motor InnoDB | 8.0.43 | GPLv2 |
+| Driver do banco | mysql-connector-python | 26.10.0 | GPLv2 + exceção FOSS |
+| Cifragem | cryptography (AES-256-GCM) | 50.0.2 | Apache 2.0 / BSD |
+| Hash de senha | argon2-cffi (Argon2id) | 25.1.0 | MIT |
+| CSRF | Flask-WTF | 1.3.0 | BSD-3 |
+| Limitação de taxa | Flask-Limiter | 4.1.1 | MIT |
+| Variáveis de ambiente | python-dotenv (lê o `.env`) | 1.2.4 | BSD-3 |
+| TLS local | OpenSSL (certificado de homologação) | 3.1.4 | Apache 2.0 |
+
+HMAC, SHA-256, geração de números aleatórios seguros (`secrets`) e envio
+de e-mail (`smtplib`) vêm da biblioteca padrão do Python, sem dependência
+a mais.
 
 ### Ferramentas de teste e análise
 
-| Ferramenta | Função |
-|---|---|
-| pytest | Testes automatizados |
-| Bandit | Análise estática de padrões inseguros em Python |
-| Semgrep OSS | Análise estática por regras (OWASP Top Ten, Flask) |
-| pip-audit | Dependências com vulnerabilidade conhecida |
-| gitleaks | Varredura de segredos no histórico do Git |
+| Ferramenta | Versão | Onde roda | Função |
+|---|---|---|---|
+| pytest | 9.1.1 | ambiente da aplicação | testes automatizados |
+| Bandit | 1.9.4 | ambiente da aplicação | análise estática de padrões inseguros em Python |
+| pip-audit | 2.10.1 | ambiente da aplicação | dependências com vulnerabilidade conhecida |
+| Semgrep | 1.182.1 | ambiente separado (`venv-ferramentas`) | análise estática por regras (OWASP Top 10, Flask) |
+| gitleaks | 8.30.1 | programa no Windows | segredos no histórico do Git |
+| testssl.sh | 3.2.5 | contêiner Docker | configuração do TLS: protocolos, cifras, vulnerabilidades conhecidas |
+| sqlmap | 1.10.11 | ambiente separado (`venv-ferramentas`) | injeção de SQL em cada ponto de entrada |
+| OWASP ZAP | 2.17.0 | contêiner Docker | varredura da aplicação web, passiva e ativa |
+| Docker Desktop | 29.7 | Windows | executa os contêineres do testssl e do ZAP |
 
 > **Regra ética.** Todas as ferramentas rodam exclusivamente contra o sistema
 > desenvolvido pelo grupo, em ambiente próprio. Nenhum teste é executado contra
