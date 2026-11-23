@@ -396,10 +396,12 @@ def disponibilidade():
     consulta irrepetível pelo histórico do navegador, sem ganhar
     segurança nenhuma: não há estado a proteger.
 
-    **Nenhum valor.** A decisão é da Etapa 5 e tem razão de negócio.
-    Publicar a tabela faria a hospedaria perder a margem de negociar caso
-    a caso e entregaria ao concorrente o que ela cobra. O valor aparece
-    depois do cadastro confirmado, na tela de reserva.
+    **Nenhum valor.** A decisão é da Etapa 5: o valor aparece na tela de
+    reserva, para quem já entrou com a própria conta, calculado noite a
+    noite com as tarifas de baixa e alta temporada que o administrador
+    mantém em Chalés. (23/11: a versão anterior falava em "margem de
+    negociar caso a caso"; não é o caso — os valores são os das tarifas
+    cadastradas.)
 
     **Nada sobre a reserva alheia.** A resposta é livre ou ocupado. Nunca
     quem está hospedado, nunca em que datas a reserva existente começa ou
