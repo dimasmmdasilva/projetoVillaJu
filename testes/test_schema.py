@@ -60,6 +60,7 @@ COLUNAS = {
         "hospede_id": ("int", True),
         "ativo": ("tinyint", False),
         "ultimo_acesso": ("datetime", True),
+        "versao_sessao": ("int", False),
     },
     "tarifa": {
         "id": ("int", False),

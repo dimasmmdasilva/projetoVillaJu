@@ -37,6 +37,7 @@ from flask import (
 from app.dados import auditoria_repo, usuario_repo
 from app.extensoes import limiter
 from app.seguranca import senhas
+from app.seguranca.autorizacao import usuario_atual
 from app.servicos import recuperacao
 
 auth = Blueprint("auth", __name__)
@@ -63,11 +64,13 @@ def _iniciar_sessao(usuario: dict) -> None:
     fixação de sessão: descarta todo conteúdo que existisse antes de
     autenticar, inclusive o que um atacante tivesse conseguido plantar.
 
-    Na prática, com a sessão assinada do Flask, limpar e regravar produz
-    um cookie novo — o identificador anterior deixa de valer.
+    A versão da sessão vai junto (Relatório 2, achado K1): cada
+    requisição a compara com a do banco, e sair ou trocar a senha a muda
+    — é o que faz um cookie antigo parar de valer.
     """
     session.clear()
     session["usuario_id"] = usuario["id"]
+    session["versao_sessao"] = usuario["versao_sessao"]
     session.permanent = True
 
 
@@ -97,7 +100,9 @@ def _iniciar_sessao(usuario: dict) -> None:
 @auth.route("/login", methods=["GET", "POST"])
 @limiter.limit(_limite_do_login, methods=["POST"])
 def login():
-    if session.get("usuario_id"):
+    # `usuario_atual` e não só o cookie: um cookie de sessão encerrada
+    # não pode mandar ninguém ao painel.
+    if usuario_atual():
         return redirect(url_for("painel.inicio"))
 
     if request.method == "GET":
@@ -185,7 +190,10 @@ def logout():
     """
     identificador = session.get("usuario_id")
 
-    if identificador:
+    if identificador and usuario_atual():
+        # Sem isto, apagar o cookie no navegador não bastava: uma cópia
+        # dele continuava entrando até vencer (Relatório 2, achado K1).
+        usuario_repo.encerrar_sessoes(identificador, usuario_id=identificador)
         auditoria_repo.registrar(
             auditoria_repo.LOGOUT,
             usuario_id=identificador,

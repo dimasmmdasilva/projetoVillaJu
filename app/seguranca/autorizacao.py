@@ -44,9 +44,11 @@ _CHAVE_NO_CONTEXTO = "villaju_usuario"
 def usuario_atual():
     """Usuário autenticado, relido do banco, ou None.
 
-    Devolve None quando não há sessão, quando a conta deixou de existir e
-    quando ela foi desativada. Nos dois últimos casos a sessão é limpa, de
-    modo que a requisição seguinte caia direto no login.
+    Devolve None quando não há sessão, quando a conta deixou de existir,
+    quando ela foi desativada e quando a versão da sessão no cookie não é
+    mais a do banco (a pessoa saiu ou trocou a senha). Nos três últimos
+    casos a sessão é limpa, de modo que a requisição seguinte caia direto
+    no login.
 
     A leitura fica guardada no contexto da requisição: várias chamadas
     dentro da mesma requisição custam uma consulta só.
@@ -65,6 +67,12 @@ def usuario_atual():
 
     if usuario is None or not usuario["ativo"]:
         # A conta sumiu ou foi desativada depois que a sessão abriu.
+        session.clear()
+        usuario = None
+    elif session.get("versao_sessao") != usuario["versao_sessao"]:
+        # A pessoa saiu ou trocou a senha depois que este cookie foi
+        # emitido (Relatório 2, achado K1). Cookie sem versão — de antes
+        # desta correção — também cai aqui, e a pessoa entra de novo.
         session.clear()
         usuario = None
 

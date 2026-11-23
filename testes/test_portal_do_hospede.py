@@ -655,30 +655,20 @@ def test_a_sessao_continua_valendo_depois_da_troca(hospede):
     assert hospede.get("/reservas/perfil").status_code == 200
 
 
-def test_trocar_a_senha_NAO_derruba_sessoes_ja_abertas(aplicacao, conta):
-    """Uma limitação conhecida, **demonstrada** em vez de apenas afirmada.
+def test_trocar_a_senha_derruba_as_outras_sessoes_e_mantem_quem_trocou(aplicacao, conta):
+    """Era uma limitação demonstrada; desde 23/11 é uma proteção testada.
 
-    A sessão do Flask vive no cookie assinado: não há identificador
-    guardado no servidor, e portanto não há lista de quais foram
-    revogados. O servidor aceita qualquer cookie bem assinado e dentro do
-    prazo.
+    Até 23/11 este teste se chamava `..._NAO_derruba_sessoes_ja_abertas` e
+    provava o defeito: a sessão do Flask vive no cookie assinado, e o
+    servidor aceitava qualquer cookie bem assinado e no prazo. Ele dizia
+    que, no dia em que a invalidação fosse construída, falharia — e
+    falhar seria a notícia de que o problema foi resolvido. Foi o que
+    aconteceu: a análise dinâmica achou o mesmo defeito no "Sair"
+    (Relatório 2, achado K1), e a correção — `usuario.versao_sessao`,
+    conferida a cada requisição — resolveu os dois.
 
-    A consequência: se a troca de senha está sendo feita porque alguém
-    tomou a conta, **quem tomou continua dentro** até a sessão expirar —
-    oito horas, pelo `PERMANENT_SESSION_LIFETIME`.
-
-    A primeira versão deste código limpava e reescrevia a sessão, com o
-    comentário de que renovava o identificador. Era teatro, e a sabotagem
-    provou: removê-la não quebrava nada. O cookie até mudava de valor a
-    cada resposta, mas por outro motivo — `flash` altera a sessão, e a
-    assinatura carrega carimbo de tempo.
-
-    **Este teste existe para que a limitação não seja esquecida nem
-    descoberta tarde.** Se um dia a invalidação de sessão for construída,
-    ele falha — e falhar aqui é a notícia de que o problema foi
-    resolvido.
+    Cenário: alguém tomou a conta (`outra`) e a dona troca a senha.
     """
-    # Duas sessões da mesma conta, como dois navegadores.
     dona = _entrar(aplicacao, DADOS["email"], SENHA)
     outra = _entrar(aplicacao, DADOS["email"], SENHA)
 
@@ -698,18 +688,18 @@ def test_trocar_a_senha_NAO_derruba_sessoes_ja_abertas(aplicacao, conta):
         "a senha precisa ter mudado para o teste dizer algo"
     )
 
-    # E a outra sessão **continua valendo**. É o que se quer registrar.
-    assert outra.get("/reservas/perfil").status_code == 200, (
-        "a invalidação de sessão foi construída — ótimo, e este teste "
-        "precisa ser reescrito: a limitação deixou de existir"
-    )
+    # Quem tomou a conta sai; quem trocou a senha continua.
+    assert outra.get("/reservas/perfil").status_code in (302, 401)
+    assert dona.get("/reservas/perfil").status_code == 200
 
 
 def test_a_regeneracao_no_login_continua_valendo(aplicacao, conta):
     """O contraste que impede a conclusão errada.
 
-    Não renovar a sessão na troca de senha **não** significa que
-    `session.clear()` seja inútil em toda parte. No login ele protege
+    Limpar e reescrever a sessão na troca de senha era teatro (quem
+    encerra as outras sessões é `versao_sessao`), mas isso **não**
+    significa que `session.clear()` seja inútil em toda parte. No login
+    ele protege
     contra fixação de sessão, e aí funciona: o que importa é descartar o
     que o atacante plantou ANTES da autenticação, e isso o `clear`
     resolve — a sessão plantada não ganha `usuario_id`.

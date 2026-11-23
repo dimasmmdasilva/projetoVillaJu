@@ -43,17 +43,14 @@ descarte do Bloco 4.
 Caso contrário, digitar uma senha curta queimaria o link, e a pessoa
 teria de pedir outro por causa de um erro de digitação.
 
-## Limitação declarada
+## Redefinir encerra as sessões abertas
 
-Redefinir a senha **não derruba sessões abertas em outros navegadores**.
-As sessões do Flask são assinadas com a `SECRET_KEY` e não ficam
-guardadas no servidor: não há lista para invalidar.
-
-Se a pessoa está recuperando a senha porque alguém tomou a conta, quem
-tomou continua dentro até a sessão expirar — oito horas, pelo
-`PERMANENT_SESSION_LIFETIME`. Resolver exigiria uma marca no banco
-conferida a cada requisição, o que é decisão de arquitetura com custo em
-toda requisição, e não cabe neste bloco.
+Até 23/11 isto era uma limitação declarada: as sessões do Flask vivem num
+cookie assinado, sem registro no servidor, e quem tivesse tomado a conta
+continuava dentro até a sessão vencer, nas 8 horas. A análise dinâmica
+(Relatório 2, achado K1) mostrou o mesmo no "Sair". Agora a conta tem uma
+versão de sessão no banco, conferida a cada requisição; redefinir a senha
+soma 1 a ela, e todo cookie anterior deixa de valer.
 """
 
 import logging
@@ -232,7 +229,9 @@ def redefinir(token: str, nova: str, confirmacao: str) -> bool:
     if usuario_id is None:
         return False
 
-    usuario_repo.atualizar_hash(
+    # Encerra toda sessão aberta da conta (Relatório 2, achado K1): quem
+    # recupera a senha pode estar recuperando a conta de alguém que a tomou.
+    usuario_repo.trocar_senha(
         usuario_id, senhas.gerar_hash(nova), usuario_id=usuario_id
     )
 

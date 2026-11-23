@@ -61,13 +61,13 @@ class LoginEmUso(ErroDeUsuario):
 
 _SQL_POR_LOGIN = (
     "SELECT id, login, nome, senha_hash, perfil, hospede_id, ativo, "
-    "       ultimo_acesso, criado_em, alterado_em "
+    "       ultimo_acesso, versao_sessao, criado_em, alterado_em "
     "FROM usuario WHERE login = %s LIMIT 1"
 )
 
 _SQL_POR_ID = (
     "SELECT id, login, nome, senha_hash, perfil, hospede_id, ativo, "
-    "       ultimo_acesso, criado_em, alterado_em "
+    "       ultimo_acesso, versao_sessao, criado_em, alterado_em "
     "FROM usuario WHERE id = %s LIMIT 1"
 )
 
@@ -329,6 +329,59 @@ def atualizar_hash(identificador, novo_hash: str, usuario_id=None) -> None:
                 "UPDATE usuario SET senha_hash = %s WHERE id = %s",
                 (novo_hash, identificador),
             )
+        finally:
+            cursor.close()
+
+
+def _ler_versao(cursor, identificador) -> int:
+    """Lê a versão que acabou de ser somada, na mesma conexão."""
+    cursor.execute(
+        "SELECT versao_sessao FROM usuario WHERE id = %s",
+        (identificador,),
+    )
+    linha = cursor.fetchone()
+    return int(linha[0]) if linha else 0
+
+
+def encerrar_sessoes(identificador, usuario_id=None) -> int:
+    """Soma 1 à versão das sessões: todo cookie anterior da conta morre.
+
+    Relatório 2, achado K1. A sessão do Flask é um cookie assinado, sem
+    registro no servidor; sem esta versão, um cookie copiado continuava
+    valendo depois de "Sair". Devolve a versão nova.
+    """
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            cursor.execute(
+                "UPDATE usuario SET versao_sessao = versao_sessao + 1 "
+                "WHERE id = %s",
+                (identificador,),
+            )
+            return _ler_versao(cursor, identificador)
+        finally:
+            cursor.close()
+
+
+def trocar_senha(identificador, novo_hash: str, usuario_id=None) -> int:
+    """Grava a senha nova e, no mesmo comando, encerra as outras sessões.
+
+    Diferente de `atualizar_hash`, que só recalibra o hash da MESMA senha
+    no login e não deve expulsar ninguém. Aqui a senha mudou — talvez
+    porque alguém tomou a conta —, e quem estava dentro com a senha
+    antiga sai. Um comando só: não existe instante com a senha nova e as
+    sessões antigas ainda vivas. Devolve a versão nova, para quem trocou
+    continuar dentro.
+    """
+    with obter_conexao(usuario_id=usuario_id) as conexao:
+        cursor = conexao.cursor()
+        try:
+            cursor.execute(
+                "UPDATE usuario SET senha_hash = %s, "
+                "versao_sessao = versao_sessao + 1 WHERE id = %s",
+                (novo_hash, identificador),
+            )
+            return _ler_versao(cursor, identificador)
         finally:
             cursor.close()
 

@@ -176,6 +176,15 @@ CREATE TABLE usuario (
 
     ativo               BOOLEAN NOT NULL DEFAULT TRUE,
     ultimo_acesso       DATETIME NULL,
+
+    -- Versão das sessões da conta (Relatório 2, achado K1). A sessão do
+    -- Flask vive num cookie assinado, sem registro no servidor: sem esta
+    -- coluna, um cookie copiado continuava valendo depois de "Sair" até
+    -- vencer nas 8 horas. O login grava a versão no cookie; cada
+    -- requisição compara com esta coluna. Sair, trocar a senha e
+    -- redefinir a senha somam 1 — e todo cookie anterior da conta morre.
+    versao_sessao       INT UNSIGNED NOT NULL DEFAULT 0,
+
     criado_em           DATETIME NOT NULL,
     alterado_em         DATETIME NOT NULL,
 

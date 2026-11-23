@@ -15,6 +15,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    session,
     url_for,
 )
 
@@ -701,45 +702,28 @@ def trocar_senha():
     if nova == atual:
         return recusar("A senha nova precisa ser diferente da atual.")
 
-    usuario_repo.atualizar_hash(
+    # Trocar a senha encerra as OUTRAS sessões da conta (Relatório 2,
+    # achado K1): se a troca é porque alguém tomou a conta, quem tomou sai
+    # na próxima requisição. Quem trocou continua dentro porque o cookie
+    # dele recebe a versão nova logo abaixo.
+    #
+    # Até 23/11 isto era uma limitação declarada. A primeira versão só
+    # limpava e reescrevia a sessão — teatro, porque a sessão do Flask vive
+    # no cookie assinado e o servidor aceitava qualquer cookie antigo bem
+    # assinado e no prazo. Uma sabotagem mostrou que remover aquilo não
+    # quebrava nada; a análise dinâmica mostrou o mesmo no "Sair" (K1). A
+    # versão no banco é a marca conferida a cada requisição que faltava,
+    # e não custa consulta extra: `usuario_atual` já relê a conta sempre.
+    versao = usuario_repo.trocar_senha(
         usuario["id"], senhas.gerar_hash(nova), usuario_id=usuario["id"]
     )
+    session["versao_sessao"] = versao
 
     auditoria_repo.registrar(
         auditoria_repo.SENHA_ALTERADA,
         usuario_id=usuario["id"],
         detalhe="Senha alterada pela própria pessoa",
     )
-
-    # **Não há sessão a renovar aqui, e isto é uma limitação declarada.**
-    #
-    # A primeira versão limpava e reescrevia a sessão, com o comentário de
-    # que renovava o identificador. Era teatro: a sessão do Flask **vive
-    # no cookie assinado**, e não há identificador guardado no servidor.
-    # Reescrevê-la produz um cookie novo, mas o antigo continua sendo
-    # aceito — o servidor valida qualquer cookie bem assinado e dentro do
-    # prazo, e não tem lista de quais foram revogados.
-    #
-    # Quem descobriu foi uma sabotagem: remover a renovação não quebrou
-    # teste nenhum, e a investigação mostrou que não havia o que quebrar.
-    # O cookie de fato mudava de valor a cada resposta, mas por outro
-    # motivo — `flash` altera a sessão, e a assinatura carrega carimbo de
-    # tempo.
-    #
-    # **A consequência real:** trocar a senha NÃO derruba sessões abertas
-    # em outros navegadores. Se a troca está sendo feita porque alguém
-    # tomou a conta, quem tomou continua dentro até a sessão expirar — oito
-    # horas, pelo `PERMANENT_SESSION_LIFETIME`.
-    #
-    # Resolver exigiria guardar uma marca no banco e conferi-la a cada
-    # requisição, o que é decisão de arquitetura com custo em toda
-    # requisição. Está registrado como limitação conhecida, e há teste que
-    # a demonstra em vez de apenas afirmá-la.
-    #
-    # (A regeneração no LOGIN é outra coisa e continua valendo: contra
-    # fixação de sessão, o que importa é descartar o que o atacante
-    # plantou antes da autenticação — e `session.clear()` lá faz
-    # exatamente isso.)
 
     flash("Senha alterada.", "sucesso")
     return redirect(url_for("reservas.perfil"))
