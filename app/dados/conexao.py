@@ -47,6 +47,18 @@ _SQL_DEFINIR_USUARIO = "SET @app_usuario_id = %s"
 _SQL_LIMPAR_USUARIO = "SET @app_usuario_id = NULL"
 _SQL_LER_USUARIO = "SELECT @app_usuario_id"
 
+# Relatório 2, achado R2-06 (23/11). Duas reservas simultâneas do mesmo
+# chalé passavam as duas: o gatilho contava os conflitos com uma leitura
+# que, no isolamento padrão do MySQL (REPEATABLE READ), usa o retrato do
+# banco tirado no começo da transação e não vê o que outra acabou de
+# confirmar. Agora o gatilho trava a linha do chalé — a fila — e só
+# então conta. Em READ COMMITTED (o padrão do PostgreSQL e do Oracle),
+# cada leitura vê tudo o que já foi confirmado até aquele instante, então a
+# contagem feita depois da fila enxerga a reserva que passou antes. Sem
+# isto, a trava do chalé não bastaria. O pool zera a sessão a cada
+# devolução, por isso o nível é fixado a cada empréstimo.
+_SQL_ISOLAMENTO = "SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED"
+
 
 class ErroDeConexao(Exception):
     """Falha ao obter ou configurar conexão com o banco."""
@@ -123,9 +135,11 @@ def _exigir_pool():
 
 
 def _definir_usuario(conexao, usuario_id) -> None:
-    """Declara ao banco quem está operando, para as triggers de auditoria."""
+    """Prepara a sessão emprestada: o nível de isolamento (R2-06) e quem
+    está operando, para as triggers de auditoria."""
     cursor = conexao.cursor()
     try:
+        cursor.execute(_SQL_ISOLAMENTO)
         cursor.execute(_SQL_DEFINIR_USUARIO, (usuario_id,))
     finally:
         cursor.close()

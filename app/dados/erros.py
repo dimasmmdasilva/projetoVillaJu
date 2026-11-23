@@ -40,6 +40,14 @@ ERRO_DE_REFERENCIA_INVALIDA = 1452
 # Valor fora da faixa da coluna, como num TINYINT UNSIGNED negativo.
 ERRO_DE_FAIXA = 1264
 
+# R2-06 (23/11): os gatilhos de reserva travam a linha do chalé. Duas
+# operações no mesmo chalé no mesmo instante podem, raramente, esperar uma
+# pela outra em círculo (impasse, 1213 — o MySQL desfaz uma delas) ou
+# esperar demais (1205). Nada fica gravado pela metade; a pessoa tenta de
+# novo.
+ERRO_DE_IMPASSE = 1213
+ERRO_DE_ESPERA_DE_TRAVA = 1205
+
 
 class ErroDeDados(Exception):
     """Base das exceções de domínio da camada de dados."""
@@ -74,6 +82,14 @@ MENSAGENS = {
         "O registro referenciado não existe ou foi removido."
     ),
     ERRO_DE_FAIXA: "Um dos valores informados está fora da faixa permitida.",
+    ERRO_DE_IMPASSE: (
+        "Outra operação estava usando este chalé no mesmo instante. "
+        "Nada foi gravado; tente de novo."
+    ),
+    ERRO_DE_ESPERA_DE_TRAVA: (
+        "Outra operação estava usando este chalé no mesmo instante. "
+        "Nada foi gravado; tente de novo."
+    ),
 }
 
 

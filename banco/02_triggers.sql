@@ -105,9 +105,16 @@ BEGIN
     END IF;
 
     -- --- 2. Capacidade do chalé --------------------------------------------
+    -- FOR UPDATE trava a linha do chalé até o fim da transação (achado
+    -- R2-06, 23/11). É o ponto de fila: duas reservas do MESMO chalé
+    -- passam por aqui uma de cada vez; chalés diferentes não se esperam.
+    -- Sem a trava, duas inclusões simultâneas contavam zero conflitos ao
+    -- mesmo tempo, porque nenhuma via a outra ainda não confirmada — e o
+    -- chalé ficava reservado duas vezes no mesmo período.
     SELECT capacidade INTO v_capacidade
     FROM chale
-    WHERE id = NEW.chale_id;
+    WHERE id = NEW.chale_id
+    FOR UPDATE;
 
     IF v_capacidade IS NULL THEN
         SIGNAL SQLSTATE '45000'
@@ -141,6 +148,15 @@ BEGIN
         --
         -- Não há cláusula excluindo a própria linha aqui: no INSERT a linha
         -- ainda não existe na tabela, logo não pode conflitar consigo mesma.
+        --
+        -- R2-06: esta contagem roda DEPOIS da trava do chalé (passo 2).
+        -- A aplicação usa o isolamento READ COMMITTED (app/dados/conexao.py),
+        -- em que cada leitura vê tudo o que já foi confirmado até aquele
+        -- instante: se outra reserva do chalé foi confirmada enquanto esta
+        -- esperava a trava, ela entra na conta. A contagem fica comum, sem
+        -- travar reservas — uma leitura travada seguraria todas as
+        -- reservas do chalé que percorre, e a confirmação do Pix de outra
+        -- reserva ficaria esperando.
         SELECT COUNT(*) INTO v_conflito
         FROM reserva
         WHERE chale_id = NEW.chale_id
@@ -171,15 +187,37 @@ BEGIN
     DECLARE v_capacidade TINYINT UNSIGNED DEFAULT NULL;
     DECLARE v_conflito INT DEFAULT 0;
     DECLARE v_acompanhantes INT DEFAULT 0;
+    DECLARE v_muda_ocupacao BOOLEAN DEFAULT FALSE;
 
     IF NEW.data_saida <= NEW.data_entrada THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'A data de saída deve ser posterior à data de entrada.';
     END IF;
 
-    SELECT capacidade INTO v_capacidade
-    FROM chale
-    WHERE id = NEW.chale_id;
+    -- R2-06. A alteração que pode CRIAR ocupação nova — trocar de chalé,
+    -- mudar as datas, ou uma reserva inativa voltar a ativa — entra na
+    -- mesma fila do INSERT: trava a linha do chalé antes de contar os
+    -- conflitos. Confirmar o Pix e cancelar não ocupam nada a mais e não
+    -- pegam essa trava, o que evita impasse com uma inclusão no mesmo
+    -- chalé (esta linha de reserva já está travada pelo próprio UPDATE).
+    SET v_muda_ocupacao = (
+        NEW.chale_id <> OLD.chale_id
+        OR NEW.data_entrada <> OLD.data_entrada
+        OR NEW.data_saida <> OLD.data_saida
+        OR (OLD.situacao NOT IN ('pendente', 'confirmada')
+            AND NEW.situacao IN ('pendente', 'confirmada'))
+    );
+
+    IF v_muda_ocupacao THEN
+        SELECT capacidade INTO v_capacidade
+        FROM chale
+        WHERE id = NEW.chale_id
+        FOR UPDATE;
+    ELSE
+        SELECT capacidade INTO v_capacidade
+        FROM chale
+        WHERE id = NEW.chale_id;
+    END IF;
 
     IF v_capacidade IS NULL THEN
         SIGNAL SQLSTATE '45000'
@@ -217,6 +255,9 @@ BEGIN
         --
         -- Este é o risco registrado no plano do projeto, e o caso de teste
         -- 11 existe exatamente para cobri-lo.
+        --
+        -- R2-06: quando a ocupação muda, esta contagem roda depois da
+        -- trava do chalé, e em READ COMMITTED vê o que já foi confirmado.
         SELECT COUNT(*) INTO v_conflito
         FROM reserva
         WHERE chale_id = NEW.chale_id
