@@ -37,7 +37,7 @@ segurança, não de organização.
 
 | Tela | O que faz |
 |---|---|
-| **Vitrine** | os cinco chalés, com comodidades e localização |
+| **Vitrine** | os cinco chalés, com comodidades e localização; a página de cada chalé, com galeria de fotos |
 | **Consultar disponibilidade** | diz se um chalé está livre num período, sem cadastro |
 | **Criar conta** | autocadastro do hóspede, confirmado por e-mail |
 | **Regulamento** | as regras de pagamento, prazo e cancelamento |
@@ -50,10 +50,16 @@ caso.
 
 ### Face interna — exige login, com três perfis
 
-Cadastro de chalés e tarifas, consulta de disponibilidade, criação e
-gestão de reservas com valor calculado noite a noite — inclusive na
-virada de temporada —, conversa com o hóspede em cada reserva, caixa de
-saída de e-mail e log de auditoria.
+| Perfil | O que faz |
+|---|---|
+| **Hóspede** | pede reserva em quatro passos (chalé e datas, pessoas, quem vai, resumo com o regulamento); informa o Pix; acompanha a reserva numa linha do tempo; conversa com a pousada; cancela; troca a senha |
+| **Recepção** | Painel com o que precisa de ação; confere o Pix e o restante; registra reserva para quem ligou, no mesmo controle do Pix; cancela, dizendo o motivo; conversa com o hóspede; consulta e corrige hóspedes; relatórios; página "Como usar" |
+| **Administrador** | tudo o que a recepção faz, mais chalés e tarifas, a edição da lista de quem vai, o controle de pagamentos do ano, o log de auditoria e a caixa de saída de e-mail |
+
+O valor da reserva é calculado noite a noite, inclusive na virada de
+temporada. Três ações acontecem sozinhas: cancelar o pedido cujo Pix não
+foi informado no prazo, concluir a reserva quitada quando a saída chega e
+descartar o cadastro não confirmado.
 
 **Nenhuma tela da face interna cria hóspede.** Quem informa os dados
 pessoais é a própria pessoa, pelo autocadastro público. A equipe
@@ -64,6 +70,8 @@ consulta, corrige e desativa.
 ```
 vitrine → consulta disponibilidade → cria conta → recebe o e-mail
    → abre o link → conta ativada → entra com o próprio e-mail
+   → pede a reserva → faz o Pix no banco dele → avisa "Fiz o Pix"
+   → a equipe confere o extrato → reserva confirmada
 ```
 
 A conta nasce **inativa**. Só a abertura do link a ativa, e abrir o link
@@ -75,11 +83,37 @@ endereço e o documento. Sem isso, uma letra errada no e-mail trancaria um
 CPF indefinidamente — e a segunda tentativa seria recusada em silêncio,
 pela regra de resposta uniforme.
 
+### Reserva e pagamento por Pix
+
+As regras foram decididas em 13/11 e estão publicadas no Regulamento da
+pousada:
+
+| Antecedência da entrada | Pagamento por Pix | Cancelamento pelo hóspede |
+|---|---|---|
+| 7 dias ou mais | sinal de 50% em **90 minutos**; o restante até **23h59 de 2 dias antes da entrada** | com 7 dias ou mais, devolve tudo |
+| menos de 7 dias | **integral** em 90 minutos | sem devolução |
+
+Sem o "Fiz o Pix" do hóspede em 90 minutos, o pedido é cancelado
+automaticamente e o chalé volta a ficar disponível. Reserva registrada
+pela recepção tem 24 horas. Quando quem cancela é a pousada, a devolução
+é sempre integral. Cada conta tem no máximo um pedido em aberto.
+
+**O sistema não transaciona.** O Pix acontece inteiramente fora dele,
+entre o aplicativo do banco do hóspede e o da pousada; o sistema registra
+que alguém da equipe conferiu a entrada — com data e autor —, conta os
+prazos e calcula a devolução. Não há intermediário de pagamento, geração
+de cobrança, conciliação automática nem estorno programático: se um
+intermediário saísse do ar, nada aqui pararia, porque não existe
+intermediário. O controle aparece como estado da reserva — a tela
+Pagamentos, da equipe, e o controle do ano, do administrador —, e não
+como módulo financeiro: faturamento, contas a receber e fechamento não
+estão no escopo.
+
 ---
 
 ## Decisões de arquitetura
 
-Três decisões definem o projeto e sustentam a sua defesa técnica.
+Cinco decisões definem o projeto e sustentam a sua defesa técnica.
 
 ### 1. A regra de não-sobreposição mora no banco, não na aplicação
 
@@ -92,15 +126,26 @@ Validação feita somente em Python falha em três situações: quando duas
 requisições chegam ao mesmo tempo, quando alguém opera o banco diretamente e
 quando um caminho de código esquece a validação. A trigger cobre as três.
 
+A primeira delas só ficou coberta de fato em 23/11. A análise dinâmica
+mostrou que duas reservas do mesmo chalé, feitas no mesmo instante,
+passavam as duas: cada transação contava os conflitos sem ver a outra,
+ainda não confirmada. Agora a trigger trava a linha do chalé antes de
+contar — reservas do mesmo chalé passam uma de cada vez — e a aplicação
+usa o isolamento `READ COMMITTED`, para que a contagem enxergue a reserva
+que passou antes. Um teste com duas conexões reais prova isso.
+
 A comparação usa **intervalo semiaberto**, de modo que a saída de um hóspede
 libere o chalé para a entrada de outro no mesmo dia.
 
 ### 2. Dado pessoal nasce cifrado
 
 Nome, documento, telefone e e-mail do hóspede são cifrados com **AES-256-GCM**
-antes de qualquer `INSERT`. O identificador do hóspede é usado como dado
-adicional autenticado (AAD), de modo que um registro cifrado não possa ser
-movido para outro hóspede sem que a verificação falhe.
+antes de qualquer `INSERT` — assim como nome e documento dos acompanhantes e
+o texto da conversa de cada reserva. O identificador do hóspede é usado como
+dado adicional autenticado (AAD), de modo que um registro cifrado não possa
+ser movido para outro hóspede sem que a verificação falhe. Na conversa, o
+autor entra na AAD: uma mensagem atribuída a outra pessoa deixa de se
+decifrar.
 
 Como o AES-GCM não é determinístico, buscar ou garantir unicidade sobre o campo
 cifrado é impossível. A solução é guardar ao lado um **HMAC-SHA256** do valor
@@ -115,8 +160,6 @@ segundos.
 As três chaves criptográficas e a senha do banco vêm de variável de ambiente,
 carregadas de um `.env` que nunca é versionado. O `.gitignore` foi o primeiro
 arquivo do repositório, criado antes de qualquer código.
-
----
 
 ### 4. A face pública não tem como ler dado de pessoa
 
@@ -275,6 +318,11 @@ A razão de declarar em vez de apagar: um achado falso faz *"gitleaks sem
 achados"* deixar de ser um sinal utilizável, e reescrever histórico
 publicado exigiria `push --force`.
 
+A **análise dinâmica** atacou o sistema em funcionamento, sempre na
+instância local: testssl.sh na configuração do TLS, sqlmap em cada ponto
+de entrada, OWASP ZAP na aplicação inteira e 45 casos de abuso escritos
+pela equipe, para as regras de negócio que as ferramentas não conhecem.
+
 O **Semgrep** vive em ambiente separado, porque traz cerca de 45 dependências
 próprias que a aplicação não usa. Instalá-lo junto inflaria o ambiente de 57
 para 105 pacotes e faria o `pip-audit` acusar vulnerabilidades da ferramenta, e
@@ -313,7 +361,7 @@ projetoVillaJu/
 ├── .env                     # segredos locais (fora do Git)
 ├── .env.example             # modelo versionado, sem valor real
 ├── .gitleaksignore          # falsos positivos declarados, com a razão escrita
-├── requirements.txt         # 10 dependências com versão fixada
+├── requirements.txt         # 7 da aplicação e 3 de teste e análise, com versão fixada
 ├── requirements-ferramentas.txt
 ├── pytest.ini
 ├── run.py
@@ -349,7 +397,7 @@ do backup)
 | Enumeração pelo cadastro | Resposta idêntica para e-mail novo e já cadastrado. Quem é dono do endereço recebe um aviso; quem submeteu não aprende nada. |
 | Envio automatizado | Campo-armadilha no cadastro, com descarte **em silêncio**. |
 | Sondagem de token | Resposta idêntica para token válido, vencido, inexistente e de outro tipo. Uso único. |
-| Vazamento de e-mail pelo banco | O login do hóspede é o HMAC do endereço, nunca o endereço. A coluna é única e em texto claro. |
+| Vazamento de e-mail pelo banco | O login do hóspede é o HMAC do endereço, nunca o endereço; o e-mail em si fica cifrado. |
 | Retenção indevida | Cadastro não confirmado no prazo é apagado, liberando endereço e documento. |
 | Rastreamento por e-mail | Mensagens em texto puro: sem HTML, sem imagem remota, sem pixel de rastreio. |
 | Interceptação | HTTPS com TLS 1.2 ou superior, em qualquer ambiente, só com cifras autenticadas e troca de chave efêmera; HSTS. |
@@ -445,33 +493,6 @@ Falta só o **12** (mensagem em HTML), opcional.
 > confirmação por e-mail — que era o buraco que deu origem a esta etapa.
 
 **Entrega 2:** 11/11/2026 · **Entrega final:** 25/11/2026
-
-> **As regras de pagamento**, decididas em 13/11 e publicadas no
-> Regulamento da pousada, na página inicial:
->
-> | Antecedência da entrada | Pagamento por Pix | Cancelamento |
-> |---|---|---|
-> | 7 dias ou mais | sinal de 50% em **90 minutos**; o restante até **23h59 de 2 dias antes da entrada** | com 7 dias ou mais, devolve tudo |
-> | menos de 7 dias | **integral** em 90 minutos | sem devolução |
->
-> Sem o "Fiz o Pix" do hóspede em 90 minutos, o pedido é cancelado
-> automaticamente e o chalé volta a ficar disponível. Quem confirma o
-> pagamento é a equipe, depois de conferir o extrato.
->
-> **Sobre o controle de pagamento.** Os Blocos 7 a 9 registram o sinal e
-> contam os prazos, a pedido do professor. O controle aparece
-> como **uma seção do painel do administrador**, e não como módulo
-> financeiro: o sistema cuida do aluguel dos chalés, e o dinheiro é o
-> estado de uma reserva. Faturamento, contas a receber e fechamento não
-> estão no escopo e não vão estar.
->
-> **O sistema não transaciona.** O Pix acontece inteiramente fora dele, entre o
-> aplicativo do banco do hóspede e o da pousada; o que o sistema faz é
-> registrar que alguém da equipe conferiu a entrada, contar o tempo e
-> calcular a elegibilidade da devolução. Não há intermediário de
-> pagamento, geração de cobrança, conciliação automática nem estorno
-> programático — se um intermediário saísse do ar, nada aqui pararia,
-> porque não existe intermediário.
 
 ---
 
