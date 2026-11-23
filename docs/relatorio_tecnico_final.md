@@ -30,7 +30,7 @@ Os relatórios de análise ficam à parte e são citados aqui:
 ### 0.1. O que é
 
 O VillaJu é o sistema de reservas de uma pousada de cinco chalés na Praia
-da Juréia (Iguape, SP). Tem duas faces:
+da Juréia, em São Sebastião (SP). Tem duas faces:
 
 | Face | Quem usa | O que faz |
 |---|---|---|

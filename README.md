@@ -222,9 +222,9 @@ Todo teste de proteção foi validado por **sabotagem deliberada**: o alvo é
 quebrado de propósito e se confirma que o teste falha. Teste que nunca
 falha não protege nada.
 
-O método encontrou, até aqui, cinco famílias de teste que não testavam
-nada — quatro renderam um teste novo, e a quinta rendeu a remoção de
-código que não protegia nada:
+O método encontrou seis famílias de teste que não testavam nada — cinco
+renderam um teste novo, e uma rendeu a remoção de código que não protegia
+nada:
 
 | Família | Exemplo encontrado |
 |---|---|
@@ -232,7 +232,8 @@ código que não protegia nada:
 | Verifica no lugar errado | o argumento de `execute()` e não a constante; a tela e não a sessão; o primeiro nível e não a cadeia de importações; o texto somado do log e não cada linha |
 | Verifica só o resultado, com proteção redundante | duas condições fazendo o mesmo trabalho: remover qualquer uma não mudava o resultado |
 | Verifica presença quando o problema é **ordem** | a varredura rodava, mas depois das consultas — e quem pagava era quem errava uma letra no e-mail |
-| Verifica uma proteção **que não existe** | a "renovação" de sessão na troca de senha: a sessão do Flask vive no cookie, e o cookie antigo continuava valendo. O código saiu, e um teste passou a demonstrar a limitação |
+| Verifica uma proteção **que não existe** | a "renovação" de sessão na troca de senha: a sessão do Flask vive no cookie, e o cookie antigo continuava valendo. O código saiu, e um teste passou a demonstrar a limitação — que a análise dinâmica depois transformou em correção, com a versão de sessão no banco |
+| Passa **pelo motivo errado** | na fase final: o caso de abuso que tentava cancelar uma reserva alheia já cancelada; o teste do banco ocupado numa página que já tratava o erro sozinha; uma expressão regular gravada com um caractere de controle, que procurava um texto que nunca existe |
 
 Quando uma sabotagem é indetectável porque **o banco já garante a
 condição**, o teste honesto prende a invariante da trigger em vez de
@@ -287,15 +288,15 @@ projetoVillaJu/
 │   ├── extensoes.py         # CSRF e limitação de taxa
 │   ├── seguranca/           # cifragem AES-GCM, Argon2id, autorização por perfil
 │   ├── dados/               # repositórios; toda consulta parametrizada
-│   ├── servicos/            # correio (smtplib) e cadastro público
+│   ├── servicos/            # regras de negócio: pedido, Pix, cadastro, correio...
 │   ├── rotas/               # face interna autenticada e face pública
 │   ├── templates/           # Jinja2, escape automático, sem `|safe`
 │   └── static/              # CSS próprio; a pasta js/ está vazia por decisão
 ├── banco/                   # bancos, schema, triggers, usuário de aplicação, massa
-├── instance/emails/         # caixa de saída em modo arquivo (fora do Git)
-├── testes/                  # conftest.py e 32 arquivos de teste
-├── scripts/                 # geração de chaves e de massa cifrada
-├── docs/                    # diagrama ER
+├── instance/                # e-mails, backups, evidências (fora do Git)
+├── testes/                  # conftest.py e 56 arquivos de teste
+├── scripts/                 # chaves, massa cifrada, backup e restauração
+├── docs/                    # guia de instalação, roteiro da demonstração, modelo de dados
 ├── certs/                   # certificado local (fora do Git)
 ├── .env                     # segredos locais (fora do Git)
 ├── .env.example             # modelo versionado, sem valor real
@@ -314,7 +315,9 @@ páginas.
 
 ### O que nunca entra no repositório
 
-`.env` · `certs/` · `*.key` · `*.crt` · `*.pem` · dumps de banco · `venv/`
+`.env` · `certs/` · `*.key` · `*.crt` · `*.pem` · dumps de banco · `venv/` ·
+`instance/` (e-mails do modo arquivo, backups e o `backup.cnf` com a senha
+do backup)
 
 ---
 
@@ -324,18 +327,24 @@ páginas.
 |---|---|
 | SQL Injection | Consultas parametrizadas, sempre. Nenhuma f-string montando SQL. |
 | XSS | Escape automático do Jinja2, sem desativação em conteúdo de usuário. |
-| CSRF | Token em todo formulário, inclusive no público. |
-| Quebra de controle de acesso | Verificação de perfil no servidor, em cada rota. |
-| Força bruta | Limitação de taxa no login e no formulário público. |
-| Fixação de sessão | Regeneração do identificador após o login. |
+| CSRF | Token em todo formulário, inclusive no público, com conferência da origem do envio. |
+| Quebra de controle de acesso | Verificação de perfil no servidor, em cada rota; o dono da reserva vai na própria condição do SQL, e trocar o número no endereço não acha nada. |
+| Força bruta | Limitação de taxa no login e nos formulários públicos (5 tentativas de login por minuto). |
+| Fixação de sessão | A sessão é limpa e recriada no login. |
+| Cookie de sessão copiado | Sair, trocar ou redefinir a senha invalidam **todos** os cookies anteriores da conta, por uma versão de sessão guardada no banco. |
+| Reserva dupla | Regra de não-sobreposição no gatilho do banco, com a linha do chalé travada: nem dois pedidos no mesmo instante passam juntos. |
 | Enumeração de usuários | Mensagem de erro idêntica para usuário inexistente e senha errada. |
 | Enumeração pelo cadastro | Resposta idêntica para e-mail novo e já cadastrado. Quem é dono do endereço recebe um aviso; quem submeteu não aprende nada. |
-| Envio automatizado | Campo-armadilha no formulário público e no de cadastro, com descarte **em silêncio**. |
+| Envio automatizado | Campo-armadilha no cadastro, com descarte **em silêncio**. |
 | Sondagem de token | Resposta idêntica para token válido, vencido, inexistente e de outro tipo. Uso único. |
 | Vazamento de e-mail pelo banco | O login do hóspede é o HMAC do endereço, nunca o endereço. A coluna é única e em texto claro. |
 | Retenção indevida | Cadastro não confirmado no prazo é apagado, liberando endereço e documento. |
 | Rastreamento por e-mail | Mensagens em texto puro: sem HTML, sem imagem remota, sem pixel de rastreio. |
-| Interceptação | HTTPS com TLS 1.2 ou superior, em qualquer ambiente. |
+| Interceptação | HTTPS com TLS 1.2 ou superior, em qualquer ambiente, só com cifras autenticadas e troca de chave efêmera; HSTS. |
+| Adulteração do histórico | Log de auditoria e pagamentos só aceitam acréscimo: a conta da aplicação não tem UPDATE nem DELETE neles, e gatilhos barram até quem tem. Mensagem enviada não se reescreve. |
+| Dado pessoal no log | O log não guarda nome, documento, e-mail, senha nem token; de um destinatário de e-mail, só o domínio. |
+| Pico de acessos | Sem conexão livre com o banco, o pedido espera; se não houver, a pessoa vê "sistema ocupado", e não um erro. |
+| Página embutida ou abusada por outro site | Cabeçalhos `X-Frame-Options`, `Permissions-Policy` e isolamento de origem (COOP, CORP, COEP); o servidor não anuncia a própria versão. |
 
 O cookie de sessão usa `HttpOnly`, `Secure` e `SameSite=Lax`.
 
@@ -356,10 +365,10 @@ afrouxar a política.
 | 2 — Núcleo de segurança | 04/11 a 05/11 | concluída |
 | 3 — Reservas e disponibilidade | 05/11 a 06/11 | concluída |
 | 4 — Página pública e contato | 06 e 07/11 | concluída |
-| 5 — Autoatendimento do hóspede | 10 a 20/11 | **em andamento** |
-| 6 — Relatórios e análise estática | a definir | a iniciar |
-| 7 — Análise dinâmica | a definir | — |
-| 8 — Validação e defesa | a definir | — |
+| 5 — Autoatendimento do hóspede | 10 a 22/11 | concluída |
+| 6 — Relatórios e análise estática | 21 e 22/11 | concluída; a revisão por pares está com o grupo |
+| 7 — Análise dinâmica | 22 e 23/11 | concluída |
+| 8 — Validação e defesa | 23 a 25/11 | **em andamento** |
 
 ### Etapa 5, bloco a bloco
 
@@ -397,13 +406,22 @@ afrouxar a política.
 
 Falta só o **12** (mensagem em HTML), opcional.
 
+### A fase final, de 22 a 25/11
+
+| Data | O que foi feito | Situação |
+|---|---|---|
+| 22/11 | **Análise estática** — Bandit, Semgrep, pip-audit e gitleaks sobre todo o código e o histórico: 6 achados, todos corrigidos com teste. O principal: a regra do Bandit contra senha escrita no código não reconhece nomes em português, e o projeto ganhou uma verificação própria | concluída |
+| 22 e 23/11 | **Análise dinâmica** — testssl, sqlmap, OWASP ZAP e 45 casos de abuso escritos pela equipe, contra o sistema em funcionamento: 7 achados, todos corrigidos com teste e sabotagem. Os dois mais sérios: um cookie de sessão copiado continuava valendo depois de "Sair", e duas reservas do mesmo chalé feitas no mesmo instante passavam as duas | concluída |
+| 23/11 | Barra e botões em marrom de madeira, logo ocupando a primeira tela e a pausa das fotos corrigida; guia completo do envio de e-mail; o README passa a apontar para a documentação completa | concluído |
+| 23/11 | Banco local limpo e povoado com contas novas, para gerar o conteúdo da demonstração com o sistema completo | concluído |
+| até 25/11 | Revisão por pares, ensaio e gravação da apresentação | em andamento |
+
 > **Alteração de escopo declarada no Bloco 17 (21/11).** O RF11 (receber
 > pedidos de contato e registrá-los para atendimento) passa a ser atendido
 > pela conversa da reserva, com usuário verificado por e-mail, e pelos
 > contatos da pousada em texto — o formulário anônimo saiu, por aceitar
 > dado pessoal sem verificação nenhuma. O RF12 (relatório da origem e do
-> volume dos contatos) vira, na Etapa 6, o volume de mensagens por período. O inventário 8d foi
-fechado com os prints de 20/11.
+> volume dos contatos) vira, na Etapa 6, o volume de mensagens por período.
 
 > **O Bloco 11 — contas da equipe — saiu do escopo em 13/11.** Contas de
 > administrador e recepcionista são provisionadas uma vez, na instalação,
@@ -421,7 +439,7 @@ fechado com os prints de 20/11.
 >
 > | Antecedência da entrada | Pagamento por Pix | Cancelamento |
 > |---|---|---|
-> | 7 dias ou mais | sinal de 50% em **90 minutos**; o restante até **48 h antes** | com 7 dias ou mais, devolve tudo |
+> | 7 dias ou mais | sinal de 50% em **90 minutos**; o restante até **23h59 de 2 dias antes da entrada** | com 7 dias ou mais, devolve tudo |
 > | menos de 7 dias | **integral** em 90 minutos | sem devolução |
 >
 > Sem o "Fiz o Pix" do hóspede em 90 minutos, o pedido é cancelado
