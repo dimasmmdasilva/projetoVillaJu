@@ -3,7 +3,7 @@
 **Projeto:** VillaJu — Sistema de Reservas e Divulgação
 **Disciplina:** Projeto Integrador 4 — Bacharelado em Cibersegurança — PUC-Campinas
 **Equipe:** Dimas Marcondes · Eduardo Malta · Gabriel Fuzinatto · Guilherme Leal · Murilo Dias Bartkevicius
-**Período da análise:** 22 e 23/11/2026 · **Versão inicial:** commit `68d7ad2` · **Versão final:** commit `dea2964` (`main`)
+**Período da análise:** 22 e 23/11/2026 · **Versão inicial:** commit `68d7ad2` · **Versão final:** commit `6fc4842` (`main`)
 
 ---
 
@@ -60,8 +60,8 @@ execução, sessão de administrador para os pontos internos.
 
 Como no Relatório 1, cada correção ganhou teste automatizado, e cada
 teste foi validado por **sabotagem**: a correção desfeita de propósito,
-para confirmar que o teste acusa. Foram **27 sabotagens, todas
-detectadas** — depois de duas correções no próprio teste, contadas na
+para confirmar que o teste acusa. Foram **33 sabotagens, todas
+detectadas** — depois de três correções no próprio teste, contadas na
 seção 5.3.
 
 ### 3.3. Problemas de ambiente encontrados no caminho
@@ -179,6 +179,7 @@ conhecem: perfis, donos de reserva, regras de conflito, sessão.
 | **K1** | **Cookie de sessão copiado continuava entrando depois de "Sair"** (até vencer nas 8 h) | roteiro de abuso | **Média** | coluna `usuario.versao_sessao`, conferida a cada requisição; sair, trocar e redefinir a senha somam 1 | `145ea2f` | `test_sessao_revogada.py` (13) · 11 |
 | R2-03 | Com mais de 5 pedidos simultâneos, o pool de conexões esgotava e a pessoa via "erro inesperado" (500) | ZAP (log do servidor) | Média (disponibilidade) | o pedido espera até 2 s por uma conexão; sem ela, 503 "sistema ocupado"; pool de 10 | `459294c` | `test_pool_ocupado.py` (7) · 6 |
 | R2-04 | Faltavam Permissions-Policy, COOP, CORP e COEP | ZAP | Baixa | os quatro cabeçalhos, no mesmo ponto que já manda CSP e HSTS | `dea2964` | `test_aplicacao.py` · 5 |
+| R2-05 | O log do servidor registrava o **endereço de e-mail** do destinatário (e o caminho do arquivo, que o leva no nome) | revisão, ao escrever o guia de e-mail | Baixa (privacidade) | o log guarda só o domínio (`@gmail.com`), que basta ao diagnóstico | `6fc4842` | `test_correio.py`, `test_cadastro.py`, `test_recuperacao_de_senha.py` · 6 |
 
 ### 5.1. K1: a limitação que o próprio código já anunciava
 
@@ -242,6 +243,19 @@ e a sabotagem acusou:
 - **R2-04:** a expressão regular que procura recursos externos nos
   modelos foi gravada com um caractere de controle no lugar de `\b` — o
   teste procurava um texto que nunca existe e passaria sempre.
+- **R2-05:** os testes conferiam o log do envio para arquivo, mas não o
+  do envio por SMTP. Devolver o endereço à linha "mensagem enviada para
+  ..." não quebrava nada; ganhou teste próprio.
+
+### 5.4. R2-05: uma decisão antiga revista
+
+O endereço no log **não era descuido**: um teste de um bloco anterior
+exigia que ele aparecesse — "é o que permite diagnosticar". A decisão
+foi revista ao escrever o guia de e-mail: e-mail é dado pessoal pela
+LGPD, e o projeto se compromete a não guardar dado pessoal em log. O
+domínio preserva o diagnóstico (para qual provedor o envio falhou) sem
+identificar a pessoa. O teste antigo foi invertido, com a história
+registrada nele.
 
 ## 6. Falsos positivos — e como foram provados
 
@@ -300,11 +314,11 @@ e a sabotagem acusou:
 ## 10. Conclusão
 
 A análise dinâmica atacou o VillaJu em funcionamento com três
-ferramentas e 45 casos de abuso escritos pela equipe. Encontrou **cinco
+ferramentas e 45 casos de abuso escritos pela equipe. Encontrou **seis
 achados reais** — dois na configuração do TLS, um na sessão (K1), um de
-disponibilidade (R2-03) e um de cabeçalhos (R2-04) —, **todos
-corrigidos**, cada um com teste automatizado e sabotagem (27 sabotagens,
-todas detectadas). Não encontrou injeção de SQL em nenhum dos 10 pontos
+disponibilidade (R2-03), um de cabeçalhos (R2-04) e um de privacidade no
+log (R2-05) —, **todos corrigidos**, cada um com teste automatizado e
+sabotagem (33 sabotagens, todas detectadas). Não encontrou injeção de SQL em nenhum dos 10 pontos
 de entrada, nem XSS, CSRF ou acesso indevido entre perfis.
 
 O resultado mais importante talvez seja de método: as ferramentas
