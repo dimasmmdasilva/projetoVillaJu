@@ -220,12 +220,21 @@ def test_a_caixa_de_pausa_vem_antes_da_lista(inicial):
     assert caixa < rotulo < lista
 
 
-@pytest.mark.parametrize("seletor", [
-    ".fotos-da-pousada:focus-within .fotos-da-pousada__lista li",
-    ".fotos-da-pousada__pausa:checked ~ .fotos-da-pousada__lista li",
-])
-def test_a_caixa_marcada_ou_com_foco_para_as_fotos(seletor):
+def test_a_caixa_marcada_para_as_fotos():
+    seletor = ".fotos-da-pousada__pausa:checked ~ .fotos-da-pousada__lista li"
     assert _valor_final(NORMAL, seletor, "animation-play-state") == "paused"
+
+
+def test_so_a_caixa_marcada_para_as_fotos():
+    """23/11, defeito visto pelo Dimas: marcar, desmarcar — e as fotos
+    não voltavam. A regra também pausava enquanto a caixa tinha o foco
+    (`:focus-within`), e depois do clique o foco fica nela. Nenhuma outra
+    condição pode pausar: nem foco, nem cursor em cima."""
+    sem_comentarios = re.sub(r"/\*.*?\*/", "", NORMAL, flags=re.S)
+    pausas = [seletores.strip() for seletores, corpo
+              in re.findall(r"([^{}]+)\{([^{}]*)\}", sem_comentarios)
+              if "fotos-da-pousada" in seletores and "animation-play-state" in corpo]
+    assert pausas == [".fotos-da-pousada__pausa:checked ~ .fotos-da-pousada__lista li"]
 
 
 def test_o_cursor_em_cima_nao_para_as_fotos():
@@ -312,10 +321,39 @@ def test_o_logo_publicado_e_nitido_no_tamanho_mostrado():
     tela, e aparecia borrada — foi o que o Dimas viu."""
     # A largura mostrada vem do CSS, não de uma constante do teste: quem
     # aumentar o logo na folha sem trocar o arquivo é avisado aqui.
-    mostrada = int(_valor_final(SEM_MEDIA, ".banner__logo", "width").removesuffix("px"))
+    # 23/11: a largura virou `min(100%, 627px, ...)`; o teto em px é o que
+    # conta para a nitidez.
+    largura_css = _valor_final(SEM_MEDIA, ".banner__logo", "width")
+    mostrada = max(int(n) for n in re.findall(r"(\d+)px", largura_css))
     largura, altura = _dimensoes_do_jpeg(IMAGENS / "marca" / "villaju-logo.jpg")
     assert largura == altura
     assert largura >= 2 * mostrada, (largura, mostrada)
+
+
+def test_o_banner_ocupa_a_primeira_tela_e_a_frase_fica_a_vista(inicial):
+    """23/11, pedido do Dimas: logo grande na primeira tela, a frase de
+    apresentação logo abaixo, as fotos só ao rolar."""
+    altura = _valor_final(SEM_MEDIA, ".banner", "min-height")
+    assert altura.startswith("calc(100svh -"), altura
+    logo = _valor_final(SEM_MEDIA, ".banner__logo", "width")
+    assert "100svh" in logo and "100%" in logo, logo
+    # Ordem na página: banner, frase, fotos.
+    banner = inicial.index('class="banner"')
+    frase = inicial.index('class="apresentacao"')
+    fotos = inicial.index('class="fotos-da-pousada"')
+    assert banner < frase < fotos
+
+
+def test_no_celular_o_banner_nao_ocupa_a_tela_inteira():
+    estreita = re.search(r"@media \(max-width: 40rem\) \{(.*?)\n\}", CSS, re.S)
+    assert estreita and re.search(r"\.banner\s*\{\s*min-height:\s*0", estreita.group(1))
+
+
+def test_o_html_declara_o_tamanho_real_do_arquivo(inicial):
+    """Os atributos dão a proporção antes da imagem chegar: precisam ser os
+    do arquivo publicado, senão a página pula ao carregar."""
+    largura, altura = _dimensoes_do_jpeg(IMAGENS / "marca" / "villaju-logo.jpg")
+    assert f'width="{largura}" height="{altura}"' in inicial
 
 
 def test_o_banner_tem_so_o_logo_e_o_titulo_escondido(inicial):

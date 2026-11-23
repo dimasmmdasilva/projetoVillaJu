@@ -30,15 +30,19 @@
   /* O verde-oliva do logo, como está nele. */
   --oliva-do-logo: #5e5835;
 
-  /* Os tons da interface. 22/11, pedido do Dimas ao ver a primeira
-   * versão: barra e botões num oliva mais fechado, o MESMO tom nos dois
-   * (antes, #4a452a e #5e5835, tão próximos que pareciam um só, e claros
-   * demais). Duas variáveis com o mesmo valor porque os papéis podem
-   * divergir depois sem caçar usos. */
-  --marca-escura: #403b24;    /* barra e rodapé */
-  --marca: #403b24;           /* botões, bordas fortes, links */
-  --marca-clara: #524c2e;     /* hover do botão principal */
-  --marca-clique: #2f2b1a;    /* clique: mais escuro que o botão */
+  /* Os tons da interface: barra e botões no MESMO tom (22/11, pedido do
+   * Dimas). Duas variáveis com o mesmo valor porque os papéis podem
+   * divergir depois sem caçar usos.
+   *
+   * 23/11: o oliva fechado (#403b24) deu lugar a um marrom de madeira,
+   * a imbuia, escolhida pelo Dimas entre quatro tons numa prévia. O
+   * hover é 12% mais claro e o clique 25% mais escuro, ambos calculados.
+   * Contraste com o texto branco: 11,9:1 (botão), 8,2:1 (hover), 14,4:1
+   * (clique). */
+  --marca-escura: #4a3222;    /* barra e rodapé: imbuia */
+  --marca: #4a3222;           /* botões, bordas fortes, links */
+  --marca-clara: #604b3d;     /* hover do botão principal */
+  --marca-clique: #38261a;    /* clique: mais escuro que o botão */
   --marca-suave: #6b6448;     /* texto de apoio esverdeado */
 
   /* O creme do logo e os neutros quentes */
@@ -294,23 +298,39 @@ th { background: var(--areia-suave); }
  * tipografia dele. A história está em `docs/etapa5.md`, 19g.
  *
  * O fundo é o creme do próprio logo: os cantos do arquivo têm a mesma cor,
- * e o logo se funde ao banner. A cópia publicada tem 840 px, tirada do
- * original de 1254: nítida até 420 px também em tela de alta densidade.
- * O nome continua sendo o `<h1>` da página, fora da vista (inicio.html). */
+ * e o logo se funde ao banner. O nome continua sendo o `<h1>` da página,
+ * fora da vista (inicio.html).
+ *
+ * 23/11, pedido do Dimas: o banner ocupa a primeira tela, sobrando só a
+ * frase de apresentação logo abaixo; as fotos aparecem ao rolar. As 12rem
+ * descontadas são a barra (~4rem), o respiro da `main` e do banner (3rem)
+ * e a frase (~5rem). O logo vai até 627 px: a cópia publicada tem 1254,
+ * o original inteiro, e tela de alta densidade usa 2 pixels por ponto —
+ * maior que isso, ficaria borrado. Em tela baixa, encolhe com a altura.
+ * `vh` antes de `svh`: navegador sem `svh` fica com o primeiro. */
 .banner {
   display: flex;
   justify-content: center;
   align-items: center;
   background: var(--creme);
-  padding: 1.25rem;
+  padding: 0.75rem;
   border-radius: 6px;
   margin-bottom: 1.5rem;
+  min-height: calc(100vh - 12rem);
+  min-height: calc(100svh - 12rem);
 }
 .banner__logo {
   display: block;
-  width: 420px;
+  width: min(100%, 627px, calc(100vh - 14rem));
+  width: min(100%, 627px, calc(100svh - 14rem));
   height: auto;
   max-width: 100%;
+}
+
+/* No celular, a largura manda: um banner da altura da tela deixaria o
+ * logo pequeno no meio de muito creme. */
+@media (max-width: 40rem) {
+  .banner { min-height: 0; }
 }
 
 .apresentacao p { font-size: 1.05rem; }
@@ -1444,6 +1464,16 @@ a.botao:focus-visible {
   outline-offset: 2px;
 }
 
+/* Na barra escura, o contorno de foco é creme. O terracota do foco tinha
+ * 2,0:1 sobre o oliva da barra, abaixo dos 3:1 que a WCAG pede para o
+ * indicador de foco; sobre a imbuia cairia a 1,6:1. Achado ao calcular
+ * o contraste da troca de cor, em 23/11. */
+.barra :focus-visible,
+.cabecalho-publico :focus-visible {
+  outline: 2px solid var(--creme);
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   button,
   a.botao { transition: none; }
@@ -1625,10 +1655,14 @@ a.botao:focus-visible {
   100% { opacity: 0; }
 }
 
-/* Para com a caixa marcada — e enquanto ela tem o foco do teclado, que é
- * quem navega sem mouse usando a própria caixa. A pausa com o cursor em
- * cima saiu em 22/11, a pedido do Dimas: as fotos param só pelo botão. */
-.fotos-da-pousada:focus-within .fotos-da-pousada__lista li,
+/* Para só com a caixa marcada: desmarcou, volta a passar na hora.
+ *
+ * Até 23/11 também parava enquanto a caixa tinha o foco (`:focus-within`).
+ * Defeito visto pelo Dimas: depois do clique a caixa continua com o foco,
+ * e desmarcar não fazia as fotos voltarem até clicar fora. Trocar por
+ * `:focus-visible` não resolveria — quem usa teclado desmarca com a
+ * barra de espaço e o foco continua na caixa. A pausa com o cursor em
+ * cima saiu em 22/11. A WCAG 2.2.2 pede um jeito de parar: a caixa. */
 .fotos-da-pousada__pausa:checked ~ .fotos-da-pousada__lista li {
   animation-play-state: paused;
 }

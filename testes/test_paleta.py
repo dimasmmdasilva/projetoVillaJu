@@ -120,9 +120,11 @@ def test_a_paleta_vem_do_logo():
 
 
 def test_barra_e_botoes_tem_o_mesmo_tom_mais_escuro_que_o_logo():
-    """22/11, pedido do Dimas: um oliva mais fechado, o mesmo na barra e
-    nos botões, mais fechado que o oliva do logo."""
+    """22/11, pedido do Dimas: o mesmo tom na barra e nos botões, mais
+    fechado que o oliva do logo. 23/11: o tom passou a ser a imbuia,
+    marrom de madeira escolhido por ele numa prévia de quatro."""
     barra = valor(".barra", "background")
+    assert barra == "#4a3222"
     assert barra == valor("button", "background") == valor("a.botao", "background")
     assert contraste(barra, BRANCO) > contraste(resolver("var(--oliva-do-logo)"), BRANCO)
     # O oliva do logo segue no primeiro tom dos chalés.
@@ -191,6 +193,14 @@ def test_o_contorno_de_foco_passa_3_para_1(fundo):
     foco = _cor_da_borda("button:focus-visible", "outline")
     assert contraste(foco, valor(fundo, "background")) >= 3
     assert contraste("#c99a2e", "#fafafa") < 3  # o motivo da troca
+
+
+@pytest.mark.parametrize("barra", [".barra", ".cabecalho-publico"])
+def test_o_contorno_de_foco_na_barra_passa_3_para_1(barra):
+    """23/11: o terracota do foco tinha 2,0:1 sobre a barra escura (e
+    1,6:1 sobre a imbuia). Na barra, o contorno é creme."""
+    foco = _cor_da_borda(f"{barra} :focus-visible", "outline")
+    assert contraste(foco, valor(barra, "background")) >= 3
 
 
 def test_a_borda_dos_campos_passa_3_para_1():
