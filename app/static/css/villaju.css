@@ -1591,15 +1591,16 @@ a.botao:focus-visible {
 /* Apresentação de fotos — só CSS.
  *
  * As nove fotos ficam empilhadas no mesmo lugar, e cada uma faz a mesma
- * animação de opacidade, com um atraso diferente. O ciclo tem 36 s: cada
- * foto entra em 1 s, fica 4 s inteira e sai em 1 s, por baixo da seguinte,
+ * animação de opacidade, com um atraso diferente. O ciclo tem 27 s: cada
+ * foto entra em 1 s, fica 3 s inteira e sai em 1 s, por baixo da seguinte,
  * que já entrou. A primeira começa um segundo "adiantada" (-1 s), para já
- * estar inteira quando a página abre.
+ * estar inteira quando a página abre. (23/11, pedido do Dimas: de 4 para
+ * 3 s por foto; o ciclo era de 36 s.)
  *
  *   0%     -> 0      (começa a entrar)
- *   2.78%  -> 1      (1 s: inteira)
- *   13.89% -> 1      (5 s: começa a sair, a seguinte já está inteira)
- *   16.67% -> 0      (6 s: saiu)
+ *   3.70%  -> 1      (1 s: inteira)
+ *   14.81% -> 1      (4 s: começa a sair, a seguinte já está inteira)
+ *   18.52% -> 0      (5 s: saiu)
  *
  * Trocar o número de fotos exige trocar o ciclo, as porcentagens e os
  * atrasos; `test_pagina_inicial.py` confere que há um atraso por foto. */
@@ -1628,7 +1629,7 @@ a.botao:focus-visible {
   position: absolute;
   inset: 0;
   opacity: 0;
-  animation: troca-de-foto 36s linear infinite;
+  animation: troca-de-foto 27s linear infinite;
 }
 .fotos-da-pousada__lista li:first-child { opacity: 1; }
 .fotos-da-pousada__lista img {
@@ -1638,20 +1639,20 @@ a.botao:focus-visible {
   object-fit: cover;
 }
 .fotos-da-pousada__lista li:nth-child(1) { animation-delay: -1s; }
-.fotos-da-pousada__lista li:nth-child(2) { animation-delay: 3s; }
-.fotos-da-pousada__lista li:nth-child(3) { animation-delay: 7s; }
-.fotos-da-pousada__lista li:nth-child(4) { animation-delay: 11s; }
-.fotos-da-pousada__lista li:nth-child(5) { animation-delay: 15s; }
-.fotos-da-pousada__lista li:nth-child(6) { animation-delay: 19s; }
-.fotos-da-pousada__lista li:nth-child(7) { animation-delay: 23s; }
-.fotos-da-pousada__lista li:nth-child(8) { animation-delay: 27s; }
-.fotos-da-pousada__lista li:nth-child(9) { animation-delay: 31s; }
+.fotos-da-pousada__lista li:nth-child(2) { animation-delay: 2s; }
+.fotos-da-pousada__lista li:nth-child(3) { animation-delay: 5s; }
+.fotos-da-pousada__lista li:nth-child(4) { animation-delay: 8s; }
+.fotos-da-pousada__lista li:nth-child(5) { animation-delay: 11s; }
+.fotos-da-pousada__lista li:nth-child(6) { animation-delay: 14s; }
+.fotos-da-pousada__lista li:nth-child(7) { animation-delay: 17s; }
+.fotos-da-pousada__lista li:nth-child(8) { animation-delay: 20s; }
+.fotos-da-pousada__lista li:nth-child(9) { animation-delay: 23s; }
 
 @keyframes troca-de-foto {
   0% { opacity: 0; }
-  2.78% { opacity: 1; }
-  13.89% { opacity: 1; }
-  16.67% { opacity: 0; }
+  3.70% { opacity: 1; }
+  14.81% { opacity: 1; }
+  18.52% { opacity: 0; }
   100% { opacity: 0; }
 }
 

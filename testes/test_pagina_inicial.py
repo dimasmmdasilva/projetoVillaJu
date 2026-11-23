@@ -34,7 +34,8 @@ RAIZ = pathlib.Path(__file__).resolve().parents[1]
 IMAGENS = RAIZ / "app" / "static" / "img"
 CSS = (RAIZ / "app" / "static" / "css" / "villaju.css").read_text(encoding="utf-8")
 LIMITE_EM_BYTES = 250 * 1024
-SEGUNDOS_POR_FOTO = 4
+SEGUNDOS_POR_FOTO = 3  # 23/11, pedido do Dimas: eram 4
+SEGUNDOS_DA_TRANSICAO = 1
 ADMIN = ("admin", "Villa@Admin2026")
 HOSPEDE = ("joao", "Villa@Hospede2026")
 
@@ -268,6 +269,28 @@ def test_um_atraso_por_foto_no_ciclo_certo():
     assert _valor_final(
         NORMAL, f".fotos-da-pousada__lista li:nth-child({total + 1})", "animation-delay"
     ) is None
+
+
+def test_os_tempos_da_animacao_batem_com_o_ciclo():
+    """Os percentuais dos keyframes dependem da duração do ciclo. Mudar os
+    segundos por foto sem refazer as contas faria as fotos piscarem (a
+    próxima ainda não entrou quando esta sai) ou se amontoarem — e o teste
+    acima, que só confere os atrasos, não perceberia."""
+    ciclo = len(FOTOS_DA_POUSADA) * SEGUNDOS_POR_FOTO
+    bloco = re.search(r"@keyframes troca-de-foto\s*\{(.*?)\n\}", CSS, re.S).group(1)
+    quadros = {round(float(pct), 2): float(op)
+               for pct, op in re.findall(r"([\d.]+)%\s*\{\s*opacity:\s*([\d.]+)", bloco)}
+
+    def pct(segundos):
+        return round(100 * segundos / ciclo, 2)
+
+    assert quadros == {
+        0.0: 0,
+        pct(SEGUNDOS_DA_TRANSICAO): 1,                          # inteira
+        pct(SEGUNDOS_POR_FOTO + SEGUNDOS_DA_TRANSICAO): 1,      # começa a sair
+        pct(SEGUNDOS_POR_FOTO + 2 * SEGUNDOS_DA_TRANSICAO): 0,  # saiu
+        100.0: 0,
+    }, quadros
 
 
 # ===========================================================================
