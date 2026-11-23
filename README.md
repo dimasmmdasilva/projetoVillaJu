@@ -43,10 +43,13 @@ segurança, não de organização.
 | **Regulamento** | as regras de pagamento, prazo e cancelamento |
 | **Fale com a pousada** | os contatos da pousada, em texto, sem formulário (provisórios) |
 
-**Nenhuma delas mostra preço.** O valor aparece depois do cadastro
-confirmado, na tela de reserva, onde a pessoa já está identificada.
-Publicar a tabela faria a pousada perder a margem de negociar caso a
-caso.
+**Nenhuma delas mostra preço.** O valor aparece na tela de reserva, para
+quem já entrou com a própria conta, calculado noite a noite com as
+tarifas de baixa e alta temporada de cada chalé. As tarifas são mantidas
+pelo administrador, dentro do sistema: cada uma vale para um período, os
+períodos de um mesmo chalé não se sobrepõem, e mudar um valor não altera
+reservas já feitas — o valor de cada reserva fica gravado quando ela é
+criada.
 
 ### Face interna — exige login, com três perfis
 
