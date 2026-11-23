@@ -60,7 +60,7 @@ execução, sessão de administrador para os pontos internos.
 
 Como no Relatório 1, cada correção ganhou teste automatizado, e cada
 teste foi validado por **sabotagem**: a correção desfeita de propósito,
-para confirmar que o teste acusa. Foram **33 sabotagens, todas
+para confirmar que o teste acusa. Foram **40 sabotagens, todas
 detectadas** — depois de três correções no próprio teste, contadas na
 seção 5.3.
 
@@ -180,6 +180,7 @@ conhecem: perfis, donos de reserva, regras de conflito, sessão.
 | R2-03 | Com mais de 5 pedidos simultâneos, o pool de conexões esgotava e a pessoa via "erro inesperado" (500) | ZAP (log do servidor) | Média (disponibilidade) | o pedido espera até 2 s por uma conexão; sem ela, 503 "sistema ocupado"; pool de 10 | `459294c` | `test_pool_ocupado.py` (7) · 6 |
 | R2-04 | Faltavam Permissions-Policy, COOP, CORP e COEP | ZAP | Baixa | os quatro cabeçalhos, no mesmo ponto que já manda CSP e HSTS | `dea2964` | `test_aplicacao.py` · 5 |
 | R2-05 | O log do servidor registrava o **endereço de e-mail** do destinatário (e o caminho do arquivo, que o leva no nome) | revisão, ao escrever o guia de e-mail | Baixa (privacidade) | o log guarda só o domínio (`@gmail.com`), que basta ao diagnóstico | `6fc4842` | `test_correio.py`, `test_cadastro.py`, `test_recuperacao_de_senha.py` · 6 |
+| **R2-06** | **Duas reservas simultâneas do mesmo chalé e período passavam as duas** (reserva dupla) | experimento de concorrência, ao revisar os gatilhos | **Média** (integridade) | o gatilho trava a linha do chalé antes de contar os conflitos; a aplicação usa `READ COMMITTED` | ver seção 5.5 | `test_reserva_concorrente.py` (11) · 7 |
 
 ### 5.1. K1: a limitação que o próprio código já anunciava
 
@@ -257,6 +258,71 @@ domínio preserva o diagnóstico (para qual provedor o envio falhou) sem
 identificar a pessoa. O teste antigo foi invertido, com a história
 registrada nele.
 
+### 5.5. R2-06: a reserva dupla que só aparece com dois pedidos ao mesmo tempo
+
+**Como foi achado.** Ao revisar os gatilhos para o Relatório Técnico,
+um comentário do código afirmava que o gatilho "fecharia a janela" entre
+duas reservas simultâneas. A afirmação foi testada com duas conexões
+reais ao banco de testes, cada uma gravando uma reserva do mesmo chalé e
+período sem confirmar antes da outra:
+
+| Cenário | Antes da correção |
+|---|---|
+| Uma depois da outra | a segunda é recusada pelo gatilho (erro 1644) |
+| **Ao mesmo tempo** | **as duas são gravadas** — o chalé fica reservado duas vezes |
+
+Nenhuma ferramenta apontaria isto: não é injeção nem configuração, é
+lógica sob concorrência. Também não havia teste: todos os testes de
+gatilho usavam uma conexão só.
+
+**A causa.** O gatilho contava os conflitos com uma leitura comum. No
+isolamento padrão do MySQL (`REPEATABLE READ`), essa leitura não trava
+nada e não enxerga o que outra transação ainda não confirmou: cada
+reserva contava zero conflitos, e as duas passavam.
+
+**A correção, em duas metades que dependem uma da outra:**
+
+1. **A fila.** O gatilho de inclusão trava a linha do chalé
+   (`SELECT ... FOR UPDATE`) antes de contar. Duas reservas do mesmo
+   chalé passam uma de cada vez; chalés diferentes não se esperam. O
+   gatilho de alteração faz o mesmo só quando a ocupação muda (chalé,
+   datas, ou uma reserva que volta a ativa): confirmar o Pix e cancelar
+   não entram na fila.
+2. **A leitura atualizada.** A aplicação passou a usar o isolamento
+   `READ COMMITTED` (o padrão do PostgreSQL e do Oracle). Em
+   `REPEATABLE READ`, a primeira leitura da transação fixa um "retrato"
+   do banco; como a aplicação lê antes de gravar (tarifas, o próprio
+   hóspede), a contagem feita depois da fila ainda usaria o retrato
+   velho — e a reserva dupla voltava. Um teste reproduz exatamente esse
+   caso.
+
+**O caminho até a correção**, registrado porque é parte do método:
+
+- A primeira versão contava com leitura travada (`FOR SHARE`). Impedia a
+  reserva dupla — mas o teste de efeito colateral mostrou que travava
+  também reservas de **outro** chalé e a confirmação do Pix: no
+  isolamento padrão, a leitura travada trava os "vãos" do índice. Foi
+  descartada.
+- A investigação mostrou ainda que alterar qualquer reserva espera se
+  outra transação segura o chalé, **mesmo sem gatilho nenhum**: é a
+  chave estrangeira reserva → chalé, conferida pelo InnoDB. Essa espera
+  sempre existiu, dura milissegundos no uso real e não forma impasse nos
+  fluxos do sistema — o teste confirma que a confirmação do Pix espera a
+  inclusão terminar e passa.
+- Para o caso raro de impasse (*deadlock*) ou espera longa, os erros
+  1213 e 1205 ganharam mensagem própria: "Outra operação estava usando
+  este chalé no mesmo instante. Nada foi gravado; tente de novo."
+
+**Banco local:** os dois gatilhos foram recriados por script, com backup
+antes (`villaju_antes_do_r2_06.sql`) e conferência contra o banco de
+testes. Os dados não foram tocados. A primeira conferência comparou o MD5
+do texto bruto e deu "diferente" nos dois gatilhos **sem que o código
+fosse diferente**: o cliente `mysql` remove os comentários de dentro do
+gatilho, o código dos testes os mantém, e o arquivo da migração tinha fim
+de linha do Windows. A conferência correta compara o código normalizado
+(sem comentários e sem espaços) — e a normalização foi provada antes, nos
+dois lados, para não ser só mais uma afirmação. Resultado: idênticos.
+
 ## 6. Falsos positivos — e como foram provados
 
 | Alerta | Ferramenta | Por que parecia | Prova de que é falso |
@@ -298,6 +364,11 @@ registrada nele.
 6. **Toda varredura ativa em banco com dados reais exige fronteira
    explícita.** A ativa autenticada ficou de fora de propósito, e a
    passiva ainda assim tentou enviar formulários.
+7. **Regra que depende de "ninguém mais grava ao mesmo tempo" precisa de
+   teste com duas conexões.** O R2-06 passou por 38 testes de gatilho,
+   todos com uma conexão só. E um comentário no código afirmava a
+   garantia sem que ela tivesse sido testada: afirmação em comentário
+   também se confere.
 
 ## 9. Recomendações para produção
 
@@ -314,11 +385,11 @@ registrada nele.
 ## 10. Conclusão
 
 A análise dinâmica atacou o VillaJu em funcionamento com três
-ferramentas e 45 casos de abuso escritos pela equipe. Encontrou **seis
+ferramentas e 45 casos de abuso escritos pela equipe. Encontrou **sete
 achados reais** — dois na configuração do TLS, um na sessão (K1), um de
-disponibilidade (R2-03), um de cabeçalhos (R2-04) e um de privacidade no
-log (R2-05) —, **todos corrigidos**, cada um com teste automatizado e
-sabotagem (33 sabotagens, todas detectadas). Não encontrou injeção de SQL em nenhum dos 10 pontos
+disponibilidade (R2-03), um de cabeçalhos (R2-04), um de privacidade no
+log (R2-05) e um de integridade sob concorrência (R2-06) —, **todos corrigidos**, cada um com teste automatizado e
+sabotagem (40 sabotagens, todas detectadas). Não encontrou injeção de SQL em nenhum dos 10 pontos
 de entrada, nem XSS, CSRF ou acesso indevido entre perfis.
 
 O resultado mais importante talvez seja de método: as ferramentas
