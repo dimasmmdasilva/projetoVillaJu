@@ -263,8 +263,11 @@ pytest
 ```
 
 A suíte usa só o banco `villaju_teste`, que ela zera a cada caso; nunca
-toca o `villaju`. Leva cerca de 25 minutos. Dois testes são pulados de
-propósito quando dependem de um `.env` real.
+toca o `villaju`. Leva cerca de 30 minutos. Dois testes são pulados de
+propósito, sempre os mesmos: a verificação de que o texto cifrado não
+contém o original não se aplica ao texto vazio nem ao texto só de espaço,
+que não têm conteúdo a vazar (`testes/test_cripto.py`). A cifragem e a
+decifragem desses dois casos são testadas no teste ao lado, e passam.
 
 Rode **uma bateria por vez**: todas usam o mesmo banco de testes, e duas
 ao mesmo tempo atrapalham uma à outra.
