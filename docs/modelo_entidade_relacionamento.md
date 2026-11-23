@@ -1,7 +1,8 @@
 # Modelo Entidade-Relacionamento — VillaJu
 
 Documentação do modelo de dados implementado em `banco/01_schema.sql`.
-Atualizado em 20/11/2026, com a Etapa 5 até os Blocos 8, 9 e 15b.
+Atualizado em 23/11/2026, com a Etapa 5 completa e as correções da análise
+dinâmica (achados K1 e R2-06).
 
 O diagrama abaixo é escrito em Mermaid, que o GitHub renderiza
 automaticamente. Por ser texto, ele vai ao controle de versão como código:
@@ -90,6 +91,7 @@ erDiagram
         int hospede_id FK "só quando perfil = hospede"
         boolean ativo
         datetime ultimo_acesso
+        int versao_sessao "achado K1; sair ou trocar a senha soma 1"
         datetime criado_em
         datetime alterado_em
     }
@@ -383,6 +385,25 @@ erro 1143), e
 lida para não lida, mesmo para quem tiver mais privilégio. Sem `DELETE`.
 Quem escreve leu: a mensagem da equipe nasce lida pela equipe, e a do
 hóspede, pelo hóspede (duas `CHECK`).
+
+### Por que a conta tem uma versão de sessão
+
+A sessão do Flask vive num cookie assinado, sem registro no servidor. Até
+23/11, "Sair" apagava o cookie do navegador, mas uma cópia dele continuava
+valendo até vencer, em 8 horas (achado K1 da análise dinâmica). Agora o
+login grava `versao_sessao` no cookie, e cada requisição compara com a do
+banco; sair, trocar ou redefinir a senha somam 1, e todo cookie anterior
+da conta deixa de valer.
+
+### Por que o gatilho de reserva trava a linha do chalé
+
+Duas reservas do mesmo chalé e período, gravadas ao mesmo tempo,
+passavam as duas: cada transação contava os conflitos sem ver a outra,
+ainda não confirmada (achado R2-06). O gatilho de inclusão — e o de
+alteração, quando a ocupação muda — trava a linha do chalé
+(`SELECT ... FOR UPDATE`) antes de contar: reservas do mesmo chalé passam
+uma de cada vez. A aplicação usa o isolamento `READ COMMITTED`, para que a
+contagem feita depois da espera enxergue a reserva que passou antes.
 
 ### Por que o intervalo de reserva é semiaberto
 

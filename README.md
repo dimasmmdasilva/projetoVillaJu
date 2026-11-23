@@ -193,98 +193,25 @@ Todas de código aberto e gratuitas, executando localmente.
 
 ---
 
-## Instalação
+## Documentação
 
-Resumo abaixo. O **guia completo** — banco passo a passo, todas as
-variáveis do `.env`, backup agendado, restauração, como desfazer e
-problemas comuns — está em [`docs/instalacao.md`](docs/instalacao.md). O
-roteiro da demonstração está em
-[`docs/roteiro_demonstracao.md`](docs/roteiro_demonstracao.md).
+O passo a passo completo de cada tarefa está nos documentos abaixo. Este
+README não resume nenhum deles, de propósito: um resumo envelhece separado
+do original, e quem segue a versão curta perde justamente o porquê de cada
+passo.
 
-### Pré-requisitos
-
-- **Python 3.11 ou superior**
-- **MySQL Community Server 8.0** — o MySQL Workbench sozinho **não** basta, ele
-  é apenas o cliente gráfico. Instale pelo MySQL Installer, que traz o servidor.
-- **Git**
-- **OpenSSL** — já vem com o Git para Windows
-
-### 1. Clonar e criar o ambiente virtual
-
-```powershell
-git clone https://github.com/dimasmmdasilva/projetoVillaJu.git
-cd projetoVillaJu
-
-python -m venv venv
-.\venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 2. Gerar as chaves e configurar o ambiente
-
-```powershell
-copy .env.example .env
-python scripts\gerar_chaves.py
-```
-
-Cole a saída do script no `.env`, substituindo os três placeholders.
-
-> **Atenção.** Perder `VILLAJU_CHAVE_CIFRAGEM` torna os dados já gravados
-> irrecuperáveis. Não existe recuperação. Guarde cópia fora do repositório.
-
-### 3. Gerar o certificado TLS local
-
-O TLS é obrigatório em qualquer ambiente, inclusive local.
-
-```bash
-openssl req -x509 -newkey rsa:4096 -nodes \
-  -keyout certs/villaju.key -out certs/villaju.crt \
-  -days 365 -subj "/CN=localhost" \
-  -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
-```
-
-No Git Bash, prefixe o comando com `MSYS_NO_PATHCONV=1`, senão o `/CN=localhost`
-é convertido em caminho do Windows.
-
-### 4. Criar o banco
-
-Cole as senhas do `.env` nos dois marcadores de `banco/00_bancos.sql` e
-`banco/03_usuario_app.sql` e rode os scripts **com `SOURCE`** — nunca com
-`Get-Content | mysql`, que estraga os acentos no PowerShell:
-
-```powershell
-mysql -u root -p -e "SOURCE banco/00_bancos.sql"
-mysql -u root -p villaju -e "SOURCE banco/01_schema.sql"
-mysql -u root -p villaju -e "SOURCE banco/02_triggers.sql"
-mysql -u root -p villaju -e "SOURCE banco/03_usuario_app.sql"
-mysql -u root -p villaju -e "SOURCE banco/04_dados_ficticios.sql"
-mysql -u root -p villaju_teste -e "SOURCE banco/03_usuario_app.sql"
-git checkout -- banco/00_bancos.sql banco/03_usuario_app.sql
-python scripts\regerar_dados_pessoais.py
-```
-
-Detalhes e o porquê de cada passo: [`docs/instalacao.md`](docs/instalacao.md), seção 5.
-
-### 5. Subir a aplicação
-
-```powershell
-python run.py
-```
-
-Acesse `https://localhost:5000`.
-
-O navegador vai alertar sobre o certificado. **O aviso é esperado e correto:**
-ele informa que ninguém atesta a identidade do servidor, não que a conexão está
-aberta. O tráfego é cifrado do mesmo jeito. Siga em "Avançado" e prossiga.
+| Documento | Para quem | O que traz |
+|---|---|---|
+| [`docs/instalacao.md`](docs/instalacao.md) | quem vai instalar e manter o sistema | pré-requisitos; ambiente Python; o `.env` com todas as variáveis; o envio de e-mail (modo arquivo e Gmail); o certificado TLS; o banco, passo a passo; subir e conferir; testes; backup diário; restauração; como desfazer cada passo; o que fazer antes do uso real; problemas comuns |
+| [`docs/roteiro_demonstracao.md`](docs/roteiro_demonstracao.md) | quem vai apresentar o sistema | a demonstração completa, passo a passo, com as contas e o que mostrar em cada tela |
+| Página **Como usar**, dentro do sistema | a equipe da pousada | o uso do dia a dia, tarefa por tarefa; aparece no menu para recepção e administrador |
+| [`docs/modelo_entidade_relacionamento.md`](docs/modelo_entidade_relacionamento.md) | quem vai estudar ou alterar o banco | o diagrama das 11 tabelas, as relações, os índices e o porquê de cada decisão de modelagem |
 
 ---
 
 ## Testes
 
-```powershell
-.\venv\Scripts\activate
-pytest
-```
+Como rodar: [`docs/instalacao.md`](docs/instalacao.md), seção 7.
 
 A suíte cobre, além das regras do sistema, a integridade do próprio ambiente:
 versão do Python, divergência de versão de dependência entre máquinas, proteção
