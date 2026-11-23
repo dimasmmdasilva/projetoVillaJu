@@ -83,12 +83,14 @@ def _enviar(destinatario: str, assunto: str, corpo: str, configuracao) -> None:
     criaria um acoplamento que nenhum dos dois declara. São seis linhas.
     """
     try:
-        destino = correio.enviar(destinatario, assunto, corpo, configuracao)
+        correio.enviar(destinatario, assunto, corpo, configuracao)
     except Exception:  # noqa: BLE001
         _registrador.exception("falha ao enviar o link de redefinição")
         return
 
-    _registrador.info("link de redefinição entregue em %s", destino)
+    # O destino da mensagem leva o endereço no nome do arquivo; não vai ao
+    # log (R2-05).
+    _registrador.info("link de redefinição entregue")
 
 
 class ErroDeRecuperacao(ErroDeCadastro):

@@ -837,3 +837,19 @@ def test_a_falha_do_correio_nao_derruba_o_pedido(
     resposta = _pedir(visitante, EMAIL)
 
     assert resposta.status_code == 302
+
+
+def test_o_endereco_de_quem_pede_nao_vai_para_o_log(aplicacao, conta, caplog):
+    """Relatório 2, R2-05: o log dizia "link de redefinição entregue em
+    <caminho>", e no modo `arquivo` o caminho leva o endereço no nome."""
+    import logging
+
+    with caplog.at_level(logging.DEBUG):
+        with aplicacao.app_context():
+            recuperacao.solicitar(EMAIL, aplicacao.villaju)
+
+    assert "link de redefinição entregue" in caplog.text, (
+        "o envio precisa ter acontecido para o teste dizer algo"
+    )
+    assert EMAIL not in caplog.text.lower()
+    assert "mariana" not in caplog.text.lower()

@@ -277,12 +277,14 @@ def _enviar(destinatario: str, assunto: str, corpo: str, configuracao) -> None:
     dado pessoal, e o log não guarda dado pessoal.
     """
     try:
-        destino = correio.enviar(destinatario, assunto, corpo, configuracao)
+        correio.enviar(destinatario, assunto, corpo, configuracao)
     except Exception:  # noqa: BLE001
         _registrador.exception("falha ao enviar mensagem de cadastro")
         return
 
-    _registrador.info("mensagem de cadastro entregue em %s", destino)
+    # O destino da mensagem — o caminho do arquivo, com o endereço no nome,
+    # ou o servidor SMTP — não vai ao log (R2-05).
+    _registrador.info("mensagem de cadastro entregue")
 
 
 # ---------------------------------------------------------------------------

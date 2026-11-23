@@ -299,6 +299,42 @@ def test_o_envio_por_smtp_usa_starttls_antes_de_autenticar(pasta, monkeypatch):
     assert chamadas[1][1] is True, "o STARTTLS precisa receber contexto TLS"
 
 
+def test_o_envio_por_smtp_nao_poe_o_endereco_no_log(pasta, monkeypatch, caplog):
+    """Relatório 2, R2-05, no caminho do SMTP. A sabotagem mostrou que só
+    o modo `arquivo` tinha o log conferido: devolver o endereço à linha
+    "mensagem enviada para ..." não quebrava teste nenhum."""
+
+    class _ServidorFalso:
+        def __init__(self, host, porta, timeout=None):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def starttls(self, context=None):
+            pass
+
+        def login(self, usuario, senha):
+            pass
+
+        def send_message(self, mensagem):
+            pass
+
+    monkeypatch.setattr(correio.smtplib, "SMTP", _ServidorFalso)
+    configuracao = _ConfiguracaoDeTeste(
+        pasta, modo="smtp", SMTP_HOST="smtp.exemplo.test",
+        SMTP_USUARIO="conta@exemplo.test", SMTP_SENHA="senha-de-app",
+    )
+    with caplog.at_level(logging.DEBUG):
+        correio.enviar("helena@exemplo.test", "Confirme", CORPO, configuracao)
+
+    assert "mensagem enviada para @exemplo.test" in caplog.text
+    assert "helena" not in caplog.text
+
+
 def test_falha_de_autenticacao_nao_revela_a_senha(pasta, monkeypatch, caplog):
     """A senha de app é credencial, como a do banco e as chaves."""
     import smtplib as biblioteca
@@ -367,8 +403,34 @@ def test_o_corpo_nao_vai_para_o_log(configuracao, caplog):
     codificado = base64.b64encode(CORPO.encode("utf-8")).decode("ascii")
     assert codificado[:20] not in caplog.text, "o corpo foi para o log em base64"
 
-    # O destinatário pode e deve aparecer: é o que permite diagnosticar.
-    assert "helena@exemplo.test" in caplog.text
+    # Até 23/11 este teste EXIGIA o destinatário no log, para diagnóstico.
+    # Relatório 2, R2-05: e-mail é dado pessoal, e o log não guarda dado
+    # pessoal. Fica só o domínio, que basta para saber qual provedor falhou.
+    assert "helena@exemplo.test" not in caplog.text
+    assert "helena" not in caplog.text
+    assert "@exemplo.test" in caplog.text
+
+
+@pytest.mark.parametrize("endereco,esperado", [
+    ("helena@exemplo.test", "@exemplo.test"),
+    ("Helena Souza <Helena@Exemplo.TEST>", "@exemplo.test"),
+    ("sem-arroba", "(endereço inválido)"),
+    ("", "(endereço inválido)"),
+    (None, "(endereço inválido)"),
+])
+def test_o_log_leva_so_o_dominio(endereco, esperado):
+    assert correio.dominio_do_destinatario(endereco) == esperado
+
+
+def test_mensagem_ilegivel_nao_poe_o_nome_do_arquivo_no_log(pasta, configuracao, caplog):
+    """O nome do arquivo do modo `arquivo` leva o endereço (R2-05)."""
+    pasta.mkdir(parents=True, exist_ok=True)
+    ilegivel = pasta / "20261123-100000-000000-helena@exemplo.test.txt"
+    ilegivel.write_bytes(bytes([0xFF, 0xFE]) + "quebrado".encode("ascii"))
+    with caplog.at_level(logging.DEBUG):
+        correio.listar_enviadas(configuracao)
+    assert "ilegível" in caplog.text, "o arquivo estragado precisa ter sido lido"
+    assert "helena" not in caplog.text
 
 
 # ---------------------------------------------------------------------------

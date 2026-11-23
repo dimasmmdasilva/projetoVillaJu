@@ -44,6 +44,7 @@ import unicodedata
 from email import message_from_string
 from email.message import EmailMessage
 from email.policy import default as politica_padrao
+from email.utils import parseaddr
 from pathlib import Path
 
 _registrador = logging.getLogger(__name__)
@@ -224,10 +225,25 @@ def _gravar_em_arquivo(mensagem, configuracao) -> str:
 
     caminho.write_text(str(mensagem), encoding="utf-8")
 
-    # O destinatário vai para o log; o corpo não. A mensagem de
-    # confirmação carrega o token, e token em log é token vazado.
-    _registrador.info("mensagem gravada para %s", mensagem["To"])
+    # Nem o corpo (carrega o token) nem o destinatário vão para o log;
+    # só o domínio (R2-05, abaixo).
+    _registrador.info("mensagem gravada para %s", dominio_do_destinatario(mensagem["To"]))
     return str(caminho)
+
+
+def dominio_do_destinatario(endereco) -> str:
+    """Só o domínio do endereço, para o log: `@gmail.com`.
+
+    Relatório 2, achado R2-05 (23/11). Até aqui o log registrava o
+    endereço inteiro, por decisão deliberada: servia ao diagnóstico.
+    Mas e-mail é dado pessoal, e o projeto não guarda dado pessoal em
+    log. O domínio preserva o que importa ao diagnóstico — para qual
+    provedor o envio falhou ou demorou — sem dizer quem é a pessoa.
+    """
+    _, puro = parseaddr(str(endereco or ""))
+    if "@" not in puro:
+        return "(endereço inválido)"
+    return "@" + puro.rsplit("@", 1)[1].lower()
 
 
 def _enviar_por_smtp(mensagem, configuracao) -> str:
@@ -269,7 +285,7 @@ def _enviar_por_smtp(mensagem, configuracao) -> str:
             "Não foi possível entregar a mensagem agora."
         ) from erro
 
-    _registrador.info("mensagem enviada para %s", mensagem["To"])
+    _registrador.info("mensagem enviada para %s", dominio_do_destinatario(mensagem["To"]))
     return f"smtp://{configuracao.SMTP_HOST}:{configuracao.SMTP_PORTA}"
 
 
@@ -322,7 +338,7 @@ def listar_enviadas(configuracao, limite: int = 50) -> list:
         try:
             bruto = caminho.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
-            _registrador.warning("mensagem ilegível em %s", caminho.name)
+            _registrador.warning("mensagem ilegível na pasta de e-mails")  # o nome do arquivo leva o endereço (R2-05)
             continue
 
         # A mensagem é analisada, não fatiada por texto. A primeira versão
@@ -335,7 +351,7 @@ def listar_enviadas(configuracao, limite: int = 50) -> list:
             analisada = message_from_string(bruto, policy=politica_padrao)
             corpo = analisada.get_content()
         except Exception:  # noqa: BLE001
-            _registrador.warning("mensagem ilegível em %s", caminho.name)
+            _registrador.warning("mensagem ilegível na pasta de e-mails")  # o nome do arquivo leva o endereço (R2-05)
             continue
 
         mensagens.append(

@@ -1066,6 +1066,24 @@ def test_a_falha_do_correio_nao_desfaz_a_conta(
     assert not conta["ativo"]
 
 
+def test_o_endereco_e_o_nome_nao_vao_para_o_log(aplicacao, pasta_de_emails, caplog):
+    """Relatório 2, R2-05: o log dizia "mensagem de cadastro entregue em
+    <caminho>" e "mensagem gravada para <endereço>". E-mail é dado pessoal."""
+    import logging
+
+    with caplog.at_level(logging.DEBUG):
+        with aplicacao.app_context():
+            cadastro.registrar(dict(NOVO), aplicacao.villaju)
+
+    assert "mensagem de cadastro entregue" in caplog.text, (
+        "o envio precisa ter acontecido para o teste dizer algo"
+    )
+    texto = caplog.text.lower()
+    assert "mariana.prado@exemplo.com" not in texto
+    assert "mariana" not in texto
+    assert "prado" not in texto
+
+
 def test_o_token_nao_vai_para_o_log(aplicacao, pasta_de_emails, caplog):
     """Token em log é token vazado.
 
