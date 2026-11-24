@@ -477,7 +477,7 @@ Falta só o **12** (mensagem em HTML), opcional.
 | 22 e 23/11 | **Análise dinâmica** — testssl, sqlmap, OWASP ZAP e 45 casos de abuso escritos pela equipe, contra o sistema em funcionamento: 7 achados, todos corrigidos com teste e sabotagem. Os dois mais sérios: um cookie de sessão copiado continuava valendo depois de "Sair", e duas reservas do mesmo chalé feitas no mesmo instante passavam as duas | concluída |
 | 23/11 | Barra e botões em marrom de madeira, logo ocupando a primeira tela e a pausa das fotos corrigida; guia completo do envio de e-mail; o README passa a apontar para a documentação completa | concluído |
 | 23/11 | Banco local limpo e povoado com contas novas, para gerar o conteúdo da demonstração com o sistema completo | concluído |
-| até 25/11 | Revisão por pares, ensaio e gravação da apresentação | em andamento |
+| até 25/11 | Revisão por pares e ensaio da apresentação, que é presencial, diante da banca | em andamento |
 
 > **Alteração de escopo declarada no Bloco 17 (21/11).** O RF11 (receber
 > pedidos de contato e registrá-los para atendimento) passa a ser atendido
