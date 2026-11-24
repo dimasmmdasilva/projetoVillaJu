@@ -33,7 +33,7 @@ do guia).
 
 | # | Conta | Fazer | Deve aparecer | O que prova |
 |---|---|---|---|---|
-| 1 | visitante | Abrir `/`. Mostrar o logo, as fotos passando e a caixa "Pausar fotos". Abrir um chalé. | Fotos trocando a cada 4 s; param só com a caixa "Pausar fotos" marcada | Face pública sem login; acessível (WCAG 2.2.2); sem JavaScript |
+| 1 | visitante | Abrir `/`. Mostrar o logo, as fotos passando e a caixa "Pausar fotos". Abrir um chalé. | Fotos trocando a cada 3 s; param só com a caixa "Pausar fotos" marcada | Face pública sem login; acessível (WCAG 2.2.2); sem JavaScript |
 | 2 | visitante | Em `/disponibilidade`, consultar um período. | "Ocupado nesta data." ou os chalés livres no período — **sem preço e sem dado de ninguém** | A face pública não revela reservas alheias |
 | 3 | novo hóspede | Em `/cadastro`, criar uma conta. Abrir o e-mail em `instance/emails` e clicar no link. Entrar. | Conta confirmada; a tela de entrada | O e-mail prova a posse do endereço |
 | 4 | novo hóspede | Em `/reservas/pedir`, pedir uma reserva com um acompanhante, revisar e confirmar. | O card com o valor, a chave Pix e o prazo de 90 minutos | Regras do regulamento aplicadas na hora; dado pessoal cifrado ao gravar |
